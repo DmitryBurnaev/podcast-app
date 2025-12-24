@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    {% block head %}
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Podcasts - Home</title>
+    <script src="/src/static/js/tailwind.3.4.17.js"></script>
+    <script src="/src/static/js/colors.min.js"></script>
+    <script src="/src/static/js/flatten-color-palette.min.js"></script>
+    <script src="/src/static/js/default-theme.min.js"></script>
+    <script src="/src/static/js/plugin.min.js"></script>
+    {% endblock %}
+</head>
+<body class="flex min-h-screen">
+    {% block body %}
+    <!-- Left Sidebar -->
+    <aside class="w-1/5 bg-gray-800 text-white flex flex-col h-full fixed left-0 top-0 min-h-screen">
+        <!-- Header -->
+        <div class="p-6 flex items-center gap-4">
+            <div class="w-6 h-6 rounded-full bg-white flex items-center justify-center">
+                <span class="text-gray-800 text-sm">🎤</span>
+            </div>
+            <h1 class="text-xl font-bold">Podcasts</h1>
+        </div>
+
+        <!-- Navigation -->
+        <nav class="flex flex-col px-4 gap-2 flex-1">
+            {% for link in navigation %}
+            <a href="{{ link.path }}" class="px-4 py-2 rounded-lg {% if link.slug == current %} active-link {% else %} hover:bg-gray-700 {% endif %} transition flex items-center gap-3">
+                <span class="text-lg">{{ link.icon }}&nbsp; </span>
+                <span class="{% if link.slug == current %} font-semibold {% endif %} ">{{ link.title }}</span>
+            </a>
+            {% endfor %}
+        </nav>
+
+        <!-- Sign Out -->
+        <div class="border-t border-gray-700 px-4 py-4">
+            <a href="#" class="px-4 py-2 rounded-lg hover:bg-gray-700 transition flex items-center gap-3 text-gray-300">
+                <span class="text-lg">🚪</span>
+                <span>Sign Out</span>
+            </a>
+        </div>
+    </aside>
+
+    <!-- Main Content Area -->
+    <main class="w-4/5 bg-gray-50 ml-[20%] p-6">
+      <h2 class="text-2xl font-bold text-gray-800 mb-6">{{ title }}</h2>
+      {% block content %}
+          <h1>No content</h1>
+      {% endblock %}
+    </main>
+    {% endblock %}
+</body>
+</html>
