@@ -13,6 +13,12 @@ __all__ = (
     "about",
 )
 
+# Default user data for UI
+DEFAULT_USER_DATA = {
+    "name": "Test User",
+    "avatar": None,  # Can be extended with avatar URL later
+}
+
 
 @get("/", include_in_schema=False)
 async def index() -> Template:
@@ -23,6 +29,7 @@ async def index() -> Template:
             "title": "Home",
             "current": "home",
             "navigation": const.NAVIGATION,
+            "user_data": DEFAULT_USER_DATA,
         },
     )
 
@@ -36,6 +43,7 @@ async def episodes() -> Template:
             "title": "Episodes",
             "current": "episodes",
             "navigation": const.NAVIGATION,
+            "user_data": DEFAULT_USER_DATA,
         },
     )
 
@@ -49,6 +57,7 @@ async def progress() -> Template:
             "title": "Episodes in progress",
             "current": "progress",
             "navigation": const.NAVIGATION,
+            "user_data": DEFAULT_USER_DATA,
         },
     )
 
@@ -62,6 +71,7 @@ async def profile() -> Template:
             "current": "profile",
             "navigation": const.NAVIGATION,
             "current_user": "Test User",
+            "user_data": DEFAULT_USER_DATA,
         },
     )
 
@@ -75,5 +85,6 @@ async def about() -> Template:
             "current": "episodes",
             "navigation": const.NAVIGATION,
             "version": settings.APP_VERSION,
+            "user_data": DEFAULT_USER_DATA,
         },
     )
