@@ -3,7 +3,7 @@ from operator import index
 from litestar import get
 from litestar.response import Template
 
-from src import constants as const
+from src import constants as const, settings
 
 __all__ = (
     "index",
@@ -74,6 +74,6 @@ async def about() -> Template:
             "title": "About",
             "current": "episodes",
             "navigation": const.NAVIGATION,
-            "version": "1.0",
+            "version": settings.APP_VERSION,
         },
     )
