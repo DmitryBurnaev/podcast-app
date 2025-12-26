@@ -3,20 +3,20 @@
   <!-- Episodes List -->
   <div class="space-y-2">
       {% for episode in episodes %}
-      <div class="flex items-center gap-4 p-4 hover:bg-gray-50 rounded-lg transition">
+      <div class="flex items-center gap-4 p-4 hover:bg-slate-800 rounded-lg transition border border-slate-700">
           <!-- Episode Icon/Thumbnail -->
-          <div class="w-12 h-12 rounded-lg bg-gray-200 flex items-center justify-center flex-shrink-0">
+          <div class="w-12 h-12 rounded-lg bg-slate-700 flex items-center justify-center flex-shrink-0">
               <span class="text-2xl">{{ episode.icon }}</span>
           </div>
 
           <!-- Episode Info -->
           <div class="flex-1 min-w-0">
-              <h3 class="text-base font-semibold text-gray-800 mb-1">{{ episode.title }}</h3>
-              <p class="text-sm text-gray-500">Episode published</p>
+              <h3 class="text-base font-semibold text-white mb-1">{{ episode.title }}</h3>
+              <p class="text-sm text-slate-400">Episode published</p>
           </div>
 
           <!-- Delete Button -->
-          <button class="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-red-500 hover:bg-red-50 rounded transition flex-shrink-0">
+          <button class="w-8 h-8 flex items-center justify-center text-slate-400 hover:text-red-400 hover:bg-slate-800 rounded transition flex-shrink-0">
               <span class="text-lg">×</span>
           </button>
       </div>

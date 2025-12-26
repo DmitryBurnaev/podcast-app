@@ -2,22 +2,22 @@
 {% block content %}
     <div class="grid grid-cols-4 gap-6">
         {% for podcast in podcasts %}
-            <div class="max-w-[240px] rounded overflow-hidden shadow-lg">
+            <div class="max-w-[240px] rounded-lg overflow-hidden shadow-lg bg-slate-800 border border-slate-700 hover:border-slate-600 transition">
                 <img class="w-full" src="{{ podcast.image_url }}" alt="{{ podcast.title }}">
                 <div class="px-4 py-6">
-                    <div class="font-bold text-xl mb-2">{{ podcast.title }}</div>
-                    <p class="text-gray-700 text-base">{{ podcast.description }}</p>
+                    <div class="font-bold text-xl mb-2 text-white">{{ podcast.title }}</div>
+                    <p class="text-slate-300 text-base">{{ podcast.description }}</p>
                 </div>
                 <div class="px-4 py-1">
-                    <span class="inline-block bg-gray-200 rounded-full px-3 py-1 text-sm font-semibold text-gray-700 mr-2 mb-2">Episodes: {{ podcast.episodes_count }}</span>
+                    <span class="inline-block bg-slate-700 rounded-full px-3 py-1 text-sm font-semibold text-slate-300 mr-2 mb-2">Episodes: {{ podcast.episodes_count }}</span>
                 </div>
             </div>
         {% endfor %}
-        <div class="max-w-[250px] rounded overflow-hidden shadow-lg">
+        <div class="max-w-[250px] rounded-lg overflow-hidden shadow-lg bg-slate-800 border border-slate-700 hover:border-slate-600 transition">
             <img class="w-full" src="/static/images/podcast-add.png" alt="Podcast Add">
             <div class="px-6 py-4">
-                <div class="font-bold text-xl mb-2">🆕 Add new one!</div>
-                <p class="text-gray-700 text-base">
+                <div class="font-bold text-xl mb-2 text-white">🆕 Add new one!</div>
+                <p class="text-slate-300 text-base">
                     You can add new podcast from here!
                 </p>
             </div>
