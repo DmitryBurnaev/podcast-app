@@ -1,5 +1,6 @@
 import os
 
+APP_VERSION = os.environ.get("APP_VERSION", "0.0.0")
 SENTRY_DSN = os.getenv("SENTRY_DSN", default=None)
 LOG_LEVEL = os.getenv("LOG_LEVEL", default="INFO")
 LOG_SQLALCHEMY_LEVEL = os.getenv("LOG_SQLALCHEMY_LEVEL", default="WARNING")
