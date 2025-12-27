@@ -6,22 +6,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Podcasts - {{ title }}</title>
     <script src="/static/js/tailwind.3.4.17.js"></script>
-    <script src="/static/js/colors.min.js"></script>
-    <script src="/static/js/flatten-color-palette.min.js"></script>
-    <script src="/static/js/default-theme.min.js"></script>
-    <script src="/static/js/plugin.min.js"></script>
-    <style>
-        /* Diagonal pattern background */
-        .pattern-bg {
-            background-image: repeating-linear-gradient(
-                45deg,
-                transparent,
-                transparent 10px,
-                rgba(255, 255, 255, 0.03) 10px,
-                rgba(255, 255, 255, 0.03) 20px
-            );
-        }
-    </style>
+{#    <script src="/static/js/colors.min.js"></script>#}
+{#    <script src="/static/js/flatten-color-palette.min.js"></script>#}
+{#    <script src="/static/js/default-theme.min.js"></script>#}
+{#    <script src="/static/js/plugin.min.js"></script>#}
+    <link rel="stylesheet" href="/static/css/podcast-app.css">
     {% endblock %}
 </head>
 <body class="bg-slate-900 min-h-screen">
