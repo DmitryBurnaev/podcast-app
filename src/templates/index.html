@@ -5,9 +5,9 @@
     <div class="flex-1 lg:w-2/3">
         <div class="space-y-4">
             {% for podcast in podcasts %}
-            <div
-                class="bg-slate-800 rounded-lg border border-slate-700 hover:border-slate-600 transition overflow-hidden">
-                <div class="p-6 flex items-start gap-4">
+            <a href="/podcast/{{ loop.index0 }}"
+                class="block bg-slate-800 rounded-lg border border-slate-700 hover:border-slate-600 transition overflow-hidden cursor-pointer">
+                <div class="p-4 flex items-start gap-4">
                     <!-- Podcast Image/Avatar -->
                     <div class="flex-shrink-0">
                         <img class="w-16 h-16 rounded-lg object-cover" src="{{ podcast.image_url }}"
@@ -16,55 +16,47 @@
 
                     <!-- Podcast Info -->
                     <div class="flex-1 min-w-0">
-                        <div class="flex items-start justify-between gap-4 mb-2">
-                            <div>
+                        <div class="flex items-start justify-between gap-4">
+                            <div class="flex-1 min-w-0">
                                 <h3 class="text-lg font-semibold text-white mb-1">{{ podcast.title }}</h3>
                                 <p class="text-sm text-slate-400 line-clamp-2">{{ podcast.description }}</p>
                             </div>
-                            <span
-                                class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-green-500/20 text-green-400 border border-green-500/30">
-                                {{ podcast.episodes_count }} episodes
-                            </span>
-                        </div>
-
-                        <!-- Action Buttons -->
-                        <div class="flex items-center gap-3 mt-4 pt-4 border-t border-slate-700">
-                            <button onclick="openAddEpisodeModal('{{ podcast.title }}')"
-                                class="flex items-center gap-2 px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition text-sm font-medium">
-                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                        d="M12 4v16m8-8H4"></path>
-                                </svg>
-                                Add Episode
-                            </button>
-                            <a href="/podcast/{{ loop.index0 }}"
-                                class="flex items-center gap-2 px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition text-sm font-medium">
-                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                        d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                        d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z">
-                                    </path>
-                                </svg>
-                                View Details
-                            </a>
+                            <div class="flex items-center gap-2 flex-shrink-0">
+                                <span
+                                    class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-green-500/20 text-green-400 border border-green-500/30">
+                                    {{ podcast.episodes_count }} episodes
+                                </span>
+                                <button
+                                    onclick="event.preventDefault(); event.stopPropagation(); openAddEpisodeModal('{{ podcast.title }}')"
+                                    class="p-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition"
+                                    title="Add Episode">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                            d="M12 4v16m8-8H4"></path>
+                                    </svg>
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
-            </div>
+            </a>
             {% endfor %}
 
             <!-- Add New Podcast Card -->
             <div
                 class="bg-slate-800 rounded-lg border border-slate-700 hover:border-slate-600 transition overflow-hidden cursor-pointer">
-                <div class="p-6 flex items-center gap-4">
+                <div class="p-4 flex items-start gap-4">
                     <div class="flex-shrink-0">
-                        <img class="w-16 h-16 rounded-lg object-cover" src="/static/images/podcast-add.png"
-                            alt="Add Podcast">
+                        <div class="w-16 h-16 rounded-lg bg-slate-700 flex items-center justify-center">
+                            <svg class="w-8 h-8 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M12 4v16m8-8H4"></path>
+                            </svg>
+                        </div>
                     </div>
-                    <div class="flex-1">
-                        <h3 class="text-lg font-semibold text-white mb-1">🆕 Add new podcast</h3>
-                        <p class="text-sm text-slate-400">You can add new podcast from here!</p>
+                    <div class="flex-1 min-w-0">
+                        <h3 class="text-lg font-semibold text-white mb-1">Add new podcast</h3>
+                        <p class="text-sm text-slate-400 line-clamp-2">You can add new podcast from here!</p>
                     </div>
                 </div>
             </div>
@@ -123,6 +115,23 @@
                         {% if stats.recent_activity.time %}
                         <p class="text-xs text-slate-500 mt-1">{{ stats.recent_activity.time }}</p>
                         {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Total Storage -->
+            <div class="bg-slate-800 rounded-lg border border-slate-700 p-4">
+                <div class="flex items-center gap-4">
+                    <div class="flex-shrink-0 w-12 h-12 rounded-lg bg-orange-500/20 flex items-center justify-center">
+                        <svg class="w-6 h-6 text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4">
+                            </path>
+                        </svg>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <p class="text-sm text-slate-400">Total Storage</p>
+                        <p class="text-2xl font-semibold text-white">{{ stats.total_storage }}</p>
                     </div>
                 </div>
             </div>
