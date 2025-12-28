@@ -1,5 +1,3 @@
-from operator import index
-
 from litestar import get
 from litestar.response import Template
 
@@ -22,10 +20,15 @@ DEFAULT_USER_DATA = {
 
 @get("/", include_in_schema=False)
 async def index() -> Template:
+    stats = const.get_stats()
+    recent_episodes = const.get_recent_episodes(limit=10)
+
     return Template(
         template_name="index.html",
         context={
             "podcasts": const.PODCASTS,
+            "stats": stats,
+            "recent_episodes": recent_episodes,
             "title": "Home",
             "current": "home",
             "navigation": const.NAVIGATION,
