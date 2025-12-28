@@ -100,3 +100,64 @@ def get_stats() -> dict:
 def get_recent_episodes(limit: int = 10) -> list:
     """Get recent episodes for timeline widget."""
     return EPISODES[:limit] if len(EPISODES) >= limit else EPISODES
+
+
+def format_duration(seconds: int) -> str:
+    """Format duration in seconds to human-readable format (HH:MM:SS or MM:SS)."""
+    hours = seconds // 3600
+    minutes = (seconds % 3600) // 60
+    secs = seconds % 60
+
+    if hours > 0:
+        return f"{hours:02d}:{minutes:02d}:{secs:02d}"
+    return f"{minutes:02d}:{secs:02d}"
+
+
+def format_file_size(bytes_size: int) -> str:
+    """Format file size in bytes to human-readable format (B, KB, MB, GB)."""
+    if bytes_size < 1024:
+        return f"{bytes_size} B"
+    elif bytes_size < 1024 * 1024:
+        return f"{bytes_size / 1024:.2f} KB"
+    elif bytes_size < 1024 * 1024 * 1024:
+        return f"{bytes_size / (1024 * 1024):.2f} MB"
+    else:
+        return f"{bytes_size / (1024 * 1024 * 1024):.2f} GB"
+
+
+def get_episode_status_color(status: str) -> dict:
+    """Get color scheme for episode status badge."""
+    colors = {
+        "published": {
+            "bg": "bg-green-500/20",
+            "text": "text-green-400",
+            "border": "border-green-500/30",
+        },
+        "downloading": {
+            "bg": "bg-blue-500/20",
+            "text": "text-blue-400",
+            "border": "border-blue-500/30",
+        },
+        "error": {
+            "bg": "bg-red-500/20",
+            "text": "text-red-400",
+            "border": "border-red-500/30",
+        },
+        "pending": {
+            "bg": "bg-slate-500/20",
+            "text": "text-slate-400",
+            "border": "border-slate-500/30",
+        },
+    }
+    return colors.get(status, colors["pending"])
+
+
+def get_episode_status_label(status: str) -> str:
+    """Get human-readable label for episode status."""
+    labels = {
+        "published": "Published",
+        "downloading": "Downloading",
+        "error": "Error",
+        "pending": "Pending",
+    }
+    return labels.get(status, "Unknown")
