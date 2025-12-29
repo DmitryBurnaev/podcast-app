@@ -12,36 +12,12 @@ class NavigationItem(NamedTuple):
 
 
 NAVIGATION: tuple[NavigationItem, ...] = (
-    NavigationItem(
-        title="Home",
-        icon="🏠",
-        path="/",
-        slug="home",
-    ),
-    NavigationItem(
-        title="Episodes",
-        icon="☰",
-        path="/episodes",
-        slug="episodes",
-    ),
-    NavigationItem(
-        title="Progress",
-        icon="🏃",
-        path="/progress",
-        slug="progress",
-    ),
-    NavigationItem(
-        title="My Profile",
-        icon="👤",
-        path="/profile",
-        slug="profile",
-    ),
-    NavigationItem(
-        title="About",
-        icon="ℹ",
-        path="/about",
-        slug="about",
-    ),
+    NavigationItem(title="Home", icon="🏠", path="/", slug="home"),
+    NavigationItem(title="Podcasts", icon="☰", path="/podcasts", slug="podcasts"),
+    NavigationItem(title="Episodes", icon="☰", path="/episodes", slug="episodes"),
+    NavigationItem(title="Progress", icon="🏃", path="/progress", slug="progress"),
+    NavigationItem(title="My Profile", icon="👤", path="/profile", slug="profile"),
+    NavigationItem(title="About", icon="ℹ", path="/about", slug="about"),
 )
 
 
@@ -76,24 +52,24 @@ def get_stats() -> dict:
     total_storage = format_storage_size(total_storage_mb)
 
     # Get recent activity (last episode if available)
-    recent_activity = None
-    if EPISODES:
-        last_episode = EPISODES[0]
-        recent_activity = {
-            "text": f"Last episode: {last_episode.get('title', 'Unknown')}",
-            "time": "2h ago",  # Placeholder, can be extended with actual timestamps
-        }
-    else:
-        recent_activity = {
-            "text": "No episodes yet",
-            "time": None,
-        }
+    # recent_activity = None
+    # if EPISODES:
+    #     last_episode = EPISODES[0]
+    #     # recent_activity = {
+    #     #     "text": f"Last episode: {last_episode.get('title', 'Unknown')}",
+    #     #     "time": "2h ago",  # Placeholder, can be extended with actual timestamps
+    #     # }
+    # else:
+    #     # recent_activity = {
+    #     #     "text": "No episodes yet",
+    #     #     "time": None,
+    #     # }
 
     return {
         "total_podcasts": total_podcasts,
         "total_episodes": total_episodes,
         "total_storage": total_storage,
-        "recent_activity": recent_activity,
+        # "recent_activity": recent_activity,
     }
 
 

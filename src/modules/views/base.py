@@ -6,6 +6,7 @@ from src import constants as const, settings
 __all__ = (
     "index",
     "episodes",
+    "podcasts",
     "progress",
     "profile",
     "about",
@@ -21,7 +22,7 @@ DEFAULT_USER_DATA = {
 @get("/", include_in_schema=False)
 async def index() -> Template:
     stats = const.get_stats()
-    recent_episodes = const.get_recent_episodes(limit=10)
+    recent_episodes = const.get_recent_episodes(limit=4)
 
     return Template(
         template_name="index.html",
@@ -43,8 +44,24 @@ async def episodes() -> Template:
         template_name="episodes.html",
         context={
             "episodes": const.EPISODES,
-            "title": "Episodes",
             "current": "episodes",
+            "navigation": const.NAVIGATION,
+            "user_data": DEFAULT_USER_DATA,
+            "format_duration": const.format_duration,
+            "format_file_size": const.format_file_size,
+            "get_episode_status_color": const.get_episode_status_color,
+            "get_episode_status_label": const.get_episode_status_label,
+        },
+    )
+
+
+@get("/podcasts", include_in_schema=False)
+async def podcasts() -> Template:
+    return Template(
+        template_name="podcasts.html",
+        context={
+            "podcasts": const.PODCASTS,
+            "current": "podcasts",
             "navigation": const.NAVIGATION,
             "user_data": DEFAULT_USER_DATA,
             "format_duration": const.format_duration,
@@ -61,10 +78,13 @@ async def progress() -> Template:
         template_name="episodes.html",
         context={
             "episodes": const.EPISODES,
-            "title": "Episodes in progress",
             "current": "progress",
             "navigation": const.NAVIGATION,
             "user_data": DEFAULT_USER_DATA,
+            "format_duration": const.format_duration,
+            "format_file_size": const.format_file_size,
+            "get_episode_status_color": const.get_episode_status_color,
+            "get_episode_status_label": const.get_episode_status_label,
         },
     )
 
@@ -89,7 +109,7 @@ async def about() -> Template:
         template_name="about.html",
         context={
             "title": "About",
-            "current": "episodes",
+            "current": "about",
             "navigation": const.NAVIGATION,
             "version": settings.APP_VERSION,
             "user_data": DEFAULT_USER_DATA,
