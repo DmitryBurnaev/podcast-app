@@ -12,7 +12,6 @@ from src.modules.views import *
 
 
 src_root = Path(__file__).parent
-print(src_root)
 template_config = TemplateConfig(directory=src_root / "templates", engine=JinjaTemplateEngine)
 static_files_config = StaticFilesConfig(path="/static", directories=[str(src_root / "static")])
 
@@ -25,10 +24,11 @@ async def startup():
 
 # Create Litestar application
 app = Litestar(
-    route_handlers=[index, episodes, progress, about, profile],
+    route_handlers=[index, episodes, podcasts, progress, about, profile],
     template_config=template_config,
     static_files_config=[static_files_config],
     on_startup=[startup],
+    debug=True,
 )
 
 
