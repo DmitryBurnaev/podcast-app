@@ -1,25 +1,86 @@
 {% extends "base.html" %}
 {% block content %}
-  <!-- Episodes List -->
-  <div class="space-y-2">
-      {% for episode in episodes %}
-      <div class="flex items-center gap-4 p-4 hover:bg-gray-50 rounded-lg transition">
-          <!-- Episode Icon/Thumbnail -->
-          <div class="w-12 h-12 rounded-lg bg-gray-200 flex items-center justify-center flex-shrink-0">
-              <span class="text-2xl">{{ episode.icon }}</span>
-          </div>
+    <!-- Episodes in Progress List -->
+    <div class="space-y-4">
+        {% if episodes %}
+            {% for episode in episodes %}
+                <a href="/episode/{{ loop.index0 }}"
+                   class="block bg-slate-800 rounded-lg border border-slate-700 hover:border-slate-600 transition overflow-hidden cursor-pointer">
+                    <div class="p-4 flex items-start gap-4">
+                        <!-- Episode Image/Icon -->
+                        <div class="flex-shrink-0">
+                            {% if episode.thumbnail_url %}
+                                <img class="w-16 h-16 rounded-lg object-cover"
+                                     src="{{ episode.thumbnail_url }}"
+                                     alt="{{ episode.title }}">
+                            {% else %}
+                                <div class="w-16 h-16 rounded-lg bg-slate-700 flex items-center justify-center">
+                                    <span class="text-2xl">{{ episode.icon }}</span>
+                                </div>
+                            {% endif %}
+                        </div>
 
-          <!-- Episode Info -->
-          <div class="flex-1 min-w-0">
-              <h3 class="text-base font-semibold text-gray-800 mb-1">{{ episode.title }}</h3>
-              <p class="text-sm text-gray-500">Episode published</p>
-          </div>
+                        <!-- Episode Info -->
+                        <div class="flex-1 min-w-0">
+                            <div class="flex items-start justify-between gap-4 mb-2">
+                                <div class="flex-1 min-w-0">
+                                    <h3 class="text-lg font-semibold text-white mb-1">
+                                        {% if episode.icon %}
+                                            <span class="mr-2">{{ episode.icon }}</span>{% endif %}{{ episode.title }}
+                                    </h3>
+                                    {% if episode.description %}
+                                        <p class="text-sm text-slate-400 line-clamp-2 mb-2">{{ episode.description }}</p>
+                                    {% endif %}
 
-          <!-- Delete Button -->
-          <button class="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-red-500 hover:bg-red-50 rounded transition flex-shrink-0">
-              <span class="text-lg">×</span>
-          </button>
-      </div>
-      {% endfor %}
-  </div>
+                                    <!-- Additional Info -->
+                                    <div class="flex items-center gap-4 flex-wrap text-xs text-slate-500">
+                                        {% if episode.publication_date %}
+                                            <div class="flex items-center gap-1"
+                                                 title="Publication date">
+                                                <svg class="w-4 h-4" fill="none"
+                                                     stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round"
+                                                          stroke-linejoin="round" stroke-width="2"
+                                                          d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z">
+                                                    </path>
+                                                </svg>
+                                                <span>{{ episode.publication_date }}</span>
+                                            </div>
+                                        {% endif %}
+                                        {% if episode.podcast %}
+                                            <div class="flex items-center gap-1" title="Podcast">
+                                                {% for podcast in podcasts %}
+                                                    {% if podcast.title == episode.podcast or podcast.name == episode.podcast %}
+                                                        <span class="text-lg">{{ podcast.icon }}</span>
+                                                        <span>{{ episode.podcast }}</span>
+                                                    {% endif %}
+                                                {% endfor %}
+                                            </div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+
+                                <!-- Right Side: Progress Badge -->
+                                <div class="flex flex-col items-end gap-2 flex-shrink-0">
+                                    {% if episode.status == "downloading" and episode.download_progress is defined %}
+                                        <span
+                                                class="relative inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold text-blue-400 border border-blue-500/30 overflow-hidden">
+                            <span class="absolute inset-0 bg-blue-500/20"></span>
+                            <span class="absolute inset-0 bg-blue-500/40 transition-all"
+                                  style="width: {{ episode.download_progress }}%"></span>
+                            <span class="relative z-10">{{ get_episode_status_label(episode.status) }} {{ episode.download_progress }}%</span>
+                                        </span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </a>
+            {% endfor %}
+        {% else %}
+            <div class="bg-slate-800 rounded-lg border border-slate-700 p-8 text-center">
+                <p class="text-slate-400">No episodes in progress</p>
+            </div>
+        {% endif %}
+    </div>
 {% endblock %}
