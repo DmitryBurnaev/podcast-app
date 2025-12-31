@@ -22,7 +22,7 @@ DEFAULT_USER_DATA = {
 @get("/", include_in_schema=False)
 async def index() -> Template:
     stats = const.get_stats()
-    recent_episodes = const.get_recent_episodes(limit=10)
+    recent_episodes = const.get_recent_episodes(limit=5)
 
     return Template(
         template_name="index.html",
