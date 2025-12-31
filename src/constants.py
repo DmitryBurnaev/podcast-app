@@ -14,8 +14,7 @@ class NavigationItem(NamedTuple):
 NAVIGATION: tuple[NavigationItem, ...] = (
     NavigationItem(title="Home", icon="🏠", path="/", slug="home"),
     NavigationItem(title="Podcasts", icon="☰", path="/podcasts", slug="podcasts"),
-    NavigationItem(title="Episodes", icon="☰", path="/episodes", slug="episodes"),
-    NavigationItem(title="Progress", icon="🏃", path="/progress", slug="progress"),
+    NavigationItem(title="Episodes", icon="🎧", path="/episodes", slug="episodes"),
     NavigationItem(title="My Profile", icon="👤", path="/profile", slug="profile"),
     NavigationItem(title="About", icon="ℹ", path="/about", slug="about"),
 )
@@ -145,3 +144,43 @@ def get_episode_status_label(status: str) -> str:
         "pending": "Pending",
     }
     return labels.get(status, "Unknown")
+
+
+def filter_episodes(episodes: list, filters: dict) -> list:
+    """Filter episodes based on provided filters."""
+    filtered = episodes
+
+    # Filter by status
+    if filters.get("status"):
+        statuses = filters["status"]
+        if isinstance(statuses, str):
+            statuses = [s.strip() for s in statuses.split(",")]
+        filtered = [e for e in filtered if e.get("status") in statuses]
+
+    # Filter by file size range
+    if filters.get("size_min") is not None:
+        size_min_mb = float(filters["size_min"])
+        size_min_bytes = size_min_mb * 1024 * 1024
+        filtered = [e for e in filtered if e.get("file_size", 0) >= size_min_bytes]
+
+    if filters.get("size_max") is not None:
+        size_max_mb = float(filters["size_max"])
+        size_max_bytes = size_max_mb * 1024 * 1024
+        filtered = [e for e in filtered if e.get("file_size", 0) <= size_max_bytes]
+
+    # Filter by podcast
+    if filters.get("podcast"):
+        podcast_name = filters["podcast"]
+        filtered = [e for e in filtered if e.get("podcast") == podcast_name]
+
+    # Filter by search query (title and description)
+    if filters.get("search"):
+        search_query = filters["search"].lower()
+        filtered = [
+            e
+            for e in filtered
+            if search_query in e.get("title", "").lower()
+            or search_query in e.get("description", "").lower()
+        ]
+
+    return filtered

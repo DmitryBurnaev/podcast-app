@@ -1,5 +1,5 @@
-from litestar import get
-from litestar.response import Template
+from litestar import get, Request
+from litestar.response import Template, Redirect
 
 from src import constants as const, settings
 
@@ -41,11 +41,31 @@ async def index() -> Template:
 
 
 @get("/episodes", include_in_schema=False)
-async def episodes() -> Template:
+async def episodes(request: Request) -> Template:
+    # Get filter parameters from query string
+    query_params = request.query_params
+    filters = {
+        "status": query_params.get("status"),
+        "size_min": query_params.get("size_min"),
+        "size_max": query_params.get("size_max"),
+        "podcast": query_params.get("podcast"),
+        "search": query_params.get("search"),
+    }
+
+    # Remove None values
+    filters = {k: v for k, v in filters.items() if v is not None}
+
+    # Apply filters
+    filtered_episodes = (
+        const.filter_episodes(const.EPISODES, filters) if filters else const.EPISODES
+    )
+
     return Template(
         template_name="episodes.html",
         context={
-            "episodes": const.EPISODES,
+            "episodes": filtered_episodes,
+            "podcasts": const.PODCASTS,
+            "filters": filters,
             "current": "episodes",
             "navigation": const.NAVIGATION,
             "user_data": DEFAULT_USER_DATA,
@@ -75,23 +95,9 @@ async def podcasts() -> Template:
 
 
 @get("/progress", include_in_schema=False)
-async def progress() -> Template:
-    downloading_episodes = const.get_downloading_episodes()
-    return Template(
-        template_name="progress.html",
-        context={
-            "episodes": downloading_episodes,
-            "podcasts": const.PODCASTS,
-            "title": "Episodes in progress",
-            "current": "progress",
-            "navigation": const.NAVIGATION,
-            "user_data": DEFAULT_USER_DATA,
-            "format_duration": const.format_duration,
-            "format_file_size": const.format_file_size,
-            "get_episode_status_color": const.get_episode_status_color,
-            "get_episode_status_label": const.get_episode_status_label,
-        },
-    )
+async def progress() -> Redirect:
+    """Redirect to episodes page with downloading filter."""
+    return Redirect(path="/episodes?status=downloading")
 
 
 @get("/profile", include_in_schema=False)
