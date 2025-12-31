@@ -44,6 +44,8 @@ def get_stats() -> dict:
     """Calculate statistics for the dashboard."""
     total_podcasts = len(PODCASTS)
     total_episodes = sum(podcast.get("episodes_count", 0) for podcast in PODCASTS)
+    downloading_episodes = get_downloading_episodes()
+    downloading_count = len(downloading_episodes)
 
     # Calculate total storage size (average ~75 MB per episode)
     # This is a placeholder calculation, can be replaced with actual data
@@ -52,30 +54,36 @@ def get_stats() -> dict:
     total_storage = format_storage_size(total_storage_mb)
 
     # Get recent activity (last episode if available)
-    # recent_activity = None
-    # if EPISODES:
-    #     last_episode = EPISODES[0]
-    #     # recent_activity = {
-    #     #     "text": f"Last episode: {last_episode.get('title', 'Unknown')}",
-    #     #     "time": "2h ago",  # Placeholder, can be extended with actual timestamps
-    #     # }
-    # else:
-    #     # recent_activity = {
-    #     #     "text": "No episodes yet",
-    #     #     "time": None,
-    #     # }
+    recent_activity = None
+    if EPISODES:
+        last_episode = EPISODES[0]
+        recent_activity = {
+            "text": f"Last episode: {last_episode.get('title', 'Unknown')}",
+            "time": "2h ago",  # Placeholder, can be extended with actual timestamps
+        }
+    else:
+        recent_activity = {
+            "text": "No episodes yet",
+            "time": None,
+        }
 
     return {
         "total_podcasts": total_podcasts,
         "total_episodes": total_episodes,
         "total_storage": total_storage,
-        # "recent_activity": recent_activity,
+        "downloading_count": downloading_count,
+        "recent_activity": recent_activity,
     }
 
 
 def get_recent_episodes(limit: int = 10) -> list:
     """Get recent episodes for timeline widget."""
     return EPISODES[:limit] if len(EPISODES) >= limit else EPISODES
+
+
+def get_downloading_episodes() -> list:
+    """Get episodes with downloading status."""
+    return [episode for episode in EPISODES if episode.get("status") == "downloading"]
 
 
 def format_duration(seconds: int) -> str:

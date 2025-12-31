@@ -22,7 +22,7 @@ DEFAULT_USER_DATA = {
 @get("/", include_in_schema=False)
 async def index() -> Template:
     stats = const.get_stats()
-    recent_episodes = const.get_recent_episodes(limit=4)
+    recent_episodes = const.get_recent_episodes(limit=10)
 
     return Template(
         template_name="index.html",
@@ -34,6 +34,8 @@ async def index() -> Template:
             "current": "home",
             "navigation": const.NAVIGATION,
             "user_data": DEFAULT_USER_DATA,
+            "get_episode_status_color": const.get_episode_status_color,
+            "get_episode_status_label": const.get_episode_status_label,
         },
     )
 
@@ -74,10 +76,13 @@ async def podcasts() -> Template:
 
 @get("/progress", include_in_schema=False)
 async def progress() -> Template:
+    downloading_episodes = const.get_downloading_episodes()
     return Template(
-        template_name="episodes.html",
+        template_name="progress.html",
         context={
-            "episodes": const.EPISODES,
+            "episodes": downloading_episodes,
+            "podcasts": const.PODCASTS,
+            "title": "Episodes in progress",
             "current": "progress",
             "navigation": const.NAVIGATION,
             "user_data": DEFAULT_USER_DATA,
