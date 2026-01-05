@@ -1,50 +1,65 @@
 import logging
 import logging.config
 import sys
+from contextlib import asynccontextmanager
+from typing import Any, AsyncGenerator
 
 from litestar import Litestar
+from litestar.di import Provide
 from litestar.template import TemplateConfig
 from litestar.static_files import StaticFilesConfig
 from litestar.contrib.jinja import JinjaTemplateEngine
 
-from src import settings
-from src.exceptions import AppSettingsError
-from src.modules.views import *
+from src.exceptions import AppSettingsError, StartupError
+from src.modules.db import initialize_database, close_database
+from src.modules.views import (
+    index,
+    episodes,
+    podcasts,
+    progress,
+    about,
+    profile,
+)
 from src.settings import AppSettings, get_app_settings
 from src.settings.app import APP_DIR
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("app")
 
 
-async def startup():
-    logging.config.dictConfig(settings.LOGGING)
-    logger = logging.getLogger(__name__)
-    logger.info("Starting up ...")
+class PodcastApp(Litestar):
+    def __init__(self, *args, settings: AppSettings, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+        self.settings = settings
+
+    def __str__(self) -> str:
+        return f"PodcastApp #{id(self)}"
 
 
-#
-#
-# def create_app() -> Litestar:
-#     """Simple app creation"""
-#     src_root: Path = Path(__file__).parent
-#     app = Litestar(
-#         route_handlers=[index, episodes, podcasts, progress, about, profile],
-#         template_config=TemplateConfig(
-#             directory=src_root / "templates", engine=JinjaTemplateEngine
-#         ),
-#         static_files_config=[
-#             StaticFilesConfig(path="/static", directories=[str(src_root / "static")])
-#         ],
-#         on_startup=[startup],
-#         debug=True,
-#     )
-#     return app
-#
+@asynccontextmanager
+async def lifespan(app: PodcastApp) -> AsyncGenerator[None, Any]:
+    """Application lifespan context manager for startup and shutdown events."""
+    logger.info("Starting up %s ...", app)
+    try:
+        await initialize_database()
+        logger.info("Application startup completed successfully")
+    except Exception as exc:
+        raise StartupError("Failed to initialize DB connection") from exc
 
-# class PodcastApp(Litestar): ...
+    yield
+
+    logger.info("===== shutdown ====")
+    logger.info("Shutting down this application...")
+    try:
+        await close_database()
+    except Exception as exc:
+        logger.error("Error during application shutdown: %r", exc)
+    else:
+        logger.info("Application shutdown completed successfully")
+
+    logger.info("=====")
 
 
-def make_app(settings: AppSettings | None = None) -> Litestar:
+def make_app(settings: AppSettings | None = None) -> PodcastApp:
     """Forming Application instance with required settings and dependencies"""
 
     if settings is None:
@@ -58,28 +73,36 @@ def make_app(settings: AppSettings | None = None) -> Litestar:
     logging.captureWarnings(capture=True)
 
     logger.info("Setting up application...")
-    app = Litestar(
+    app = PodcastApp(
         route_handlers=[index, episodes, podcasts, progress, about, profile],
         template_config=TemplateConfig(directory=APP_DIR / "templates", engine=JinjaTemplateEngine),
         static_files_config=[
             StaticFilesConfig(path="/static", directories=[str(APP_DIR / "static")])
         ],
-        on_startup=[startup],
-        debug=True,
+        lifespan=[lifespan],
+        debug=settings.flags.debug_mode,
+        dependencies={
+            "app_settings": Provide(get_app_settings),
+        },
+        settings=settings,
     )
 
-    logger.info("Setting up routes...")
+    # logger.info("Setting up routes...")
     # app.include_router(system_router, prefix="/api", dependencies=[Depends(verify_api_token)])
     # app.include_router(proxy_router, prefix="/api", dependencies=[Depends(verify_api_token)])
 
-    logger.info("Application configured!")
+    # logger.info("Application configured!")
     return app
-
-
-app: Litestar = make_app()
 
 
 if __name__ == "__main__":
     import uvicorn
 
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    app: PodcastApp = make_app()
+    uvicorn.run(
+        app,
+        host=app.settings.app_host,
+        port=app.settings.app_port,
+        log_config=app.settings.log.dict_config_any,
+        proxy_headers=True,
+    )

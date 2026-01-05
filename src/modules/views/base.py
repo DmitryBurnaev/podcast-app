@@ -1,7 +1,7 @@
 from litestar import get, Request
 from litestar.response import Template, Redirect
 
-from src import constants as const, settings
+from src import constants as const
 
 __all__ = (
     "index",
@@ -11,6 +11,8 @@ __all__ = (
     "profile",
     "about",
 )
+
+from src.settings import AppSettings
 
 # Default user data for UI
 DEFAULT_USER_DATA = {
@@ -115,14 +117,14 @@ async def profile() -> Template:
 
 
 @get("/about", include_in_schema=False)
-async def about() -> Template:
+async def about(app_settings: AppSettings) -> Template:
     return Template(
         template_name="about.html",
         context={
             "title": "About",
             "current": "about",
             "navigation": const.NAVIGATION,
-            "version": settings.APP_VERSION,
+            "version": app_settings.app_version,
             "user_data": DEFAULT_USER_DATA,
         },
     )
