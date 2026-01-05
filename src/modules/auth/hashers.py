@@ -1,0 +1,88 @@
+import base64
+import hashlib
+import hmac
+import secrets
+import string
+import uuid
+import logging
+from typing import ClassVar, Callable, Any
+
+logger = logging.getLogger(__name__)
+
+
+def get_salt(length: int = 12) -> str:
+    """Returns a securely generated random string."""
+
+    allowed_chars = string.ascii_letters + string.digits
+    return "".join(secrets.choice(allowed_chars) for _ in range(length))
+
+
+def get_random_hash(size: int) -> str:
+    """Allows calculating random hash with fixed length"""
+
+    hash_value = hashlib.blake2b(key=get_salt().encode(), digest_size=size)
+    hash_value.update(str(uuid.uuid4()).encode())
+    return hash_value.hexdigest()[:size]
+
+
+class PBKDF2PasswordHasher:
+    """
+    Secure password hashing using the PBKDF2 algorithm (recommended)
+
+    Configured to use PBKDF2 + HMAC + SHA256.
+    The result is a 64-byte binary string.  Iterations may be changed
+    safely, but you must rename the algorithm if you change SHA256.
+    """
+
+    algorithm: ClassVar[str] = "pbkdf2_sha256"
+    iterations: ClassVar[int] = 180000
+    digest: ClassVar[Callable[[Any], Any]] = hashlib.sha256
+
+    def encode(self, password: str, salt: str | None = None) -> str:
+        """Encoding password using random salt + pbkdf2_sha256"""
+        salt = salt or get_salt()
+        self._validate_input(password, salt)
+        hash_ = self._pbkdf2(password, salt)
+        hash_value = base64.b64encode(hash_).decode("ascii").strip()
+        return f"{self.algorithm}${self.iterations}${salt}${hash_value}"
+
+    def verify(self, password: str, encoded: str) -> tuple[bool, str]:
+        """Check if the given password is correct."""
+        try:
+            if len(encoded.split("$")) > 4:
+                raise ValueError("Extra parts detected")
+
+            algorithm, _, salt, _ = encoded.split("$", 3)
+            self._validate_input(password, salt)
+
+        except ValueError as exc:
+            err_message = f"Encoded password has incompatible format: {exc}"
+            logger.warning(err_message)
+            return False, err_message
+
+        if algorithm != self.algorithm:
+            logger.warning("Unexpected algorithm: %s", algorithm)
+            return False, "Algorithm mismatch"
+
+        encoded_2 = self.encode(password, salt)
+        return hmac.compare_digest(encoded, encoded_2), ""
+
+    def _pbkdf2(self, password: str, salt: str) -> bytes:
+        """Return the hash of password using pbkdf2."""
+        digest = self.digest
+        iterations = self.iterations
+        b_password = bytes(password, encoding="utf-8")
+        b_salt = bytes(salt, encoding="utf-8")
+        return hashlib.pbkdf2_hmac(digest().name, b_password, b_salt, iterations)
+
+    @staticmethod
+    def _validate_input(password: str, salt: str) -> None:
+        """Validate the given password and salt."""
+        if not password:
+            raise ValueError("Password is required")
+
+        if not salt:
+            raise ValueError("Salt is required")
+
+        if "$" in salt:
+            raise ValueError("Salt has incompatible format")

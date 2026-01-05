@@ -70,10 +70,9 @@ class LogSettings(BaseSettings):
                 }
             },
             "loggers": {
-                "uvicorn": {"handlers": ["console"], "level": self.level, "propagate": False},
-                "modules": {"handlers": ["console"], "level": self.level, "propagate": False},
-                "common": {"handlers": ["console"], "level": self.level, "propagate": False},
+                "src.modules": {"handlers": ["console"], "level": self.level, "propagate": False},
                 "app": {"handlers": ["console"], "level": self.level, "propagate": False},
+                "uvicorn": {"handlers": ["console"], "level": self.level, "propagate": False},
                 "yt_dlp": {"handlers": ["console"], "level": self.level, "propagate": False},
                 "rq.worker": {"handlers": ["console"], "level": self.level, "propagate": False},
                 "sqlalchemy.engine": {
