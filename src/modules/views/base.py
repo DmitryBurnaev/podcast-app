@@ -1,130 +1,37 @@
-from litestar import get, Request
-from litestar.response import Template, Redirect
+from functools import lru_cache
+from typing import Any
+
+from litestar import Controller
+from litestar.response import Template
 
 from src import constants as const
 
-__all__ = (
-    "index",
-    "episodes",
-    "podcasts",
-    "progress",
-    "profile",
-    "about",
-)
-
-from src.settings import AppSettings
-
-# Default user data for UI
-DEFAULT_USER_DATA = {
-    "name": "Test User",
-    "avatar": None,  # Can be extended with avatar URL later
-}
+__all__ = ("BaseController",)
 
 
-@get("/", include_in_schema=False)
-async def index() -> Template:
-    stats = const.get_stats()
-    recent_episodes = const.get_recent_episodes(limit=5)
+class BaseController(Controller):
+    include_in_schema = False
+    default_template_name = "base.html"
+    login_template_name = "login.html"
 
-    return Template(
-        template_name="index.html",
-        context={
-            "podcasts": const.PODCASTS,
-            "stats": stats,
-            "recent_episodes": recent_episodes,
-            "title": "Home",
+    def get_response_template(self, template_name: str, context: dict[str, Any]) -> Template:
+        template_name = template_name or self.default_template_name
+        return Template(template_name=template_name, context=(self.get_base_context() | context))
+
+    @staticmethod
+    def get_base_context() -> dict[str, Any]:
+        return {
             "current": "home",
             "navigation": const.NAVIGATION,
-            "user_data": DEFAULT_USER_DATA,
+            "user_data": {
+                "name": "Test User",
+                "avatar": None,  # Can be extended with avatar URL later
+            },
             "get_episode_status_color": const.get_episode_status_color,
             "get_episode_status_label": const.get_episode_status_label,
-        },
-    )
+        }
 
-
-@get("/episodes", include_in_schema=False)
-async def episodes(request: Request) -> Template:
-    # Get filter parameters from query string
-    query_params = request.query_params
-    filters = {
-        "status": query_params.get("status"),
-        "size_min": query_params.get("size_min"),
-        "size_max": query_params.get("size_max"),
-        "podcast": query_params.get("podcast"),
-        "search": query_params.get("search"),
-    }
-
-    # Remove None values
-    filters = {k: v for k, v in filters.items() if v is not None}
-
-    # Apply filters
-    filtered_episodes = (
-        const.filter_episodes(const.EPISODES, filters) if filters else const.EPISODES
-    )
-
-    return Template(
-        template_name="episodes.html",
-        context={
-            "episodes": filtered_episodes,
-            "podcasts": const.PODCASTS,
-            "filters": filters,
-            "current": "episodes",
-            "navigation": const.NAVIGATION,
-            "user_data": DEFAULT_USER_DATA,
-            "format_duration": const.format_duration,
-            "format_file_size": const.format_file_size,
-            "get_episode_status_color": const.get_episode_status_color,
-            "get_episode_status_label": const.get_episode_status_label,
-        },
-    )
-
-
-@get("/podcasts", include_in_schema=False)
-async def podcasts() -> Template:
-    return Template(
-        template_name="podcasts.html",
-        context={
-            "podcasts": const.PODCASTS,
-            "current": "podcasts",
-            "navigation": const.NAVIGATION,
-            "user_data": DEFAULT_USER_DATA,
-            "format_duration": const.format_duration,
-            "format_file_size": const.format_file_size,
-            "get_episode_status_color": const.get_episode_status_color,
-            "get_episode_status_label": const.get_episode_status_label,
-        },
-    )
-
-
-@get("/progress", include_in_schema=False)
-async def progress() -> Redirect:
-    """Redirect to episodes page with downloading filter."""
-    return Redirect(path="/episodes?status=downloading")
-
-
-@get("/profile", include_in_schema=False)
-async def profile() -> Template:
-    return Template(
-        template_name="profile.html",
-        context={
-            "title": "Profile",
-            "current": "profile",
-            "navigation": const.NAVIGATION,
-            "current_user": "Test User",
-            "user_data": DEFAULT_USER_DATA,
-        },
-    )
-
-
-@get("/about", include_in_schema=False)
-async def about(app_settings: AppSettings) -> Template:
-    return Template(
-        template_name="about.html",
-        context={
-            "title": "About",
-            "current": "about",
-            "navigation": const.NAVIGATION,
-            "version": app_settings.app_version,
-            "user_data": DEFAULT_USER_DATA,
-        },
-    )
+    @classmethod
+    @lru_cache
+    def get_controllers(cls) -> list[type["BaseController"]]:
+        return [c for c in cls.__subclasses__()]

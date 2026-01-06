@@ -4,6 +4,11 @@ import sys
 from contextlib import asynccontextmanager
 from typing import Any, AsyncGenerator
 
+# from litestar.middleware.session.server_side import (
+#     ServerSideSessionBackend,
+#     ServerSideSessionConfig,
+# )
+
 from litestar import Litestar
 from litestar.di import Provide
 from litestar.template import TemplateConfig
@@ -12,16 +17,8 @@ from litestar.contrib.jinja import JinjaTemplateEngine
 
 from src.exceptions import AppSettingsError, StartupError
 from src.modules.db import initialize_database, close_database
-from src.modules.views import (
-    index,
-    episodes,
-    podcasts,
-    progress,
-    about,
-    profile,
-)
-from src.settings import AppSettings, get_app_settings
-from src.settings.app import APP_DIR
+from src.modules.views.base import BaseController
+from src.settings.app import APP_DIR, AppSettings, get_app_settings
 
 logger = logging.getLogger("app")
 
@@ -73,8 +70,11 @@ def make_app(settings: AppSettings | None = None) -> PodcastApp:
     logging.captureWarnings(capture=True)
 
     logger.info("Setting up application...")
+    # je = jinja2.environment.Environment()
     app = PodcastApp(
-        route_handlers=[index, episodes, podcasts, progress, about, profile],
+        route_handlers=[
+            *BaseController.get_controllers(),
+        ],
         template_config=TemplateConfig(directory=APP_DIR / "templates", engine=JinjaTemplateEngine),
         static_files_config=[
             StaticFilesConfig(path="/static", directories=[str(APP_DIR / "static")])
@@ -82,7 +82,7 @@ def make_app(settings: AppSettings | None = None) -> PodcastApp:
         lifespan=[lifespan],
         debug=settings.flags.debug_mode,
         dependencies={
-            "app_settings": Provide(get_app_settings),
+            "settings": Provide(get_app_settings),
         },
         settings=settings,
     )
@@ -91,7 +91,7 @@ def make_app(settings: AppSettings | None = None) -> PodcastApp:
     # app.include_router(system_router, prefix="/api", dependencies=[Depends(verify_api_token)])
     # app.include_router(proxy_router, prefix="/api", dependencies=[Depends(verify_api_token)])
 
-    # logger.info("Application configured!")
+    logger.info("Application configured!")
     return app
 
 

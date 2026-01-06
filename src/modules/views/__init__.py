@@ -1,17 +1,12 @@
-from .base import (
-    index,
-    episodes,
-    podcasts,
-    about,
-    progress,
-    profile,
-)
+from .index import IndexController
+from .podcasts import EpisodesController, PodcastsController
+from .system import AboutController
+from .users import ProfileController
 
 __all__ = (
-    "index",
-    "episodes",
-    "podcasts",
-    "about",
-    "progress",
-    "profile",
+    "IndexController",
+    "EpisodesController",
+    "PodcastsController",
+    "ProfileController",
+    "AboutController",
 )

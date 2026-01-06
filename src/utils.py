@@ -1,13 +1,7 @@
 import datetime
 import logging
-from typing import TypeVar, Callable, ParamSpec, Any, TYPE_CHECKING, Literal
+from typing import TypeVar, Callable, ParamSpec, Any
 
-import markupsafe
-
-from src.settings import get_app_settings
-
-if TYPE_CHECKING:
-    from src.modules.db.models import BaseModel
 
 __all__ = ("singleton",)
 logger = logging.getLogger(__name__)
@@ -94,28 +88,6 @@ def decohints(decorator: Callable[..., Any]) -> Callable[..., Any]:
     Small helper which helps to say IDE: "decorated method has the same params and return types"
     """
     return decorator
-
-
-def admin_get_link(
-    instance: "BaseModel",
-    url_name: str | None = None,
-    target: Literal["edit", "details"] = "edit",
-) -> str:
-    """
-    Simple helper function to generate a link to an instance
-    (required for building items in admin's list view)
-
-    :param instance: Some model's instance for link's building
-    :param url_name: Part of url (admin path)
-    :param target: Link target (edit / link)
-    :return: HTML-safe tag with a generated link
-    """
-    settings = get_app_settings()
-    base_url = settings.admin.base_url
-    name = url_name or instance.__class__.__name__.lower()
-    return markupsafe.Markup(
-        f'<a href="{base_url}/{name}/{target}/{instance.id}">[#{instance.id}] {instance}</a>'
-    )
 
 
 def simple_slugify(value: str) -> str:
