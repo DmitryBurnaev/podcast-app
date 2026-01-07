@@ -70,7 +70,6 @@ def make_app(settings: AppSettings | None = None) -> PodcastApp:
     logging.captureWarnings(capture=True)
 
     logger.info("Setting up application...")
-    # je = jinja2.environment.Environment()
     app = PodcastApp(
         route_handlers=[
             *BaseController.get_controllers(),

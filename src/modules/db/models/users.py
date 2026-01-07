@@ -29,7 +29,7 @@ class User(BaseModel):
     created_at: Mapped[datetime] = mapped_column(default=utcnow)
 
     def __str__(self) -> str:
-        return self.email
+        return self.display_name
 
     def __repr__(self):
         return f"<User #{self.id} {self.email}>"
@@ -52,9 +52,10 @@ class User(BaseModel):
     def display_name(self) -> str:
         return self.email
 
-    @classmethod
-    async def get_active(cls, db_session: AsyncSession, user_id: int) -> "User":
-        return await cls.async_get(db_session, id=user_id, is_active=True)
+    # @classmethod
+    # async def get_active(cls, db_session: AsyncSession, user_id: int) -> "User":
+    #     return await cls.async_get(db_session, id=user_id, is_active=True)
+    #
 
 
 #
