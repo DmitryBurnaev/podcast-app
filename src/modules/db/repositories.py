@@ -20,6 +20,9 @@ from sqlalchemy.sql.roles import ColumnsClauseRole
 from src.modules.db.models import BaseModel, User
 
 __all__ = ("UserRepository",)
+
+from src.modules.db.models.podcasts import Podcast
+
 ModelT = TypeVar("ModelT", bound=BaseModel)
 logger = logging.getLogger(__name__)
 P = ParamSpec("P")
@@ -144,3 +147,14 @@ class UserRepository(BaseRepository[User]):
             return None
 
         return users[0]
+
+
+class PodcastRepository(BaseRepository[Podcast]):
+    """Podcast's repository."""
+
+    model = Podcast
+
+    async def get_by_id(self, id_: int) -> Podcast | None:
+        """Get podcast by ID"""
+        logger.debug("[DB] Getting podcast by ID: %s", id_)
+        return await self.first(id_)
