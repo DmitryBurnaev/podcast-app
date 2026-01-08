@@ -2,6 +2,8 @@ from litestar import get, Request
 from litestar.response import Template
 
 from src import constants as const
+from src.modules.db import SASessionUOW
+from src.modules.db.repositories import PodcastRepository
 from src.modules.views.base import BaseController
 
 
@@ -9,10 +11,14 @@ class PodcastsController(BaseController):
 
     @get("/podcasts")
     async def get(self) -> Template:
+        async with SASessionUOW() as uow:
+            podcast_repository = PodcastRepository(session=uow.session)
+            podcasts = await podcast_repository.all(owner_id=1)
+
         return self.get_response_template(
             template_name="podcasts.html",
             context={
-                "podcasts": const.PODCASTS,
+                "podcasts": podcasts,
                 "current": "podcasts",
                 "format_duration": const.format_duration,
                 "format_file_size": const.format_file_size,
