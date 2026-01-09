@@ -1,7 +1,7 @@
 import uuid
 from enum import Enum
 from hashlib import md5
-from typing import NamedTuple
+from typing import NamedTuple, TYPE_CHECKING
 from functools import cached_property
 from datetime import datetime, timedelta
 from dataclasses import asdict, dataclass
@@ -12,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from src.exceptions import BaseApplicationError
+from src.modules.db.models.media import File
 from src.modules.db.models import BaseModel
 from src.settings.app import get_app_settings
 from src.utils import utcnow
@@ -54,8 +55,8 @@ class Podcast(BaseModel):
     owner_id: Mapped[int] = mapped_column(sa.ForeignKey("auth_users.id"))
 
     # relations
-    # rss: Mapped[File] = relationship("File", foreign_keys=[rss_id], lazy="subquery")
-    # image = relationship("File", foreign_keys=[image_id], lazy="subquery")
+    rss: Mapped["File"] = relationship("File", foreign_keys=[rss_id], lazy="subquery")
+    image: Mapped["File"] = relationship("File", foreign_keys=[image_id], lazy="subquery")
 
     def __str__(self):
         return f'<Podcast #{self.id} "{self.name}">'
@@ -63,8 +64,8 @@ class Podcast(BaseModel):
     @property
     def image_url(self) -> str:
         app_settings = get_app_settings()
-        # url = self.image.url if self.image else None
-        return "tmp-url" or app_settings.default_podcast_cover
+        url = self.image.url if self.image else None
+        return url or app_settings.default_podcast_cover
 
     # @classmethod
     # async def create_first_podcast(cls, db_session: AsyncSession, user_id: int):
@@ -86,6 +87,14 @@ class Podcast(BaseModel):
 
     def generate_image_name(self) -> str:
         return f"{self.publish_id}_{uuid.uuid4().hex}.png"
+
+    @property
+    def icon(self) -> str | None:
+        """If 1st letter has emoji code, return it, otherwise return the first letter"""
+        if self.name[0].startswith(":"):
+            return self.name[0]
+
+        return None
 
 
 @dataclass
@@ -171,8 +180,8 @@ class Episode(BaseModel):
 
     # relations
     podcast: Mapped["Podcast"] = relationship("Podcast", lazy="subquery", backref="episodes")
-    # image = relationship("File", foreign_keys=[image_id], lazy="subquery")
-    # audio = relationship("File", foreign_keys=[audio_id], lazy="subquery")
+    image: Mapped["File"] = relationship("File", foreign_keys=[image_id], lazy="subquery")
+    audio: Mapped["File"] = relationship("File", foreign_keys=[audio_id], lazy="subquery")
 
     def __str__(self) -> str:
         return f'<Episode #{self.id} {self.source_id} [{self.status}] "{self.title[:10]}..." >'

@@ -25,3 +25,7 @@ class StartupError(BaseApplicationError):
 
 class DatabaseError(BaseApplicationError):
     """Database error"""
+
+
+class NotSupportedError(BaseApplicationError):
+    """Operation not supported error"""

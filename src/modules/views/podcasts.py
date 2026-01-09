@@ -10,7 +10,7 @@ from src.modules.views.base import BaseController
 class PodcastsController(BaseController):
 
     @get("/podcasts")
-    async def get(self) -> Template:
+    async def get(self, request: Request) -> Template:
         async with SASessionUOW() as uow:
             podcast_repository = PodcastRepository(session=uow.session)
             podcasts = await podcast_repository.all(owner_id=1)
