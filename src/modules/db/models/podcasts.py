@@ -57,6 +57,7 @@ class Podcast(BaseModel):
     # relations
     rss: Mapped["File"] = relationship("File", foreign_keys=[rss_id], lazy="subquery")
     image: Mapped["File"] = relationship("File", foreign_keys=[image_id], lazy="subquery")
+    # episodes: Mapped["Episode"] = relationship("Episode", lazy="subquery", backref="podcast")
 
     def __str__(self):
         return f'<Podcast #{self.id} "{self.name}">'
