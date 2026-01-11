@@ -9,8 +9,7 @@ from src.modules.views.base import BaseController
 
 
 class PodcastsController(BaseController):
-
-    @get("/podcasts")
+    @get("/podcasts/")
     async def get(self, request: Request) -> Template:
         async with SASessionUOW() as uow:
             podcast_repository = PodcastRepository(session=uow.session)
@@ -28,25 +27,47 @@ class PodcastsController(BaseController):
 
 
 class PodcastsDetailsController(BaseController):
-
     @get("/podcasts/{podcast_id:int}/")
     async def get_detail(self, podcast_id: int, request: Request) -> Template:
         """Get podcast detail page with episodes list"""
         async with SASessionUOW() as uow:
             podcast_repository = PodcastRepository(session=uow.session)
             podcast = await podcast_repository.get_by_id(podcast_id)
-            print(podcast)
             if not podcast:
                 raise NotFoundException(f"Podcast with id {podcast_id} not found")
 
             # Get episodes through backref relationship
             # Episodes are loaded via lazy="subquery" in the relationship
-            # episodes = list(podcast.episodes) if podcast.episodes else []
+
+            episodes = list(podcast.episodes)
             # Sort episodes by published_at or created_at (newest first)
-            # episodes.sort(
-            #     key=lambda e: e.published_at if e.published_at else e.created_at, reverse=True
-            # )
-            episodes = []
+            episodes.sort(
+                key=lambda e: e.published_at if e.published_at else e.created_at, reverse=True
+            )
+
+            # Calculate podcast statistics
+            # TODO: just for demo! replace with DB functions!
+            episodes_count = len(episodes)
+            total_duration = sum(episode.length for episode in episodes if episode.length) or 0
+            total_size = (
+                sum(
+                    episode.audio.size
+                    for episode in episodes
+                    if episode.audio and hasattr(episode.audio, "size") and episode.audio.size
+                )
+                or 0
+            )
+            last_published_at = (
+                max((e.published_at for e in episodes if e.published_at), default=None)
+                if episodes
+                else None
+            )
+            last_created_at = (
+                max((e.created_at for e in episodes if e.created_at), default=None)
+                if episodes
+                else None
+            )
+
             # Generate RSS URL
             rss_url = None
             if podcast.rss:
@@ -57,6 +78,11 @@ class PodcastsDetailsController(BaseController):
             context={
                 "podcast": podcast,
                 "episodes": episodes,
+                "episodes_count": episodes_count,
+                "total_duration": total_duration,
+                "total_size": total_size,
+                "last_published_at": last_published_at,
+                "last_created_at": last_created_at,
                 "rss_url": rss_url,
                 "current": "podcasts",
                 "format_duration": const.format_duration,
@@ -68,7 +94,6 @@ class PodcastsDetailsController(BaseController):
 
 
 class EpisodesController(BaseController):
-
     @get("/episodes")
     async def get(self, request: Request) -> Template:
         # Get filter parameters from query string

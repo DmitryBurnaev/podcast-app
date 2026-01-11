@@ -26,26 +26,124 @@
             </div>
             
             <!-- Content -->
-            <div class="relative p-6 flex flex-col items-center text-center">
+            <div class="relative p-6 flex flex-col">
                 <!-- Podcast Image -->
-                <div class="mb-4">
+                <div class="mb-4 flex justify-center">
                     {% if podcast.image_url %}
                     <img src="{{ podcast.image_url }}" alt="{{ podcast.name }}" 
                          class="w-24 h-24 rounded-full object-cover border-4 border-slate-700 shadow-lg">
                     {% else %}
                     <div class="w-24 h-24 rounded-full bg-gradient-to-br from-purple-500 to-blue-500 
                                 flex items-center justify-center border-4 border-slate-700 shadow-lg">
+                        {% if podcast.icon %}
+                        <span class="text-3xl">{{ podcast.icon }}</span>
+                        {% else %}
                         <span class="text-3xl text-white">{{ podcast.name[0] if podcast.name else 'P' }}</span>
+                        {% endif %}
                     </div>
                     {% endif %}
                 </div>
                 
                 <!-- Podcast Info -->
-                <h1 class="text-xl font-bold text-white mb-2">{{ podcast.name }}</h1>
-                <p class="text-sm text-slate-400 mb-3 line-clamp-2">{{ podcast.description or 'No description' }}</p>
-                <div class="text-xs text-slate-500">
-                    <span class="font-medium">{{ episodes|length }} Episodes</span>
+                <div class="text-center mb-4">
+                    <h1 class="text-xl font-bold text-white mb-2">
+                        {% if podcast.icon %}<span class="mr-2">{{ podcast.icon }}</span>{% endif %}{{ podcast.name }}
+                    </h1>
+                    <p class="text-sm text-slate-400 line-clamp-3">{{ podcast.description or 'No description' }}</p>
                 </div>
+
+                <!-- Statistics Section -->
+                <div class="space-y-3 mt-4 pt-4 border-t border-slate-700">
+                    <!-- Episodes Count -->
+                    <div class="flex items-center gap-2 text-sm">
+                        <svg class="w-4 h-4 text-slate-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                  d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3"></path>
+                        </svg>
+                        <span class="text-slate-300 font-medium">{{ episodes_count }} Episodes</span>
+                    </div>
+
+                    <!-- Auto Download Status -->
+                    <div class="flex items-center gap-2 text-sm">
+                        <svg class="w-4 h-4 text-slate-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                  d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+                        </svg>
+                        <span class="text-slate-300">Auto Download:</span>
+                        <span class="{% if podcast.download_automatically %}text-green-400{% else %}text-slate-500{% endif %} font-medium">
+                            {% if podcast.download_automatically %}ON{% else %}OFF{% endif %}
+                        </span>
+                    </div>
+
+                    <!-- Created Date -->
+                    <div class="flex items-center gap-2 text-sm">
+                        <svg class="w-4 h-4 text-slate-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                  d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                        </svg>
+                        <span class="text-slate-400 text-xs">
+                            Created: {% if podcast.created_at %}{{ podcast.created_at.strftime('%b %d, %Y') }}{% else %}N/A{% endif %}
+                        </span>
+                    </div>
+
+                    <!-- Updated Date (if available) -->
+                    {% if podcast.updated_at %}
+                    <div class="flex items-center gap-2 text-sm">
+                        <svg class="w-4 h-4 text-slate-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                  d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                        </svg>
+                        <span class="text-slate-400 text-xs">
+                            Updated: {{ podcast.updated_at.strftime('%b %d, %Y') }}
+                        </span>
+                    </div>
+                    {% endif %}
+
+                    <!-- Total Duration (if available) -->
+                    {% if total_duration and total_duration > 0 %}
+                    <div class="flex items-center gap-2 text-sm">
+                        <svg class="w-4 h-4 text-slate-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                  d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                        <span class="text-slate-400 text-xs">Total: {{ format_duration(total_duration) }}</span>
+                    </div>
+                    {% endif %}
+
+                    <!-- Total Size (if available) -->
+                    {% if total_size and total_size > 0 %}
+                    <div class="flex items-center gap-2 text-sm">
+                        <svg class="w-4 h-4 text-slate-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                  d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4"></path>
+                        </svg>
+                        <span class="text-slate-400 text-xs">Size: {{ format_file_size(total_size) }}</span>
+                    </div>
+                    {% endif %}
+
+                    <!-- Last Published (if available) -->
+                    {% if last_published_at %}
+                    <div class="flex items-center gap-2 text-sm">
+                        <svg class="w-4 h-4 text-slate-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                  d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                        </svg>
+                        <span class="text-slate-400 text-xs">
+                            Last published: {{ last_published_at.strftime('%b %d, %Y') }}
+                        </span>
+                    </div>
+                    {% endif %}
+                </div>
+
+                <!-- Add Episode Button -->
+                <button onclick="openAddEpisodeModal()"
+                        class="mt-6 w-full px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition 
+                               flex items-center justify-center gap-2 font-medium">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                    </svg>
+                    Add Episode
+                </button>
             </div>
         </div>
 
@@ -144,65 +242,8 @@
                 </div>
             </form>
         </div>
-
-            <!-- Create New Episode Card -->
         </div>
     </div>
-    <div class="bg-slate-800 rounded-lg border border-slate-700 p-6 mb-6">
-                <h2 class="text-xl font-semibold text-white mb-4">Create new episode</h2>
-
-                <form id="create-episode-form" class="space-y-4">
-                    <div class="flex items-center gap-3">
-                        <div class="flex-1">
-                            <label for="episode-source-link" class="block text-sm font-medium text-slate-300 mb-2">
-                                Episode Source Link
-                            </label>
-                            <input type="text" id="episode-source-link" name="source_link"
-                                placeholder="Enter episode source link" class="w-full px-3 py-2 border border-slate-600 rounded-lg bg-slate-700 text-white placeholder-slate-400
-                                      focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent">
-                        </div>
-
-                        <!-- Action Buttons -->
-                        <div class="flex items-end gap-2 pt-6">
-                            <button type="button" onclick="handleEditEpisode()"
-                                class="p-2 bg-slate-700 hover:bg-slate-600 text-slate-300 rounded-lg transition"
-                                title="Edit">
-                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.3"
-                                        d="m14.304 4.844 2.852 2.852M7 7H4a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h11a1 1 0 0 0 1-1v-4.5m2.409-9.91a2.017 2.017 0 0 1 0 2.853l-6.844 6.844L8 14l.713-3.565 6.844-6.844a2.015 2.015 0 0 1 2.852 0Z">
-                                    </path>
-                                </svg>
-                            </button>
-                            <button type="button" onclick="handleAttachEpisode()"
-                                class="p-2 bg-slate-700 hover:bg-slate-600 text-slate-300 rounded-lg transition"
-                                title="Attach">
-                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                        d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.414a2 2 0 00-2.828-2.828L9 10.172 13.172 6l2 2z">
-                                    </path>
-                                </svg>
-                            </button>
-                        </div>
-                    </div>
-
-                    <!-- Auto Download Toggle -->
-                    <div class="flex items-center gap-3">
-                        <label for="auto-download" class="flex items-center cursor-pointer">
-                            <input type="checkbox" id="auto-download" name="auto_download" {% if
-                                podcast.download_automatically %}checked{% endif %} class="sr-only">
-                            <div class="relative">
-                                <div
-                                    class="block w-14 h-8 rounded-full {% if podcast.download_automatically %}bg-green-500{% else %}bg-slate-600{% endif %}">
-                                </div>
-                                <div class="dot absolute left-1 top-1 bg-white w-6 h-6 rounded-full transition
-                                            {% if podcast.download_automatically %}transform translate-x-6{% endif %}">
-                                </div>
-                            </div>
-                            <span class="ml-3 text-sm font-medium text-slate-300">Auto Download</span>
-                        </label>
-                    </div>
-                </form>
-            </div>
 
     <!-- Episodes Card -->
     <div class="bg-slate-800 rounded-lg border border-slate-700 p-6">
@@ -228,8 +269,7 @@
                 <!-- Episode Info -->
                 <div class="flex-1 min-w-0">
                     <h3 class="text-lg font-semibold text-white mb-2">{{ episode.title }}</h3>
-                    {% set episode_status = episode.status.value if hasattr(episode.status, 'value') else
-                    str(episode.status) %}
+                    {% set episode_status = episode.status %}
                     {% set status_colors = get_episode_status_color(episode_status) %}
                     <span
                         class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold 
@@ -257,6 +297,59 @@
         </div>
     </div>
 
+    <!-- Add Episode Modal -->
+    <div id="addEpisodeModal" class="fixed inset-0 bg-black/50 z-50 hidden items-center justify-center">
+        <div class="bg-slate-800 rounded-lg border border-slate-700 w-full max-w-md mx-4 shadow-xl">
+            <div class="p-6 border-b border-slate-700">
+                <div class="flex items-center justify-between">
+                    <h3 class="text-lg font-semibold text-white">Add New Episode</h3>
+                    <button onclick="closeAddEpisodeModal()" class="text-slate-400 hover:text-white transition">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12">
+                            </path>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+            <form class="p-6 space-y-4" onsubmit="handleAddEpisode(event)">
+                <div>
+                    <label for="modal-episode-source-link" class="block text-sm font-medium text-slate-300 mb-2">
+                        Episode Source Link
+                    </label>
+                    <input type="text" id="modal-episode-source-link" name="source_link" required
+                        placeholder="Enter episode source link"
+                        class="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-500">
+                </div>
+                
+                <!-- Auto Download Toggle -->
+                <div>
+                    <label for="modal-auto-download" class="flex items-center cursor-pointer">
+                        <input type="checkbox" id="modal-auto-download" name="auto_download" 
+                               {% if podcast.download_automatically %}checked{% endif %}
+                               class="sr-only">
+                        <div class="relative">
+                            <div class="block w-14 h-8 rounded-full {% if podcast.download_automatically %}bg-green-500{% else %}bg-slate-600{% endif %}"></div>
+                            <div class="dot absolute left-1 top-1 bg-white w-6 h-6 rounded-full transition 
+                                        {% if podcast.download_automatically %}transform translate-x-6{% endif %}"></div>
+                        </div>
+                        <span class="ml-3 text-sm font-medium text-slate-300">Auto Download</span>
+                    </label>
+                </div>
+
+                <div class="flex items-center justify-end gap-3 pt-4 border-t border-slate-700">
+                    <button type="button" onclick="closeAddEpisodeModal()"
+                        class="px-4 py-2 text-slate-300 hover:text-white transition">
+                        Cancel
+                    </button>
+                    <button type="submit"
+                        class="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition font-medium">
+                        Add Episode
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <script>
         // Copy RSS link to clipboard
         function copyRssLink() {
@@ -276,9 +369,50 @@
             }
         }
 
-        // Auto Download Toggle
-        document.getElementById('auto-download').addEventListener('change', function () {
-            const toggle = this;
+        // Add Episode Modal Functions
+        function openAddEpisodeModal() {
+            const modal = document.getElementById('addEpisodeModal');
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+            document.body.style.overflow = 'hidden';
+        }
+
+        function closeAddEpisodeModal() {
+            const modal = document.getElementById('addEpisodeModal');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+            document.body.style.overflow = '';
+
+            // Reset form
+            const form = modal.querySelector('form');
+            if (form) {
+                form.reset();
+                // Reset auto download toggle to default
+                const autoDownload = document.getElementById('modal-auto-download');
+                if (autoDownload) {
+                    autoDownload.checked = {% if podcast.download_automatically %}true{% else %}false{% endif %};
+                    updateAutoDownloadToggle(autoDownload);
+                }
+            }
+        }
+
+        function handleAddEpisode(event) {
+            event.preventDefault();
+            const formData = new FormData(event.target);
+            const data = {
+                source_link: formData.get('source_link'),
+                auto_download: formData.get('auto_download') === 'on',
+                podcast_id: {{ podcast.id }}
+            };
+
+            console.log('Adding episode:', data);
+            // TODO: Implement API call
+            alert('Episode will be added (API integration needed)');
+            closeAddEpisodeModal();
+        }
+
+        // Auto Download Toggle Handler (for modal)
+        function updateAutoDownloadToggle(toggle) {
             const dot = toggle.nextElementSibling.querySelector('.dot');
             const bg = toggle.nextElementSibling.querySelector('div');
 
@@ -291,7 +425,32 @@
                 bg.classList.add('bg-slate-600');
                 dot.classList.remove('transform', 'translate-x-6');
             }
+        }
+
+        // Modal Auto Download Toggle
+        const modalAutoDownload = document.getElementById('modal-auto-download');
+        if (modalAutoDownload) {
+            modalAutoDownload.addEventListener('change', function () {
+                updateAutoDownloadToggle(this);
+            });
+        }
+
+        // Close modal on Escape key
+        document.addEventListener('keydown', function (event) {
+            if (event.key === 'Escape') {
+                closeAddEpisodeModal();
+            }
         });
+
+        // Close modal on background click
+        const addEpisodeModal = document.getElementById('addEpisodeModal');
+        if (addEpisodeModal) {
+            addEpisodeModal.addEventListener('click', function (event) {
+                if (event.target === this) {
+                    closeAddEpisodeModal();
+                }
+            });
+        }
 
         // Update Podcast
         function handleUpdate() {
@@ -325,21 +484,6 @@
         }
         }
 
-        // Edit Episode
-        function handleEditEpisode() {
-            const sourceLink = document.getElementById('episode-source-link').value;
-            console.log('Edit episode with source:', sourceLink);
-            // TODO: Implement API call
-            alert('Edit episode functionality will be implemented');
-        }
-
-        // Attach Episode
-        function handleAttachEpisode() {
-            const sourceLink = document.getElementById('episode-source-link').value;
-            console.log('Attach episode with source:', sourceLink);
-            // TODO: Implement API call
-            alert('Attach episode functionality will be implemented');
-        }
 
         // Delete Episode
         function handleDeleteEpisode(episodeId) {
