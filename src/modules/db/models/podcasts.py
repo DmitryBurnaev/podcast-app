@@ -1,3 +1,4 @@
+import random
 import uuid
 from enum import Enum
 from hashlib import md5
@@ -218,7 +219,10 @@ class Episode(BaseModel):
     def image_url(self) -> str:
         """Provides saved or the default one of episode's cover image"""
         app_settings = get_app_settings()
-        url = "self.image.url" if "self.image" else None
+        images = ["default.jpg", "snake.png", "podcast-listen-later.jpg"]
+        image_name = random.choice(images)
+        return f"/static/images/{image_name}"
+        url = self.image.url if self.image else None
         return url or app_settings.default_episode_cover
 
     @property
