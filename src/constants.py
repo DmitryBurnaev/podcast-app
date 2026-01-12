@@ -6,17 +6,16 @@ from typing import NamedTuple
 
 class NavigationItem(NamedTuple):
     title: str
-    icon: str
     path: str
     slug: str
 
 
 NAVIGATION: tuple[NavigationItem, ...] = (
-    NavigationItem(title="Home", icon="🏠", path="/", slug="home"),
-    NavigationItem(title="Podcasts", icon="☰", path="/podcasts", slug="podcasts"),
-    NavigationItem(title="Episodes", icon="🎧", path="/episodes", slug="episodes"),
-    NavigationItem(title="My Profile", icon="👤", path="/profile", slug="profile"),
-    NavigationItem(title="About", icon="ℹ", path="/about", slug="about"),
+    NavigationItem(title="Home", path="/", slug="home"),
+    NavigationItem(title="Podcasts", path="/podcasts", slug="podcasts"),
+    NavigationItem(title="Episodes", path="/episodes", slug="episodes"),
+    NavigationItem(title="My Profile", path="/profile", slug="profile"),
+    NavigationItem(title="About", path="/about", slug="about"),
 )
 
 
@@ -108,8 +107,29 @@ def format_file_size(bytes_size: int) -> str:
         return f"{bytes_size / (1024 * 1024 * 1024):.2f} GB"
 
 
+def normalize_episode_status(status: str) -> str:
+    """Convert episode status enum value to normalized string format.
+    
+    Maps DB enum values (NEW, DOWNLOADING, PUBLISHED, ARCHIVED, ERROR) 
+    to template-friendly strings (pending, downloading, published, error).
+    """
+    status_str = str(status).upper()
+    mapping = {
+        "NEW": "pending",
+        "DOWNLOADING": "downloading",
+        "PUBLISHED": "published",
+        "ARCHIVED": "published",  # Archived episodes are treated as published
+        "ERROR": "error",
+        "CANCELING": "downloading",  # Canceling is shown as downloading
+    }
+    return mapping.get(status_str, "pending")
+
+
 def get_episode_status_color(status: str) -> dict:
     """Get color scheme for episode status badge."""
+    # Normalize status if it's an enum value
+    normalized_status = normalize_episode_status(status)
+    
     colors = {
         "published": {
             "bg": "bg-green-500/20",
@@ -132,18 +152,21 @@ def get_episode_status_color(status: str) -> dict:
             "border": "border-slate-500/30",
         },
     }
-    return colors.get(status, colors["pending"])
+    return colors.get(normalized_status, colors["pending"])
 
 
 def get_episode_status_label(status: str) -> str:
     """Get human-readable label for episode status."""
+    # Normalize status if it's an enum value
+    normalized_status = normalize_episode_status(status)
+    
     labels = {
         "published": "Published",
         "downloading": "Downloading",
         "error": "Error",
         "pending": "Pending",
     }
-    return labels.get(status, "Unknown")
+    return labels.get(normalized_status, "Unknown")
 
 
 def filter_episodes(episodes: list, filters: dict) -> list:
