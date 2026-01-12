@@ -89,6 +89,7 @@ class PodcastsDetailsController(BaseController):
                 "format_file_size": const.format_file_size,
                 "get_episode_status_color": const.get_episode_status_color,
                 "get_episode_status_label": const.get_episode_status_label,
+                "normalize_episode_status": const.normalize_episode_status,
             },
         )
 
