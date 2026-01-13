@@ -97,7 +97,7 @@ def simple_slugify(value: str) -> str:
     return value.lower().strip().replace(" ", "-")
 
 
-def cut_string(value: str, max_length: int = 128, placeholder: str = "...") -> str:
+def cut_string(value: str | None, max_length: int = 128, placeholder: str = "...") -> str:
     """
     Simple helper function to cut a string with placeholder
 
@@ -115,8 +115,11 @@ def cut_string(value: str, max_length: int = 128, placeholder: str = "...") -> s
     >>> cut_string("Hello, world!", max_length=5, placeholder="")
     'Hello'
 
+    >>> cut_string(None)
+    ''
+
     """
     if not value:
-        return value
+        return ""
 
     return value[:max_length] + placeholder if len(value) > max_length else value

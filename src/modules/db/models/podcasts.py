@@ -16,7 +16,7 @@ from src.exceptions import BaseApplicationError
 from src.modules.db.models.media import File
 from src.modules.db.models import BaseModel
 from src.settings.app import get_app_settings
-from src.utils import utcnow
+from src.utils import utcnow, cut_string
 
 
 class EpisodeStatus(str, Enum):
@@ -290,6 +290,10 @@ class Episode(BaseModel):
         #     _, ext = os.path.splitext(filename)
         #     filename = f"{self.source_id}_{suffix}{ext or '.mp3'}"
         # return "filename"
+
+    @property
+    def short_description(self) -> str:
+        return cut_string(self.description, max_length=150)
 
     @classmethod
     def generate_image_name(cls, source_id: str) -> str:
