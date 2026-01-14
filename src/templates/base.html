@@ -102,6 +102,7 @@
         <div class="flex flex-col flex-1 overflow-hidden">
             <!-- Top Navigation Bar -->
             <header class="bg-slate-800 border-b border-slate-700 px-6 py-4 flex items-center justify-between">
+                {% block search %}
                 <!-- Search -->
                 <div class="flex-1 max-w-lg">
                     <div class="relative">
@@ -111,11 +112,13 @@
                                     d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
                             </svg>
                         </div>
-                        <input type="text" placeholder="Search"
-                            class="block w-full pl-10 pr-3 py-2 border border-slate-600 rounded-lg bg-slate-700 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent">
+                        <label>
+                            <input type="text" placeholder="Search"
+                                class="block w-full pl-10 pr-3 py-2 border border-slate-600 rounded-lg bg-slate-700 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent">
+                        </label>
                     </div>
                 </div>
-
+                {% endblock %}
                 <!-- Right side: Notifications, User -->
                 <div class="flex items-center gap-4 ml-6">
                     <!-- Notifications -->
@@ -172,9 +175,15 @@
                     {% endblock %}
                 </div>
             </main>
+
+            {% block footer %}
+            {% endblock %}
         </div>
     </div>
 
+    {% block modals %}
+    <!-- modal windows place here -->
+    {% endblock %}
     <!-- Dropdown menu functionality -->
     <script>
         (function () {
@@ -205,6 +214,11 @@
             }
         })();
     </script>
+
+    {% block scripts %}
+    <!-- JS -->
+    {% endblock %}
+
     {% endblock %}
 </body>
 

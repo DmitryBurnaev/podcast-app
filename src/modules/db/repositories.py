@@ -21,7 +21,7 @@ from src.modules.db.models import BaseModel, User
 
 __all__ = ("UserRepository",)
 
-from src.modules.db.models.podcasts import Podcast
+from src.modules.db.models.podcasts import Podcast, Episode
 
 ModelT = TypeVar("ModelT", bound=BaseModel)
 logger = logging.getLogger(__name__)
@@ -157,4 +157,15 @@ class PodcastRepository(BaseRepository[Podcast]):
     async def get_by_id(self, id_: int) -> Podcast | None:
         """Get podcast by ID"""
         logger.debug("[DB] Getting podcast by ID: %s", id_)
+        return await self.first(id_)
+
+
+class EpisodeRepository(BaseRepository[Episode]):
+    """Podcast's repository."""
+
+    model = Episode
+
+    async def get_by_id(self, id_: int) -> Episode | None:
+        """Get podcast by ID"""
+        logger.debug("[DB] Getting episode by ID: %s", id_)
         return await self.first(id_)
