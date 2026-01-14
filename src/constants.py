@@ -21,6 +21,8 @@ NAVIGATION: tuple[NavigationItem, ...] = (
 
 def read_from_fixture(filename: str) -> list[dict[str, str]]:
     filepath = Path(os.path.dirname(__file__)).parent / ".local" / "fixtures" / filename
+    if not filepath.exists():
+        return []
     return json.loads(filepath.read_text())
 
 

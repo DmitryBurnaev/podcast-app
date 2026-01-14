@@ -4,7 +4,7 @@ from litestar.exceptions import NotFoundException
 
 from src import constants as const
 from src.modules.db import SASessionUOW
-from src.modules.db.repositories import PodcastRepository
+from src.modules.db.repositories import PodcastRepository, EpisodeRepository
 from src.modules.views.base import BaseController
 
 
@@ -85,11 +85,6 @@ class PodcastsDetailsController(BaseController):
                 "last_created_at": last_created_at,
                 "rss_url": rss_url,
                 "current": "podcasts",
-                "format_duration": const.format_duration,
-                "format_file_size": const.format_file_size,
-                "get_episode_status_color": const.get_episode_status_color,
-                "get_episode_status_label": const.get_episode_status_label,
-                "normalize_episode_status": const.normalize_episode_status,
             },
         )
 
@@ -107,22 +102,23 @@ class EpisodesController(BaseController):
             "search": query_params.get("search"),
         }
 
-        # Remove None values
-        filters = {k: v for k, v in filters.items() if v is not None}
-
-        # Apply filters
-        filtered_episodes = (
-            const.filter_episodes(const.EPISODES, filters) if filters else const.EPISODES
-        )
+        # # Remove None values
+        # filters = {k: v for k, v in filters.items() if v is not None}
+        #
+        # # Apply filters
+        # filtered_episodes = (
+        #     const.filter_episodes(const.EPISODES, filters) if filters else const.EPISODES
+        # )
+        async with SASessionUOW() as uow:
+            episodes_repository = EpisodeRepository(session=uow.session)
+            episodes = await episodes_repository.all()
 
         return self.get_response_template(
             template_name="episodes.html",
             context={
-                "episodes": filtered_episodes,
+                "episodes": episodes,
                 "podcasts": const.PODCASTS,
                 "filters": filters,
                 "current": "episodes",
-                "format_duration": const.format_duration,
-                "format_file_size": const.format_file_size,
             },
         )

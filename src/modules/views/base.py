@@ -29,6 +29,9 @@ class BaseController(Controller):
             },
             "get_episode_status_color": const.get_episode_status_color,
             "get_episode_status_label": const.get_episode_status_label,
+            "format_duration": const.format_duration,
+            "format_file_size": const.format_file_size,
+            "normalize_episode_status": const.normalize_episode_status,
         }
 
     @classmethod
