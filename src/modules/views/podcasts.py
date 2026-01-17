@@ -122,3 +122,42 @@ class EpisodesController(BaseController):
                 "current": "episodes",
             },
         )
+
+
+class EpisodeDetailsController(BaseController):
+    @get("/episodes/{episode_id:int}/")
+    async def get_detail(self, episode_id: int, request: Request) -> Template:
+        """Get episode detail page with edit form"""
+        async with SASessionUOW() as uow:
+            episode_repository = EpisodeRepository(session=uow.session)
+            episode = await episode_repository.get_by_id(episode_id)
+            if not episode:
+                raise NotFoundException(f"Episode with id {episode_id} not found")
+
+            # Get related podcast
+            podcast = episode.podcast
+
+            # Prepare audio URL
+            audio_url = None
+            if episode.audio:
+                audio_url = episode.audio.url if hasattr(episode.audio, "url") else None
+
+            # Prepare source URL (watch_url)
+            source_url = episode.watch_url
+
+            # Calculate episode size
+            episode_size = 0
+            if episode.audio and hasattr(episode.audio, "size") and episode.audio.size:
+                episode_size = episode.audio.size
+
+        return self.get_response_template(
+            template_name="episode_detail.html",
+            context={
+                "episode": episode,
+                "podcast": podcast,
+                "audio_url": audio_url,
+                "source_url": source_url,
+                "episode_size": episode_size,
+                "current": "episodes",
+            },
+        )
