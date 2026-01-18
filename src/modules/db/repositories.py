@@ -11,7 +11,7 @@ from typing import (
     cast,
 )
 
-from sqlalchemy import select, BinaryExpression, delete, Select, update, CursorResult
+from sqlalchemy import select, BinaryExpression, delete, Select, update, CursorResult, func
 from sqlalchemy.exc import NoResultFound
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql.elements import SQLCoreOperations
@@ -73,6 +73,41 @@ class BaseRepository(Generic[ModelT]):
         statement = self._prepare_statement(filters=filters)
         result = await self.session.execute(statement)
         return [row[0] for row in result.fetchall()]
+
+    async def get_all_paginated(
+        self, offset: int = 0, limit: int = 10, **filters: FilterT
+    ) -> tuple[list[ModelT], int]:
+        """Get paginated objects with optional filters.
+
+        Args:
+            offset: Number of items to skip
+            limit: Maximum number of items to return
+            **filters: Optional filters to apply
+
+        Returns:
+            Tuple of (objects list, total count)
+        """
+        logger.debug("[DB] Getting paginated %s (offset=%i, limit=%i)", self.model, offset, limit)
+
+        # Prepare base statement for count
+        count_filters = filters.copy()
+        count_filters_stmts: list[BinaryExpression[bool]] = []
+        if (ids := count_filters.pop("ids", None)) and isinstance(ids, list):
+            count_filters_stmts.append(self.model.id.in_(ids))
+
+        # Get total count
+        count_statement = select(func.count(self.model.id)).filter_by(**count_filters)
+        if count_filters_stmts:
+            count_statement = count_statement.filter(*count_filters_stmts)
+        total = await self.session.scalar(count_statement) or 0
+
+        # Get paginated releases
+        statement = self._prepare_statement(filters=filters)
+        objects = await self.session.scalars(
+            statement.order_by(self.model.created_at.desc()).offset(offset).limit(limit)
+        )
+
+        return list(objects.all()), total
 
     async def create(self, value: dict[str, Any]) -> ModelT:
         """Creates new instance"""
