@@ -16,7 +16,7 @@ from src.exceptions import BaseApplicationError
 from src.modules.db.models.media import File
 from src.modules.db.models import BaseModel
 from src.settings.app import get_app_settings
-from src.utils import utcnow, cut_string
+from src.utils import utcnow, cut_string, is_basic_emoji
 
 
 class EpisodeStatus(str, Enum):
@@ -105,12 +105,13 @@ class Podcast(BaseModel):
         return f"{self.publish_id}_{uuid.uuid4().hex}.png"
 
     @property
-    def icon(self) -> str | None:
+    def icon(self) -> str:
         """If 1st letter has emoji code, return it, otherwise return the first letter"""
-        if self.name[0].startswith(":"):
-            return self.name[0]
+        first_letter = self.name.strip()[0]
+        if is_basic_emoji(first_letter):
+            return first_letter
 
-        return None
+        return "🎧"
 
 
 @dataclass

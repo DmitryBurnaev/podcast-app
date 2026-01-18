@@ -166,19 +166,18 @@
             <div class="divide-y divide-slate-700">
                 {% if recent_episodes %}
                 {% for episode in recent_episodes %}
-                <div class="p-4 hover:bg-slate-700/50 transition cursor-pointer">
+
+                <a href="/episodes/{{ episode.id }}/"
+                   class="block p-4 hover:bg-slate-700/50 transition cursor-pointer">
                     <div class="flex items-start gap-3">
                         <div
                             class="flex-shrink-0 w-10 h-10 rounded-full bg-slate-700 flex items-center justify-center text-lg">
-                            {{ episode.icon }}
+                            {{ episode.podcast.icon }}
                         </div>
                         <div class="flex-1 min-w-0">
                             <p class="text-sm font-semibold text-white mb-1 line-clamp-2">{{ episode.title }}</p>
                             <p class="text-xs text-slate-400 mb-2">
-                                {% if episode.podcast %}
-                                {{ episode.podcast }} •
-                                {% endif %}
-                                2h ago
+                                {{ episode.podcast.name }} • {{ episode.created_at }}
                             </p>
                             {% if episode.status == "downloading" and episode.download_progress is defined %}
                             <div class="flex items-center gap-2">
@@ -199,7 +198,7 @@
                             </svg>
                         </div>
                     </div>
-                </div>
+                </a>
                 {% endfor %}
                 {% else %}
                 <div class="p-4 text-center">
