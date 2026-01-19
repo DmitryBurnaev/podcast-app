@@ -1,8 +1,4 @@
-{# TODO: use instead of copy-pasting in podcast and list views #}
-
-{% if episodes %}
-    {% for episode in episodes %}
-        <a href="/episodes/{{ episode.id }}/"
+<a href="/episodes/{{ episode.id }}/"
            class="block bg-slate-800 rounded-lg border border-slate-700 hover:border-slate-600 transition overflow-hidden cursor-pointer">
             <div class="p-4 flex items-start gap-4">
                 <!-- Episode Image/Icon -->
@@ -163,9 +159,3 @@
                 </div>
             </div>
         </a>
-    {% endfor %}
-{% else %}
-    <div class="bg-slate-800 rounded-lg border border-slate-700 p-8 text-center">
-        <p class="text-slate-400">No episodes available</p>
-    </div>
-{% endif %}
