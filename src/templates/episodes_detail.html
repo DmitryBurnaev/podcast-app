@@ -57,53 +57,57 @@
 
                 <!-- Audio Player -->
                 {% if audio_url %}
-                    <div class="mb-4">
-                        <div class="flex items-center gap-3 bg-slate-700 rounded-lg p-3">
-                            <button id="play-button" class="w-12 h-12 bg-green-600 hover:bg-green-700 rounded-full flex items-center justify-center transition">
-                                <svg id="play-icon" class="w-6 h-6 text-white ml-1" fill="currentColor" viewBox="0 0 24 24">
+                    <div class="mb-6">
+                        <!-- Player Controls -->
+                        <div class="flex flex-col items-center">
+                            <!-- Play/Pause Button (centered) -->
+                            <button id="play-button" 
+                                    class="w-16 h-16 bg-green-600 hover:bg-green-700 rounded-full flex items-center justify-center transition shadow-lg hover:shadow-green-600/50 mb-4">
+                                <svg id="play-icon" class="w-8 h-8 text-white ml-1" fill="currentColor" viewBox="0 0 24 24">
                                     <path d="M8 5v14l11-7z"></path>
                                 </svg>
-                                <svg id="pause-icon" class="w-6 h-6 text-white hidden" fill="currentColor" viewBox="0 0 24 24">
+                                <svg id="pause-icon" class="w-8 h-8 text-white hidden" fill="currentColor" viewBox="0 0 24 24">
                                     <path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z"></path>
                                 </svg>
                             </button>
-                            <div class="flex-1">
-                                <div class="text-xs text-slate-400 mb-1" id="time-display">00:00:00</div>
-                                <div class="w-full bg-slate-600 rounded-full h-1">
-                                    <div class="bg-green-600 h-1 rounded-full" id="progress-bar" style="width: 0%"></div>
-                                </div>
+
+                            <!-- Time Display -->
+                            <div class="text-2xl font-mono text-slate-200 mb-3" id="time-display">00:00:00</div>
+
+                            <!-- Progress Bar -->
+                            <div class="w-full bg-slate-600 rounded-full h-1.5 cursor-pointer mb-6" id="progress-container">
+                                <div class="bg-green-600 h-1.5 rounded-full transition-all" id="progress-bar" style="width: 0%"></div>
+                            </div>
+
+                            <!-- Duration and Size Info -->
+                            <div class="w-full flex items-center justify-center gap-6 text-sm">
+                                {% if episode.length %}
+                                    <div class="flex items-center gap-2">
+                                        <svg class="w-4 h-4 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                  d="M3 18v-6a9 9 0 0 1 18 0v6"></path>
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                  d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z">
+                                            </path>
+                                        </svg>
+                                        <span class="text-slate-300 font-medium">{{ format_duration(episode.length) }}</span>
+                                    </div>
+                                {% endif %}
+                                {% if episode_size and episode_size > 0 %}
+                                    <div class="flex items-center gap-2">
+                                        <svg class="w-4 h-4 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                  d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4">
+                                            </path>
+                                        </svg>
+                                        <span class="text-slate-300 font-medium">{{ format_file_size(episode_size) }}</span>
+                                    </div>
+                                {% endif %}
                             </div>
                         </div>
                         <audio id="episode-audio" src="{{ audio_url }}" preload="metadata"></audio>
                     </div>
                 {% endif %}
-
-                <!-- Episode Summary -->
-                <div class="space-y-2 mb-4">
-                    {% if episode.length %}
-                        <div class="flex items-center gap-2 text-sm">
-                            <svg class="w-4 h-4 text-slate-400 flex-shrink-0" fill="none"
-                                 stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                      d="M3 18v-6a9 9 0 0 1 18 0v6"></path>
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                      d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z">
-                                </path>
-                            </svg>
-                            <span class="text-slate-300">{{ format_duration(episode.length) }} Length</span>
-                        </div>
-                    {% endif %}
-                    {% if episode_size and episode_size > 0 %}
-                        <div class="flex items-center gap-2 text-sm">
-                            <svg class="w-4 h-4 text-slate-400 flex-shrink-0" fill="none"
-                                 stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                      d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
-                            </svg>
-                            <span class="text-slate-300">{{ format_file_size(episode_size) }} Size</span>
-                        </div>
-                    {% endif %}
-                </div>
 
                 <!-- Episode Details Section -->
                 <div class="space-y-3 mt-4 pt-4 border-t border-slate-700">
@@ -111,53 +115,59 @@
 
                     <!-- Created At -->
                     {% if episode.created_at %}
-                        <div class="flex items-center gap-2 text-sm">
-                            <svg class="w-4 h-4 text-slate-400 flex-shrink-0" fill="none"
+                        <div class="flex items-start gap-3 text-sm">
+                            <svg class="w-4 h-4 text-slate-400 flex-shrink-0 mt-0.5" fill="none"
                                  stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                       d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z">
                                 </path>
                             </svg>
-                            <span class="text-slate-400 text-xs">
-                                {{ episode.created_at.strftime('%b %d, %Y') }} (Created At)
-                            </span>
+                            <div class="flex-1">
+                                <div class="text-slate-500 text-xs mb-0.5">Created At</div>
+                                <div class="text-slate-300 text-sm">{{ episode.created_at.strftime('%b %d, %Y') }}</div>
+                            </div>
                         </div>
                     {% endif %}
 
                     <!-- Published At -->
                     {% if episode.published_at %}
-                        <div class="flex items-center gap-2 text-sm">
-                            <svg class="w-4 h-4 text-slate-400 flex-shrink-0" fill="none"
+                        <div class="flex items-start gap-3 text-sm">
+                            <svg class="w-4 h-4 text-slate-400 flex-shrink-0 mt-0.5" fill="none"
                                  stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                       d="M13 10V3L4 14h7v7l9-11h-7z">
                                 </path>
                             </svg>
-                            <span class="text-slate-400 text-xs">
-                                {{ episode.published_at.strftime('%b %d, %Y') }} (Published At)
-                            </span>
+                            <div class="flex-1">
+                                <div class="text-slate-500 text-xs mb-0.5">Published At</div>
+                                <div class="text-slate-300 text-sm">{{ episode.published_at.strftime('%b %d, %Y') }}</div>
+                            </div>
                         </div>
                     {% endif %}
 
                     <!-- Media URL -->
                     {% if audio_url %}
-                        <div class="flex items-center gap-2 text-sm">
-                            <svg class="w-4 h-4 text-slate-400 flex-shrink-0" fill="none"
+                        <div class="flex items-start gap-3 text-sm">
+                            <svg class="w-4 h-4 text-slate-400 flex-shrink-0 mt-0.5" fill="none"
                                  stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                       d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3">
                                 </path>
                             </svg>
-                            <a href="{{ audio_url }}" target="_blank" class="text-slate-400 text-xs hover:text-white transition truncate">
-                                Media URL
-                            </a>
+                            <div class="flex-1">
+                                <div class="text-slate-500 text-xs mb-0.5">Media URL</div>
+                                <a href="{{ audio_url }}" target="_blank" 
+                                   class="text-slate-300 text-sm hover:text-white transition truncate block">
+                                    {{ audio_url|truncate(50, true) }}
+                                </a>
+                            </div>
                         </div>
                     {% endif %}
 
                     <!-- Source URL -->
                     {% if source_url %}
-                        <div class="flex items-center gap-2 text-sm">
-                            <svg class="w-4 h-4 text-slate-400 flex-shrink-0" fill="none"
+                        <div class="flex items-start gap-3 text-sm">
+                            <svg class="w-4 h-4 text-slate-400 flex-shrink-0 mt-0.5" fill="none"
                                  stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                       d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z">
@@ -166,9 +176,13 @@
                                       d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z">
                                 </path>
                             </svg>
-                            <a href="{{ source_url }}" target="_blank" class="text-slate-400 text-xs hover:text-white transition truncate">
-                                Source URL
-                            </a>
+                            <div class="flex-1">
+                                <div class="text-slate-500 text-xs mb-0.5">Source URL</div>
+                                <a href="{{ source_url }}" target="_blank" 
+                                   class="text-slate-300 text-sm hover:text-white transition truncate block">
+                                    {{ source_url|truncate(50, true) }}
+                                </a>
+                            </div>
                         </div>
                     {% endif %}
                 </div>
@@ -260,6 +274,7 @@
             const pauseIcon = document.getElementById('pause-icon');
             const timeDisplay = document.getElementById('time-display');
             const progressBar = document.getElementById('progress-bar');
+            const progressContainer = document.getElementById('progress-container');
 
             if (!audio || !playButton) return;
 
@@ -293,10 +308,28 @@
                 }
             });
 
+            // Seek on progress bar click
+            progressContainer.addEventListener('click', function(e) {
+                if (audio.duration) {
+                    const rect = progressContainer.getBoundingClientRect();
+                    const percent = (e.clientX - rect.left) / rect.width;
+                    audio.currentTime = percent * audio.duration;
+                }
+            });
+
             // Update progress on timeupdate
             audio.addEventListener('timeupdate', updateProgress);
+            
+            // Initialize time display with total duration
             audio.addEventListener('loadedmetadata', function() {
-                timeDisplay.textContent = formatTime(audio.duration);
+                timeDisplay.textContent = formatTime(0);
+            });
+
+            // Reset play button when audio ends
+            audio.addEventListener('ended', function() {
+                playIcon.classList.remove('hidden');
+                pauseIcon.classList.add('hidden');
+                audio.currentTime = 0;
             });
         })();
         {% endif %}
