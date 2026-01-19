@@ -151,7 +151,7 @@ class EpisodeDetailsController(BaseController):
                 episode_size = episode.audio.size
 
         return self.get_response_template(
-            template_name="episode_detail.html",
+            template_name="episodes_detail.html",
             context={
                 "episode": episode,
                 "podcast": podcast,
