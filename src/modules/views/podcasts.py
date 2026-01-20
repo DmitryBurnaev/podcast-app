@@ -6,6 +6,7 @@ from src import constants as const
 from src.modules.db import SASessionUOW
 from src.modules.db.repositories import PodcastRepository, EpisodeRepository
 from src.modules.views.base import BaseController
+from src.utils import cut_string
 
 
 class PodcastsController(BaseController):
@@ -22,6 +23,7 @@ class PodcastsController(BaseController):
                 "current": "podcasts",
                 "format_duration": const.format_duration,
                 "format_file_size": const.format_file_size,
+                "title": "Podcasts",
             },
         )
 
@@ -85,6 +87,7 @@ class PodcastsDetailsController(BaseController):
                 "last_created_at": last_created_at,
                 "rss_url": rss_url,
                 "current": "podcasts",
+                "title": cut_string(podcast.name, max_length=32),
             },
         )
 
@@ -120,6 +123,7 @@ class EpisodesController(BaseController):
                 "podcasts": const.PODCASTS,
                 "filters": filters,
                 "current": "episodes",
+                "title": "episodes",
             },
         )
 
@@ -159,5 +163,6 @@ class EpisodeDetailsController(BaseController):
                 "source_url": source_url,
                 "episode_size": episode_size,
                 "current": "episodes",
+                "title": cut_string(episode.title, max_length=32),
             },
         )

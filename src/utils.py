@@ -129,8 +129,9 @@ def cut_string(value: str | None, max_length: int = 128, placeholder: str = "...
 def is_basic_emoji(char: str) -> bool:
     try:
         # Check if the character's Unicode name contains 'EMOJI' or 'PICTOGRAM'
-        name = unicodedata.name(char)
-        return "EMOJI" in name or "PICTOGRAM" in name
+        # name = unicodedata.name(char)
+        # print(char, name, unicodedata.category(char), sep=" | ")
+        return unicodedata.category(char).lower() == "so"
     except ValueError:
         # Handles cases where a single char from a sequence has no name
         return False

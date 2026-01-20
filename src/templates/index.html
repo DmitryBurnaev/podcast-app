@@ -177,7 +177,7 @@
                         <div class="flex-1 min-w-0">
                             <p class="text-sm font-semibold text-white mb-1 line-clamp-2">{{ episode.title }}</p>
                             <p class="text-xs text-slate-400 mb-2">
-                                {{ episode.podcast.name }} • {{ episode.created_at }}
+                                {{ episode.podcast.name }} • {{ episode.created_at.strftime('%d %b, %Y %H:%M') }}
                             </p>
                             {% if episode.status == "downloading" and episode.download_progress is defined %}
                             <div class="flex items-center gap-2">
