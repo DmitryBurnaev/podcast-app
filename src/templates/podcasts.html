@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "snippets/icons.html" import clock, database, calendar, download, trash, edit, plus %}
 {% block content %}
     <!-- Podcasts List -->
     <div class="space-y-4">
@@ -35,15 +36,13 @@
                                 <div class="flex items-center gap-4 flex-wrap text-xs text-slate-500">
                                     {% if podcast.duration %}
                                         <div class="flex items-center gap-1">
-                                            <img src="/static/images/icons/clock.svg" alt="Duration"
-                                                 class="w-4 h-4">
+                                            {{ clock() }}
                                             <span>{{ format_duration(podcast.duration) }}</span>
                                         </div>
                                     {% endif %}
                                     {% if podcast.total_file_size %}
                                         <div class="flex items-center gap-1">
-                                            <img src="/static/images/icons/database.svg" alt="Size"
-                                                 class="w-4 h-4">
+                                            {{ database() }}
                                             <span>{{ format_file_size(podcast.total_file_size) }}</span>
                                         </div>
                                     {% endif %}
@@ -53,16 +52,14 @@
                                             {% if podcast.last_publication_date %}
                                                 <div class="flex items-center gap-1"
                                                      title="Publication date">
-                                                    <img src="/static/images/icons/calendar.svg" alt="Publication date"
-                                                         class="w-4 h-4">
+                                                    {{ calendar() }}
                                                     <span>{{ podcast.last_publication_date }}</span>
                                                 </div>
                                             {% endif %}
                                             {% if podcast.last_download_date %}
                                                 <div class="flex items-center gap-1"
                                                      title="Download date">
-                                                    <img src="/static/images/icons/download.svg" alt="Download date"
-                                                         class="w-4 h-4">
+                                                    {{ download() }}
                                                     <span>{{ podcast.last_download_date }}</span>
                                                 </div>
                                             {% endif %}
@@ -80,13 +77,13 @@
                                             onclick="event.preventDefault(); event.stopPropagation(); handleDelete({{ loop.index0 }})"
                                             class="p-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition"
                                             title="Delete">
-                                        <img src="/static/images/icons/trash.svg" alt="Delete" class="w-4 h-4">
+                                        {{ trash() }}
                                     </button>
                                     <button
                                             onclick="event.preventDefault(); event.stopPropagation(); handleUpdate({{ loop.index0 }})"
                                             class="p-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition"
                                             title="Update">
-                                        <img src="/static/images/icons/edit.svg" alt="Update" class="w-4 h-4">
+                                        {{ edit() }}
                                     </button>
 
                                 </div>
@@ -102,7 +99,7 @@
             <div class="p-4 flex items-start gap-4">
                 <div class="flex-shrink-0">
                     <div class="w-16 h-16 rounded-lg bg-slate-700 flex items-center justify-center">
-                        <img src="/static/images/icons/plus.svg" alt="Add" class="w-8 h-8">
+                        {{ plus("w-8 h-8 text-slate-400") }}
                     </div>
                 </div>
                 <div class="flex-1 min-w-0">

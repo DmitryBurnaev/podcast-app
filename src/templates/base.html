@@ -1,3 +1,4 @@
+{% from "snippets/icons.html" import music, home, headphones, list, user, info, settings, search, bell, chevron_down %}
 <!DOCTYPE html>
 <html lang="en">
 
@@ -22,7 +23,7 @@
             <a href="/" class="block p-6 flex items-center gap-3">
                 <div
                     class="w-8 h-8 rounded-lg bg-gradient-to-br from-purple-500 to-purple-600 flex items-center justify-center">
-                    <img src="/static/images/icons/music.svg" alt="Music" class="w-5 h-5">
+                    {{ music("w-5 h-5 text-white") }}
                 </div>
                 <h1 class="text-xl font-bold text-white">Podcasts</h1>
             </a>
@@ -33,20 +34,15 @@
                 <a href="{{ link.path }}"
                     class="px-3 py-2 rounded-lg {% if link.slug == current %} bg-slate-700 text-white {% else %} text-slate-300 hover:bg-slate-700 hover:text-white {% endif %} transition flex items-center gap-3">
                     {% if link.slug == 'home' %}
-                    <!-- Home icon -->
-                    <img src="/static/images/icons/home.svg" alt="Home" class="w-5 h-5">
+                    {{ home() }}
                     {% elif link.slug == 'episodes' %}
-                    <!-- Episodes icon - headphones -->
-                    <img src="/static/images/icons/headphones.svg" alt="Episodes" class="w-5 h-5">
+                    {{ headphones() }}
                     {% elif link.slug == 'podcasts' %}
-                    <!-- Podcasts icon -->
-                    <img src="/static/images/icons/list.svg" alt="Podcasts" class="w-5 h-5">
+                    {{ list() }}
                     {% elif link.slug == 'profile' %}
-                    <!-- Profile icon -->
-                    <img src="/static/images/icons/user.svg" alt="Profile" class="w-5 h-5">
+                    {{ user() }}
                     {% elif link.slug == 'about' %}
-                    <!-- About icon -->
-                    <img src="/static/images/icons/info.svg" alt="About" class="w-5 h-5">
+                    {{ info() }}
                     {% endif %}
                     <span class="text-sm font-medium">{{ link.title }}</span>
                 </a>
@@ -57,7 +53,7 @@
             <div class="border-t border-slate-700 px-3 py-4">
                 <a href="#"
                     class="px-3 py-2 rounded-lg text-slate-300 hover:bg-slate-700 hover:text-white transition flex items-center gap-3">
-                    <img src="/static/images/icons/settings.svg" alt="Settings" class="w-5 h-5">
+                    {{ settings() }}
                     <span class="text-sm font-medium">Settings</span>
                 </a>
             </div>
@@ -72,7 +68,7 @@
                 <div class="flex-1 max-w-lg">
                     <div class="relative">
                         <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                            <img src="/static/images/icons/search.svg" alt="Search" class="h-5 w-5">
+                            {{ search() }}
                         </div>
                         <label>
                             <input type="text" placeholder="Search"
@@ -85,7 +81,7 @@
                 <div class="flex items-center gap-4 ml-6">
                     <!-- Notifications -->
                     <button class="p-2 text-slate-300 hover:text-white hover:bg-slate-700 rounded-lg transition">
-                        <img src="/static/images/icons/bell.svg" alt="Notifications" class="w-6 h-6">
+                        {{ bell() }}
                     </button>
 
                     <!-- Separator -->
@@ -102,7 +98,7 @@
                             </div>
                             <span class="text-sm font-medium">{{ user_data.name if user_data and user_data.name else
                                 'User' }}</span>
-                            <img src="/static/images/icons/chevron-down.svg" alt="Dropdown" class="w-4 h-4">
+                            {{ chevron_down() }}
                         </button>
 
                         <!-- Dropdown Menu -->
