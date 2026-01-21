@@ -1,10 +1,11 @@
 {% extends "base.html" %}
+{% from "snippets/icons.html" import chevron_right, music, download, calendar, refresh, clock, database, plus, edit, trash, copy, external_link, close %}
 {% block content %}
     <!-- Breadcrumbs -->
     <div class="mb-6">
         <nav class="flex items-center gap-2 text-sm text-slate-400">
             <a href="/" class="hover:text-white transition">Home</a>
-            <img src="/static/images/icons/chevron-right.svg" alt="Breadcrumb" class="w-4 h-4">
+            {{ chevron_right() }}
             <span class="text-slate-300 font-medium">{{ podcast.name }}</span>
         </nav>
     </div>
@@ -55,15 +56,13 @@
                 <div class="space-y-3 mt-4 pt-4 border-t border-slate-700">
                     <!-- Episodes Count -->
                     <div class="flex items-center gap-2 text-sm">
-                        <img src="/static/images/icons/music.svg" alt="Episodes"
-                             class="w-4 h-4 flex-shrink-0">
+                        {{ music("w-4 h-4 text-slate-400 flex-shrink-0") }}
                         <span class="text-slate-300 font-medium">{{ episodes_count }} Episodes</span>
                     </div>
 
                     <!-- Auto Download Status -->
                     <div class="flex items-center gap-2 text-sm">
-                        <img src="/static/images/icons/download.svg" alt="Auto Download"
-                             class="w-4 h-4 flex-shrink-0">
+                        {{ download("w-4 h-4 text-slate-400 flex-shrink-0") }}
                         <span class="text-slate-300">Auto Download:</span>
                         <span
                                 class="{% if podcast.download_automatically %}text-green-400{% else %}text-slate-500{% endif %} font-medium">
@@ -73,8 +72,7 @@
 
                     <!-- Created Date -->
                     <div class="flex items-center gap-2 text-sm">
-                        <img src="/static/images/icons/calendar.svg" alt="Created Date"
-                             class="w-4 h-4 flex-shrink-0">
+                        {{ calendar("w-4 h-4 text-slate-400 flex-shrink-0") }}
                         <span class="text-slate-400 text-xs">
                         Created: {% if podcast.created_at %}
                             {{ podcast.created_at.strftime('%b %d, %Y') }}{% else %}N/A{% endif %}
@@ -84,8 +82,7 @@
                     <!-- Updated Date (if available) -->
                     {% if podcast.updated_at %}
                         <div class="flex items-center gap-2 text-sm">
-                            <img src="/static/images/icons/refresh.svg" alt="Updated Date"
-                                 class="w-4 h-4 flex-shrink-0">
+                            {{ refresh("w-4 h-4 text-slate-400 flex-shrink-0") }}
                             <span class="text-slate-400 text-xs">
                                 Updated: {{ podcast.updated_at.strftime('%b %d, %Y') }}
                             </span>
@@ -95,8 +92,7 @@
                     <!-- Total Duration (if available) -->
                     {% if total_duration and total_duration > 0 %}
                         <div class="flex items-center gap-2 text-sm">
-                            <img src="/static/images/icons/clock.svg" alt="Total Duration"
-                                 class="w-4 h-4 flex-shrink-0">
+                            {{ clock("w-4 h-4 text-slate-400 flex-shrink-0") }}
                             <span class="text-slate-400 text-xs">Total: {{ format_duration(total_duration) }}</span>
                         </div>
                     {% endif %}
@@ -104,8 +100,7 @@
                     <!-- Total Size (if available) -->
                     {% if total_size and total_size > 0 %}
                         <div class="flex items-center gap-2 text-sm">
-                            <img src="/static/images/icons/database.svg" alt="Total Size"
-                                 class="w-4 h-4 flex-shrink-0">
+                            {{ database("w-4 h-4 text-slate-400 flex-shrink-0") }}
                             <span class="text-slate-400 text-xs">Size: {{ format_file_size(total_size) }}</span>
                         </div>
                     {% endif %}
@@ -113,8 +108,7 @@
                     <!-- Last Published (if available) -->
                     {% if last_published_at %}
                         <div class="flex items-center gap-2 text-sm">
-                            <img src="/static/images/icons/calendar.svg" alt="Last Published"
-                                 class="w-4 h-4 flex-shrink-0">
+                            {{ calendar("w-4 h-4 text-slate-400 flex-shrink-0") }}
                             <span class="text-slate-400 text-xs">
                         Last published: {{ last_published_at.strftime('%b %d, %Y') }}
                     </span>
@@ -126,7 +120,7 @@
                 <div class="mt-auto pt-4 border-t border-slate-700">
                     <button onclick="openAddEpisodeModal()" class="w-full px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition
                                    flex items-center justify-center gap-2 font-medium">
-                        <img src="/static/images/icons/plus.svg" alt="Add" class="w-5 h-5">
+                        {{ plus() }}
                         Add Episode
                     </button>
                 </div>
@@ -177,12 +171,12 @@
                                 <button type="button" onclick="copyRssLink()"
                                         class="p-2 bg-slate-700 hover:bg-slate-600 text-slate-300 rounded-lg transition"
                                         title="Copy RSS link">
-                                    <img src="/static/images/icons/copy.svg" alt="Copy" class="w-5 h-5">
+                                    {{ copy() }}
                                 </button>
                                 <a href="{{ rss_url }}" target="_blank"
                                    class="p-2 bg-slate-700 hover:bg-slate-600 text-slate-300 rounded-lg transition"
                                    title="Open RSS link">
-                                    <img src="/static/images/icons/external-link.svg" alt="Open" class="w-5 h-5">
+                                    {{ external_link() }}
                                 </a>
                             {% endif %}
                         </div>
@@ -201,18 +195,18 @@
                     <div class="flex items-center gap-3 pt-4 border-t border-slate-700 mt-auto">
                         <button type="button" onclick="handleUpdate()" class="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition
                                        flex items-center gap-2">
-                            <img src="/static/images/icons/edit.svg" alt="Update" class="w-4 h-4">
+                            {{ edit() }}
                             Update
                         </button>
                         <button type="button" onclick="handleRegenerateRss()" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition
                                        flex items-center gap-2">
-                            <img src="/static/images/icons/refresh.svg" alt="Regenerate" class="w-4 h-4">
+                            {{ refresh() }}
                             Regenerate RSS
                         </button>
                         <button type="button" onclick="handleDelete()"
                                 class="p-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition ml-auto"
                                 title="Delete podcast">
-                            <img src="/static/images/icons/trash.svg" alt="Delete" class="w-5 h-5">
+                            {{ trash("w-5 h-5") }}
                         </button>
                     </div>
                 </form>
@@ -243,7 +237,7 @@
                     <h3 class="text-lg font-semibold text-white">Add New Episode</h3>
                     <button onclick="closeAddEpisodeModal()"
                             class="text-slate-400 hover:text-white transition">
-                        <img src="/static/images/icons/close.svg" alt="Close" class="w-5 h-5">
+                        {{ close() }}
                     </button>
                 </div>
             </div>

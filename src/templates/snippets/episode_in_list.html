@@ -1,3 +1,4 @@
+{% from "snippets/icons.html" import clock, database, calendar, download, refresh, trash %}
 <a href="/episodes/{{ episode.id }}/"
            class="block bg-slate-800 rounded-lg border border-slate-700 hover:border-slate-600 transition overflow-hidden cursor-pointer">
             <div class="p-4 flex items-start gap-4">
@@ -25,15 +26,13 @@
                             <div class="flex items-center gap-4 flex-wrap text-xs text-slate-500">
                                 {% if episode.length %}
                                     <div class="flex items-center gap-1">
-                                        <img src="/static/images/icons/clock.svg" alt="Duration"
-                                             class="w-4 h-4">
+                                        {{ clock() }}
                                         <span>{{ format_duration(episode.length) }}</span>
                                     </div>
                                 {% endif %}
                                 {% if episode.audio and episode.audio.size %}
                                     <div class="flex items-center gap-1">
-                                        <img src="/static/images/icons/database.svg" alt="Size"
-                                             class="w-4 h-4">
+                                        {{ database() }}
                                         <span>{{ format_file_size(episode.audio.size) }}</span>
                                     </div>
                                 {% endif %}
@@ -42,16 +41,14 @@
                                         {% if episode.published_at %}
                                             <div class="flex items-center gap-1"
                                                  title="Publication date">
-                                                <img src="/static/images/icons/calendar.svg" alt="Publication date"
-                                                     class="w-4 h-4">
+                                                {{ calendar() }}
                                                 <span>{{ episode.published_at.strftime('%b %d, %Y') }}</span>
                                             </div>
                                         {% endif %}
                                         {% if episode.created_at %}
                                             <div class="flex items-center gap-1"
                                                  title="Created date">
-                                                <img src="/static/images/icons/download.svg" alt="Created date"
-                                                     class="w-4 h-4">
+                                                {{ download() }}
                                                 <span>{{ episode.created_at.strftime('%b %d, %Y') }}</span>
                                             </div>
                                         {% endif %}
@@ -97,20 +94,20 @@
                                             onclick="event.preventDefault(); event.stopPropagation(); handleDownloadEpisode({{ episode.id }})"
                                             class="p-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition"
                                             title="Download">
-                                        <img src="/static/images/icons/download.svg" alt="Download" class="w-4 h-4">
+                                        {{ download() }}
                                     </button>
                                 {% endif %}
                                 <button
                                         onclick="event.preventDefault(); event.stopPropagation(); handleUpdateEpisode({{ episode.id }})"
                                         class="p-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition"
                                         title="Update">
-                                    <img src="/static/images/icons/refresh.svg" alt="Update" class="w-4 h-4">
+                                    {{ refresh() }}
                                 </button>
                                 <button
                                         onclick="event.preventDefault(); event.stopPropagation(); handleDeleteEpisode({{ episode.id }})"
                                         class="p-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition"
                                         title="Delete">
-                                    <img src="/static/images/icons/trash.svg" alt="Delete" class="w-4 h-4">
+                                    {{ trash() }}
                                 </button>
                             </div>
                         </div>
