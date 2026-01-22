@@ -34,7 +34,7 @@ class PodcastsDetailsController(BaseController):
         """Get podcast detail page with episodes list"""
         async with SASessionUOW() as uow:
             podcast_repository = PodcastRepository(session=uow.session)
-            podcast = await podcast_repository.get_by_id(podcast_id)
+            podcast = await podcast_repository.first(podcast_id)
             if not podcast:
                 raise NotFoundException(f"Podcast with id {podcast_id} not found")
 
@@ -99,9 +99,9 @@ class EpisodesController(BaseController):
         query_params = request.query_params
         filters = {
             "status": query_params.get("status"),
-            "size_min": query_params.get("size_min"),
-            "size_max": query_params.get("size_max"),
-            "podcast": query_params.get("podcast"),
+            # "audio__size__gte": query_params.get("size_min"),
+            # "audio__size__lte": query_params.get("size_max"),
+            # "podcast__name": query_params.get("podcast"),
             "search": query_params.get("search"),
         }
 
@@ -114,7 +114,7 @@ class EpisodesController(BaseController):
         # )
         async with SASessionUOW() as uow:
             episodes_repository = EpisodeRepository(session=uow.session)
-            episodes = await episodes_repository.all()
+            episodes = await episodes_repository.all(filters)
 
         return self.get_response_template(
             template_name="episodes.html",
@@ -134,7 +134,7 @@ class EpisodeDetailsController(BaseController):
         """Get episode detail page with edit form"""
         async with SASessionUOW() as uow:
             episode_repository = EpisodeRepository(session=uow.session)
-            episode = await episode_repository.get_by_id(episode_id)
+            episode = await episode_repository.first(episode_id)
             if not episode:
                 raise NotFoundException(f"Episode with id {episode_id} not found")
 

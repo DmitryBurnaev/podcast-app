@@ -1,8 +1,9 @@
+import enum
 import random
 import uuid
 from enum import Enum
 from hashlib import md5
-from typing import NamedTuple, TYPE_CHECKING
+from typing import NamedTuple
 from functools import cached_property
 from datetime import datetime, timedelta
 from dataclasses import asdict, dataclass
@@ -19,8 +20,19 @@ from src.settings.app import get_app_settings
 from src.utils import utcnow, cut_string, is_basic_emoji
 
 
-class EpisodeStatus(str, Enum):
+class StringEnumMixin:
+    __enum_name__: ClassVar[str] = NotImplemented
+    __members__: MappingProxyType = NotImplemented
+
+    @classmethod
+    def members(cls) -> list[str]:
+        return [str(status) for status in cls.__members__]
+
+
+class EpisodeStatus(StringEnumMixin, enum.StrEnum):
     """Episode status enumeration"""
+
+    __enum_name__ = "episode_status"
 
     NEW = "NEW"
     DOWNLOADING = "DOWNLOADING"
@@ -188,7 +200,9 @@ class Episode(BaseModel):
     )  # JSON list of `EpisodeChapter`
     author: Mapped[str | None] = mapped_column(sa.String(length=256), nullable=True)
     status: Mapped[EpisodeStatus] = mapped_column(
-        sa.Enum(EpisodeStatus), default=EpisodeStatus.NEW, nullable=False
+        sa.Enum(EpisodeStatus, name=EpisodeStatus.__enum_name__),
+        default=EpisodeStatus.NEW,
+        nullable=False,
     )
     created_at: Mapped[datetime] = mapped_column(
         sa.DateTime(timezone=True), default=utcnow, nullable=False

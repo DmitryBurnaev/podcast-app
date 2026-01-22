@@ -11,17 +11,17 @@ from typing import (
     cast,
 )
 
-from sqlalchemy import select, BinaryExpression, delete, Select, update, CursorResult, func
+from sqlalchemy import select, BinaryExpression, delete, Select, update, CursorResult, func, or_
 from sqlalchemy.exc import NoResultFound
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql.elements import SQLCoreOperations
 from sqlalchemy.sql.roles import ColumnsClauseRole
 
-from src.modules.db.models import BaseModel, User
+from src.modules.db.models import BaseModel, User, File
+from src.modules.db.models.podcasts import Podcast, Episode
 
 __all__ = ("UserRepository",)
 
-from src.modules.db.models.podcasts import Podcast, Episode
 
 ModelT = TypeVar("ModelT", bound=BaseModel)
 logger = logging.getLogger(__name__)
@@ -74,7 +74,7 @@ class BaseRepository(Generic[ModelT]):
         result = await self.session.execute(statement)
         return [row[0] for row in result.fetchall()]
 
-    async def get_all_paginated(
+    async def all_paginated(
         self, offset: int = 0, limit: int = 10, **filters: FilterT
     ) -> tuple[list[ModelT], int]:
         """Get paginated objects with optional filters.
@@ -99,6 +99,7 @@ class BaseRepository(Generic[ModelT]):
         count_statement = select(func.count(self.model.id)).filter_by(**count_filters)
         if count_filters_stmts:
             count_statement = count_statement.filter(*count_filters_stmts)
+
         total = await self.session.scalar(count_statement) or 0
 
         # Get paginated releases
@@ -189,18 +190,30 @@ class PodcastRepository(BaseRepository[Podcast]):
 
     model = Podcast
 
-    async def get_by_id(self, id_: int) -> Podcast | None:
-        """Get podcast by ID"""
-        logger.debug("[DB] Getting podcast by ID: %s", id_)
-        return await self.first(id_)
-
 
 class EpisodeRepository(BaseRepository[Episode]):
     """Podcast's repository."""
 
     model = Episode
 
-    async def get_by_id(self, id_: int) -> Episode | None:
-        """Get podcast by ID"""
-        logger.debug("[DB] Getting episode by ID: %s", id_)
-        return await self.first(id_)
+    async def all(self, filters: dict[str, FilterT]) -> list[Episode]:
+        """Get all episodes, but with extended filters' logic"""
+        logger.debug("[DB] Getting all episodes: %s", filters)
+        custom_filters: dict[str, FilterT] = {}
+        filters_stmts: list[BinaryExpression[bool]] = []
+
+        statement = select(self.model).join(File, Episode.audio_id == File.id)
+        if filters.get("search"):
+            statement = statement.filter(
+                or_(
+                    Episode.title.ilike(f"%{filters['search']}%"),
+                    Episode.description.ilike(f"%{filters['search']}%"),
+                )
+            )
+
+        if statuses_str := filters.get("status"):
+            statuses: list[str] = [st.upper() for st in statuses_str.split(",")]
+            statement = statement.filter(Episode.status.in_(statuses))
+
+        result = await self.session.execute(statement)
+        return [row[0] for row in result.fetchall()]

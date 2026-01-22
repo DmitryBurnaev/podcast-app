@@ -16,4 +16,3 @@ class ProfileController(BaseController):
                 "current_user": "Test User",
             },
         )
-

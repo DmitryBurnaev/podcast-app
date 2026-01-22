@@ -16,7 +16,7 @@ class IndexController(BaseController):
             podcast_repository = PodcastRepository(session=uow.session)
             podcasts = await podcast_repository.all(owner_id=1)
             episodes_repository = EpisodeRepository(session=uow.session)
-            recent_episodes, _ = await episodes_repository.get_all_paginated(owner_id=1, limit=5)
+            recent_episodes, _ = await episodes_repository.all_paginated(owner_id=1, limit=5)
 
         return self.get_response_template(
             template_name="index.html",

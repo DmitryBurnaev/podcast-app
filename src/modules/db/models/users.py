@@ -2,7 +2,6 @@ import logging
 from datetime import datetime
 
 import sqlalchemy as sa
-from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Mapped, mapped_column
 
 from src.modules.auth.hashers import PBKDF2PasswordHasher

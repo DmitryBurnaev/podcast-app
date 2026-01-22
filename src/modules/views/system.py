@@ -17,4 +17,3 @@ class AboutController(BaseController):
                 "version": settings.app_version,
             },
         )
-
