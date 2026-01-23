@@ -95,32 +95,34 @@ class PodcastsDetailsController(BaseController):
 class EpisodesController(BaseController):
     @get("/episodes")
     async def get(self, request: Request) -> Template:
-        # Get filter parameters from query string
         query_params = request.query_params
-        filters = {
-            "status": query_params.get("status"),
-            # "audio__size__gte": query_params.get("size_min"),
-            # "audio__size__lte": query_params.get("size_max"),
-            # "podcast__name": query_params.get("podcast"),
-            "search": query_params.get("search"),
-        }
+        filters: dict = {}
+        if query_params.get("status"):
+            filters["statuses"] = query_params.get("status")
 
-        # # Remove None values
-        # filters = {k: v for k, v in filters.items() if v is not None}
-        #
-        # # Apply filters
-        # filtered_episodes = (
-        #     const.filter_episodes(const.EPISODES, filters) if filters else const.EPISODES
-        # )
+        if query_params.get("search"):
+            filters["search"] = query_params.get("search")
+
+        if query_params.get("podcast"):
+            filters["podcast__name"] = query_params.get("podcast")
+
+        if query_params.get("size_min"):
+            filters["audio__size__gte"] = int(query_params.get("size_min"))
+
+        if query_params.get("size_max"):
+            filters["audio__size__lte"] = int(query_params.get("size_max"))
+
         async with SASessionUOW() as uow:
             episodes_repository = EpisodeRepository(session=uow.session)
-            episodes = await episodes_repository.all(filters)
+            episodes = await episodes_repository.all(**filters)
+            podcast_repository = PodcastRepository(session=uow.session)
+            podcasts = await podcast_repository.all(**filters)
 
         return self.get_response_template(
             template_name="episodes.html",
             context={
                 "episodes": episodes,
-                "podcasts": const.PODCASTS,
+                "podcasts": podcasts,
                 "filters": filters,
                 "current": "episodes",
                 "title": "episodes",
