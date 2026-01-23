@@ -196,24 +196,41 @@ class EpisodeRepository(BaseRepository[Episode]):
 
     model = Episode
 
-    async def all(self, filters: dict[str, FilterT]) -> list[Episode]:
+    async def all(self, **filters: FilterT) -> list[Episode]:
         """Get all episodes, but with extended filters' logic"""
         logger.debug("[DB] Getting all episodes: %s", filters)
-        custom_filters: dict[str, FilterT] = {}
-        filters_stmts: list[BinaryExpression[bool]] = []
-
         statement = select(self.model).join(File, Episode.audio_id == File.id)
-        if filters.get("search"):
-            statement = statement.filter(
-                or_(
-                    Episode.title.ilike(f"%{filters['search']}%"),
-                    Episode.description.ilike(f"%{filters['search']}%"),
-                )
-            )
+        for filter_key, filter_value in filters.items():
+            match filter_key:
+                case "search":
+                    statement = statement.filter(
+                        or_(
+                            Episode.title.ilike(f"%{filter_value}%"),
+                            Episode.description.ilike(f"%{filter_value}%"),
+                        )
+                    )
 
-        if statuses_str := filters.get("status"):
-            statuses: list[str] = [st.upper() for st in statuses_str.split(",")]
-            statement = statement.filter(Episode.status.in_(statuses))
+                case "statuses":
+                    statuses_str = str(filter_value)
+                    statuses: list[str] = [st.upper() for st in statuses_str.split(",")]
+                    statement = statement.filter(Episode.status.in_(statuses))
+
+                case "audio__size__gte":
+                    if not isinstance(filter_value, int):
+                        raise ValueError("Invalid value for 'audio__size__gte'")
+
+                    statement = statement.filter(File.size >= int(filter_value))
+
+                case "audio__size__lte":
+                    if not isinstance(filter_value, int):
+                        raise ValueError("Invalid value for 'audio__size__lte'")
+
+                    statement = statement.filter(File.size <= int(filter_value))
+
+                case "podcast__name":
+                    statement = statement.join(Podcast, Episode.podcast_id == Podcast.id).filter(
+                        Podcast.name.ilike(f"%{filter_value}%")
+                    )
 
         result = await self.session.execute(statement)
         return [row[0] for row in result.fetchall()]
