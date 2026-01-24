@@ -25,8 +25,7 @@
                         <div class="flex items-start justify-between gap-4 mb-2">
                             <div class="flex-1 min-w-0">
                                 <h3 class="text-lg font-semibold text-white mb-1">
-                                    {% if podcast.icon %}
-                                        <span class="mr-2">{{ podcast.icon }}</span>{% endif %}{{ podcast.name }}
+                                    {{ podcast.name }}
                                 </h3>
                                 {% if podcast.description %}
                                     <p class="text-sm text-slate-400 line-clamp-2 mb-2">{{ podcast.description }}</p>
@@ -36,13 +35,13 @@
                                 <div class="flex items-center gap-4 flex-wrap text-xs text-slate-500">
                                     {% if podcast.duration %}
                                         <div class="flex items-center gap-1">
-                                            {{ clock() }}
+                                            {{ icon_clock() }}
                                             <span>{{ format_duration(podcast.duration) }}</span>
                                         </div>
                                     {% endif %}
                                     {% if podcast.total_file_size %}
                                         <div class="flex items-center gap-1">
-                                            {{ database() }}
+                                            {{ icon_database() }}
                                             <span>{{ format_file_size(podcast.total_file_size) }}</span>
                                         </div>
                                     {% endif %}
@@ -52,14 +51,14 @@
                                             {% if podcast.last_publication_date %}
                                                 <div class="flex items-center gap-1"
                                                      title="Publication date">
-                                                    {{ calendar() }}
+                                                    {{ icon_calendar() }}
                                                     <span>{{ podcast.last_publication_date }}</span>
                                                 </div>
                                             {% endif %}
                                             {% if podcast.last_download_date %}
                                                 <div class="flex items-center gap-1"
                                                      title="Download date">
-                                                    {{ download() }}
+                                                    {{ icon_download() }}
                                                     <span>{{ podcast.last_download_date }}</span>
                                                 </div>
                                             {% endif %}
@@ -77,13 +76,13 @@
                                             onclick="event.preventDefault(); event.stopPropagation(); handleDelete({{ loop.index0 }})"
                                             class="p-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition"
                                             title="Delete">
-                                        {{ trash() }}
+                                        {{ icon_trash() }}
                                     </button>
                                     <button
                                             onclick="event.preventDefault(); event.stopPropagation(); handleUpdate({{ loop.index0 }})"
                                             class="p-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition"
                                             title="Update">
-                                        {{ edit() }}
+                                        {{ icon_edit() }}
                                     </button>
 
                                 </div>

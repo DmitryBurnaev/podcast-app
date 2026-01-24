@@ -5,7 +5,7 @@
     <div class="mb-6">
         <nav class="flex items-center gap-2 text-sm text-slate-400">
             <a href="/" class="hover:text-white transition">Home</a>
-            {{ chevron_right() }}
+            {{ icon_chevron_right() }}
             <span class="text-slate-300 font-medium">{{ podcast.name }}</span>
         </nav>
     </div>
@@ -46,8 +46,7 @@
                 <!-- Podcast Info -->
                 <div class="text-center mb-4">
                     <h1 class="text-xl font-bold text-white mb-2">
-                        {% if podcast.icon %}
-                            <span class="mr-2">{{ podcast.icon }}</span>{% endif %}{{ podcast.name }}
+                        {{ podcast.name }}
                     </h1>
                     <p class="text-sm text-slate-400 line-clamp-3">{{ podcast.description or 'No description' }}</p>
                 </div>
@@ -56,7 +55,7 @@
                 <div class="space-y-3 mt-4 pt-4 border-t border-slate-700">
                     <!-- Episodes Count -->
                     <div class="flex items-center gap-2 text-sm">
-                        {{ music("w-4 h-4 text-slate-400 flex-shrink-0") }}
+                        {{ icon_music("w-4 h-4 text-slate-400 flex-shrink-0") }}
                         <span class="text-slate-300 font-medium">{{ episodes_count }} Episodes</span>
                     </div>
 
@@ -74,8 +73,7 @@
                     <div class="flex items-center gap-2 text-sm">
                         {{ calendar("w-4 h-4 text-slate-400 flex-shrink-0") }}
                         <span class="text-slate-400 text-xs">
-                        Created: {% if podcast.created_at %}
-                            {{ podcast.created_at.strftime('%b %d, %Y') }}{% else %}N/A{% endif %}
+                        Created: {% if podcast.created_at %}{{ podcast.created_at.strftime('%b %d, %Y') }}{% else %}N/A{% endif %}
                     </span>
                     </div>
 
@@ -120,7 +118,7 @@
                 <div class="mt-auto pt-4 border-t border-slate-700">
                     <button onclick="openAddEpisodeModal()" class="w-full px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition
                                    flex items-center justify-center gap-2 font-medium">
-                        {{ plus() }}
+                        {{ icon_plus() }}
                         Add Episode
                     </button>
                 </div>
@@ -149,10 +147,7 @@
                                class="block text-sm font-medium text-slate-300 mb-2">Created
                             At</label>
                         <input type="text" id="podcast-created-at"
-                               value="
-
-
-                                       {% if podcast.created_at %}{{ podcast.created_at.strftime('%b %d, %Y, %H:%M:%S') }}{% else %}N/A{% endif %}"
+                               value="{% if podcast.created_at %}{{ podcast.created_at.strftime('%b %d, %Y, %H:%M:%S') }}{% else %}N/A{% endif %}"
                                readonly class="w-full px-3 py-2 border border-slate-600 rounded-lg bg-slate-700 text-slate-400
                                       cursor-not-allowed">
                     </div>
@@ -171,12 +166,12 @@
                                 <button type="button" onclick="copyRssLink()"
                                         class="p-2 bg-slate-700 hover:bg-slate-600 text-slate-300 rounded-lg transition"
                                         title="Copy RSS link">
-                                    {{ copy() }}
+                                    {{ icon_copy() }}
                                 </button>
                                 <a href="{{ rss_url }}" target="_blank"
                                    class="p-2 bg-slate-700 hover:bg-slate-600 text-slate-300 rounded-lg transition"
                                    title="Open RSS link">
-                                    {{ external_link() }}
+                                    {{ icon_external_link() }}
                                 </a>
                             {% endif %}
                         </div>
@@ -195,12 +190,12 @@
                     <div class="flex items-center gap-3 pt-4 border-t border-slate-700 mt-auto">
                         <button type="button" onclick="handleUpdate()" class="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition
                                        flex items-center gap-2">
-                            {{ edit() }}
+                            {{ icon_edit() }}
                             Update
                         </button>
                         <button type="button" onclick="handleRegenerateRss()" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition
                                        flex items-center gap-2">
-                            {{ refresh() }}
+                            {{ icon_refresh() }}
                             Regenerate RSS
                         </button>
                         <button type="button" onclick="handleDelete()"
@@ -237,7 +232,7 @@
                     <h3 class="text-lg font-semibold text-white">Add New Episode</h3>
                     <button onclick="closeAddEpisodeModal()"
                             class="text-slate-400 hover:text-white transition">
-                        {{ close() }}
+                        {{ icon_close() }}
                     </button>
                 </div>
             </div>

@@ -23,7 +23,7 @@
             <a href="/" class="block p-6 flex items-center gap-3">
                 <div
                     class="w-8 h-8 rounded-lg bg-gradient-to-br from-purple-500 to-purple-600 flex items-center justify-center">
-                    {{ music("w-5 h-5 text-white") }}
+                    {{ icon_music("w-5 h-5 text-white") }}
                 </div>
                 <h1 class="text-xl font-bold text-white">Podcasts</h1>
             </a>
@@ -34,15 +34,15 @@
                 <a href="{{ link.path }}"
                     class="px-3 py-2 rounded-lg {% if link.slug == current %} bg-slate-700 text-white {% else %} text-slate-300 hover:bg-slate-700 hover:text-white {% endif %} transition flex items-center gap-3">
                     {% if link.slug == 'home' %}
-                    {{ home() }}
+                    {{ icon_home() }}
                     {% elif link.slug == 'episodes' %}
-                    {{ headphones() }}
+                    {{ icon_headphones() }}
                     {% elif link.slug == 'podcasts' %}
-                    {{ list() }}
+                    {{ icon_list() }}
                     {% elif link.slug == 'profile' %}
-                    {{ user() }}
+                    {{ icon_user() }}
                     {% elif link.slug == 'about' %}
-                    {{ info() }}
+                    {{ icon_info() }}
                     {% endif %}
                     <span class="text-sm font-medium">{{ link.title }}</span>
                 </a>
@@ -53,7 +53,7 @@
             <div class="border-t border-slate-700 px-3 py-4">
                 <a href="#"
                     class="px-3 py-2 rounded-lg text-slate-300 hover:bg-slate-700 hover:text-white transition flex items-center gap-3">
-                    {{ settings() }}
+                    {{ icon_settings() }}
                     <span class="text-sm font-medium">Settings</span>
                 </a>
             </div>
@@ -68,7 +68,7 @@
                 <div class="flex-1 max-w-lg">
                     <div class="relative">
                         <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                            {{ search() }}
+                            {{ icon_search() }}
                         </div>
                         <label>
                             <input type="text" placeholder="Search"
@@ -81,7 +81,7 @@
                 <div class="flex items-center gap-4 ml-6">
                     <!-- Notifications -->
                     <button class="p-2 text-slate-300 hover:text-white hover:bg-slate-700 rounded-lg transition">
-                        {{ bell() }}
+                        {{ icon_bell() }}
                     </button>
 
                     <!-- Separator -->
@@ -98,7 +98,7 @@
                             </div>
                             <span class="text-sm font-medium">{{ user_data.name if user_data and user_data.name else
                                 'User' }}</span>
-                            {{ chevron_down() }}
+                            {{ icon_chevron_down() }}
                         </button>
 
                         <!-- Dropdown Menu -->
