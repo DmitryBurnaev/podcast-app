@@ -1,5 +1,4 @@
 {% extends "base.html" %}
-{% from "snippets/icons.html" import chevron_right, music, download, calendar, refresh, clock, database, plus, edit, trash, copy, external_link, close %}
 {% block content %}
     <!-- Breadcrumbs -->
     <div class="mb-6">
@@ -61,7 +60,7 @@
 
                     <!-- Auto Download Status -->
                     <div class="flex items-center gap-2 text-sm">
-                        {{ download("w-4 h-4 text-slate-400 flex-shrink-0") }}
+                        {{ icon_download("w-4 h-4 text-slate-400 flex-shrink-0") }}
                         <span class="text-slate-300">Auto Download:</span>
                         <span
                                 class="{% if podcast.download_automatically %}text-green-400{% else %}text-slate-500{% endif %} font-medium">
@@ -71,7 +70,7 @@
 
                     <!-- Created Date -->
                     <div class="flex items-center gap-2 text-sm">
-                        {{ calendar("w-4 h-4 text-slate-400 flex-shrink-0") }}
+                        {{ icon_calendar("w-4 h-4 text-slate-400 flex-shrink-0") }}
                         <span class="text-slate-400 text-xs">
                         Created: {% if podcast.created_at %}{{ podcast.created_at.strftime('%b %d, %Y') }}{% else %}N/A{% endif %}
                     </span>
@@ -80,7 +79,7 @@
                     <!-- Updated Date (if available) -->
                     {% if podcast.updated_at %}
                         <div class="flex items-center gap-2 text-sm">
-                            {{ refresh("w-4 h-4 text-slate-400 flex-shrink-0") }}
+                            {{ icon_refresh("w-4 h-4 text-slate-400 flex-shrink-0") }}
                             <span class="text-slate-400 text-xs">
                                 Updated: {{ podcast.updated_at.strftime('%b %d, %Y') }}
                             </span>
@@ -90,7 +89,7 @@
                     <!-- Total Duration (if available) -->
                     {% if total_duration and total_duration > 0 %}
                         <div class="flex items-center gap-2 text-sm">
-                            {{ clock("w-4 h-4 text-slate-400 flex-shrink-0") }}
+                            {{ icon_clock("w-4 h-4 text-slate-400 flex-shrink-0") }}
                             <span class="text-slate-400 text-xs">Total: {{ format_duration(total_duration) }}</span>
                         </div>
                     {% endif %}
@@ -98,7 +97,7 @@
                     <!-- Total Size (if available) -->
                     {% if total_size and total_size > 0 %}
                         <div class="flex items-center gap-2 text-sm">
-                            {{ database("w-4 h-4 text-slate-400 flex-shrink-0") }}
+                            {{ icon_database("w-4 h-4 text-slate-400 flex-shrink-0") }}
                             <span class="text-slate-400 text-xs">Size: {{ format_file_size(total_size) }}</span>
                         </div>
                     {% endif %}
@@ -106,7 +105,7 @@
                     <!-- Last Published (if available) -->
                     {% if last_published_at %}
                         <div class="flex items-center gap-2 text-sm">
-                            {{ calendar("w-4 h-4 text-slate-400 flex-shrink-0") }}
+                            {{ icon_calendar("w-4 h-4 text-slate-400 flex-shrink-0") }}
                             <span class="text-slate-400 text-xs">
                         Last published: {{ last_published_at.strftime('%b %d, %Y') }}
                     </span>
@@ -201,7 +200,7 @@
                         <button type="button" onclick="handleDelete()"
                                 class="p-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition ml-auto"
                                 title="Delete podcast">
-                            {{ trash("w-5 h-5") }}
+                            {{ icon_trash("w-5 h-5") }}
                         </button>
                     </div>
                 </form>
