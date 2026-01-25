@@ -1,4 +1,3 @@
-{% from "snippets/icons.html" import music, home, headphones, list, user, info, settings, search, bell, chevron_down %}
 <!DOCTYPE html>
 <html lang="en">
 
@@ -13,6 +12,30 @@
     <link rel="stylesheet" href="/static/css/podcast-app.css">
     {% endblock %}
 </head>
+{% from "snippets/icons.html" import
+    icon_music,
+    icon_home,
+    icon_headphones,
+    icon_list,
+    icon_user,
+    icon_info,
+    icon_settings,
+    icon_search,
+    icon_bell,
+    icon_chevron_down,
+    icon_chevron_right,
+    icon_clock,
+    icon_database,
+    icon_calendar,
+    icon_download,
+    icon_trash,
+    icon_edit,
+    icon_plus,
+    icon_copy,
+    icon_external_link,
+    icon_refresh,
+    icon_close
+%}
 
 <body class="bg-slate-900 min-h-screen">
     {% block body %}
