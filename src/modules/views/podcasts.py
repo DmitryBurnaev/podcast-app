@@ -34,58 +34,44 @@ class PodcastsDetailsController(BaseController):
         """Get podcast detail page with episodes list"""
         async with SASessionUOW() as uow:
             podcast_repository = PodcastRepository(session=uow.session)
+            episode_repository = EpisodeRepository(session=uow.session)
             podcast = await podcast_repository.first(podcast_id)
             if not podcast:
                 raise NotFoundException(f"Podcast with id {podcast_id} not found")
 
-            # Get episodes through backref relationship
-            # Episodes are loaded via lazy="subquery" in the relationship
+            episodes = await episode_repository.all(podcast_id=podcast_id)
 
-            episodes = list(podcast.episodes)
-            # Sort episodes by published_at or created_at (newest first)
-            episodes.sort(
-                key=lambda e: e.published_at if e.published_at else e.created_at, reverse=True
-            )
-
-            # Calculate podcast statistics
-            # TODO: just for demo! replace with DB functions!
-            episodes_count = len(episodes)
             total_duration = sum(episode.length for episode in episodes if episode.length) or 0
-            total_size = (
-                sum(
-                    episode.audio.size
-                    for episode in episodes
-                    if episode.audio and hasattr(episode.audio, "size") and episode.audio.size
-                )
-                or 0
-            )
-            last_published_at = (
-                max((e.published_at for e in episodes if e.published_at), default=None)
-                if episodes
-                else None
-            )
-            last_created_at = (
-                max((e.created_at for e in episodes if e.created_at), default=None)
-                if episodes
-                else None
-            )
-
-            # Generate RSS URL
-            rss_url = None
-            if podcast.rss:
-                rss_url = podcast.rss.url
+            aggregations = await episode_repository.get_aggregated(podcast.id)
+            # total_size = (
+            #     sum(
+            #         episode.audio.size
+            #         for episode in episodes
+            #         if episode.audio and hasattr(episode.audio, "size") and episode.audio.size
+            #     )
+            #     or 0
+            # )
+            #
+            # last_published_episode = await episode_repository.get_last(
+            #     podcast.id,
+            #     field="published_at",
+            # )
+            # last_created_episode = await episode_repository.get_last(
+            #     podcast.id,
+            #     field="created_at",
+            # )
+            aggregations = await episode_repository.get_aggregated(podcast.id)
 
         return self.get_response_template(
             template_name="podcasts_detail.html",
             context={
                 "podcast": podcast,
                 "episodes": episodes,
-                "episodes_count": episodes_count,
-                "total_duration": total_duration,
-                "total_size": total_size,
-                "last_published_at": last_published_at,
-                "last_created_at": last_created_at,
-                "rss_url": rss_url,
+                "episodes_count": aggregations.total_count,
+                "total_duration": total_duration,  # TODO: move to agg too
+                "total_size": aggregations.total_file_size,
+                "last_published_at": aggregations.last_published_at,
+                "last_created_at": aggregations.last_created_at,
                 "current": "podcasts",
                 "title": cut_string(podcast.name, max_length=32),
             },
@@ -106,11 +92,11 @@ class EpisodesController(BaseController):
         if query_params.get("podcast"):
             filters["podcast__name"] = query_params.get("podcast")
 
-        if query_params.get("size_min"):
-            filters["audio__size__gte"] = int(query_params.get("size_min"))
+        if size_min := query_params.get("size_min"):
+            filters["audio__size__gte"] = int(size_min)
 
-        if query_params.get("size_max"):
-            filters["audio__size__lte"] = int(query_params.get("size_max"))
+        if size_max := query_params.get("size_max"):
+            filters["audio__size__lte"] = int(size_max)
 
         async with SASessionUOW() as uow:
             episodes_repository = EpisodeRepository(session=uow.session)
