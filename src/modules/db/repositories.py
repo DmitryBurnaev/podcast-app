@@ -1,6 +1,7 @@
 """DB-specific module that provides specific operations on the database."""
 
 import logging
+from datetime import datetime
 from typing import (
     Generic,
     TypeVar,
@@ -9,9 +10,21 @@ from typing import (
     Sequence,
     ParamSpec,
     cast,
+    Literal,
+    NamedTuple,
 )
 
-from sqlalchemy import select, BinaryExpression, delete, Select, update, CursorResult, func, or_
+from sqlalchemy import (
+    select,
+    BinaryExpression,
+    delete,
+    Select,
+    update,
+    CursorResult,
+    func,
+    or_,
+    Row,
+)
 from sqlalchemy.exc import NoResultFound
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql.elements import SQLCoreOperations
@@ -40,6 +53,13 @@ class VendorsFilter(TypedDict):
 class ActiveVendorsStat(TypedDict):
     active: int
     inactive: int
+
+
+class EpisodesStatData(NamedTuple):
+    total_count: int = 0
+    total_file_size: int = 0
+    last_created_at: datetime | None = None
+    last_published_at: datetime | None = None
 
 
 class BaseRepository(Generic[ModelT]):
@@ -232,5 +252,41 @@ class EpisodeRepository(BaseRepository[Episode]):
                         Podcast.name.ilike(f"%{filter_value}%")
                     )
 
-        result = await self.session.execute(statement)
+        result = await self.session.execute(statement.order_by(Episode.created_at.desc()))
         return [row[0] for row in result.fetchall()]
+
+    async def get_last(
+        self,
+        podcast_id: int,
+        field: Literal["created_at", "published_at"],
+    ) -> Episode | None:
+        order_by = getattr(Episode, field)
+        statement = self._prepare_statement(filters={"podcast_id": podcast_id}).order_by(
+            order_by.desc()
+        )
+        result = await self.session.execute(statement)
+        row: Sequence[Episode] | None = result.fetchone()
+        return row[0] if row else None
+
+    async def get_aggregated(self, podcast_id: int) -> EpisodesStatData:
+        statement = self._prepare_statement(
+            filters={"podcast_id": podcast_id},
+            entities=[
+                func.max(Episode.created_at).label("last_created_at"),
+                func.max(Episode.published_at).label("last_published_at"),
+                func.count(Episode.id).label("total_count"),
+                # func.sum(Episode.audio.)
+            ],
+        ).group_by(Episode.podcast_id)
+
+        result = await self.session.execute(statement)
+        rows: Sequence[Row] | None = result.fetchone()
+        if not rows:
+            return EpisodesStatData()
+
+        row_data: Row = rows[0]
+        return EpisodesStatData(
+            total_count=row_data.total_count,
+            last_created_at=row_data.last_created_at,
+            last_published_at=row_data.last_published_at,
+        )
