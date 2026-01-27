@@ -40,26 +40,6 @@ class PodcastsDetailsController(BaseController):
                 raise NotFoundException(f"Podcast with id {podcast_id} not found")
 
             episodes = await episode_repository.all(podcast_id=podcast_id)
-
-            total_duration = sum(episode.length for episode in episodes if episode.length) or 0
-            aggregations = await episode_repository.get_aggregated(podcast.id)
-            # total_size = (
-            #     sum(
-            #         episode.audio.size
-            #         for episode in episodes
-            #         if episode.audio and hasattr(episode.audio, "size") and episode.audio.size
-            #     )
-            #     or 0
-            # )
-            #
-            # last_published_episode = await episode_repository.get_last(
-            #     podcast.id,
-            #     field="published_at",
-            # )
-            # last_created_episode = await episode_repository.get_last(
-            #     podcast.id,
-            #     field="created_at",
-            # )
             aggregations = await episode_repository.get_aggregated(podcast.id)
 
         return self.get_response_template(
@@ -68,7 +48,7 @@ class PodcastsDetailsController(BaseController):
                 "podcast": podcast,
                 "episodes": episodes,
                 "episodes_count": aggregations.total_count,
-                "total_duration": total_duration,  # TODO: move to agg too
+                "total_duration": aggregations.total_duration,
                 "total_size": aggregations.total_file_size,
                 "last_published_at": aggregations.last_published_at,
                 "last_created_at": aggregations.last_created_at,
