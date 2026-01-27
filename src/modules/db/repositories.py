@@ -57,6 +57,7 @@ class ActiveVendorsStat(TypedDict):
 
 class EpisodesStatData(NamedTuple):
     total_count: int = 0
+    total_duration: int = 0
     total_file_size: int = 0
     last_created_at: datetime | None = None
     last_published_at: datetime | None = None
@@ -275,18 +276,21 @@ class EpisodeRepository(BaseRepository[Episode]):
                 func.max(Episode.created_at).label("last_created_at"),
                 func.max(Episode.published_at).label("last_published_at"),
                 func.count(Episode.id).label("total_count"),
-                # func.sum(Episode.audio.)
+                func.sum(Episode.length).label("total_duration"),
+                func.sum(File.size).label("total_size"),
             ],
-        ).group_by(Episode.podcast_id)
+        ).join(File, Episode.audio_id == File.id)
 
         result = await self.session.execute(statement)
-        rows: Sequence[Row] | None = result.fetchone()
-        if not rows:
+        row: Sequence[Row] | None = result.fetchone()
+        if not row:
             return EpisodesStatData()
 
-        row_data: Row = rows[0]
+        row_data: Row = row
         return EpisodesStatData(
             total_count=row_data.total_count,
+            total_duration=row_data.total_duration,
+            total_file_size=row_data.total_size,
             last_created_at=row_data.last_created_at,
             last_published_at=row_data.last_published_at,
         )
