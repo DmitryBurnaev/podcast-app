@@ -269,9 +269,14 @@ class EpisodeRepository(BaseRepository[Episode]):
         row: Sequence[Episode] | None = result.fetchone()
         return row[0] if row else None
 
-    async def get_aggregated(self, podcast_id: int) -> EpisodesStatData:
+    async def get_aggregated(self, podcast_id: int | None = None) -> EpisodesStatData:
+        """Get aggregated stats for episodes, optionally filtered by podcast_id."""
+        filters: dict[str, FilterT] = {}
+        if podcast_id:
+            filters["podcast_id"] = podcast_id
+
         statement = self._prepare_statement(
-            filters={"podcast_id": podcast_id},
+            filters=filters,
             entities=[
                 func.max(Episode.created_at).label("last_created_at"),
                 func.max(Episode.published_at).label("last_published_at"),
