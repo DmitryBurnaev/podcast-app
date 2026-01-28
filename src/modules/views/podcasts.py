@@ -2,7 +2,6 @@ from litestar import get, Request
 from litestar.response import Template
 from litestar.exceptions import NotFoundException
 
-from src import constants as const
 from src.modules.db import SASessionUOW
 from src.modules.db.repositories import PodcastRepository, EpisodeRepository
 from src.modules.views.base import BaseController
@@ -21,8 +20,6 @@ class PodcastsController(BaseController):
             context={
                 "podcasts": podcasts,
                 "current": "podcasts",
-                "format_duration": const.format_duration,
-                "format_file_size": const.format_file_size,
                 "title": "Podcasts",
             },
         )

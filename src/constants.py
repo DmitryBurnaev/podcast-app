@@ -40,45 +40,45 @@ def format_storage_size(size_mb: float) -> str:
     return f"{size_mb:.2f} MB"
 
 
-def get_stats() -> dict:
-    """Calculate statistics for the dashboard."""
-    total_podcasts = len(PODCASTS)
-    total_episodes = sum(podcast.get("episodes_count", 0) for podcast in PODCASTS)
-    downloading_episodes = get_downloading_episodes()
-    downloading_count = len(downloading_episodes)
+# def get_stats() -> dict:
+#     """Calculate statistics for the dashboard."""
+#     total_podcasts = len(PODCASTS)
+#     total_episodes = sum(podcast.get("episodes_count", 0) for podcast in PODCASTS)
+#     downloading_episodes = get_downloading_episodes()
+#     downloading_count = len(downloading_episodes)
 
-    # Calculate total storage size (average ~75 MB per episode)
-    # This is a placeholder calculation, can be replaced with actual data
-    average_episode_size_mb = 75.0
-    total_storage_mb = total_episodes * average_episode_size_mb
-    total_storage = format_storage_size(total_storage_mb)
+#     # Calculate total storage size (average ~75 MB per episode)
+#     # This is a placeholder calculation, can be replaced with actual data
+#     average_episode_size_mb = 75.0
+#     total_storage_mb = total_episodes * average_episode_size_mb
+#     total_storage = format_storage_size(total_storage_mb)
 
-    # Get recent activity (last episode if available)
-    recent_activity = None
-    if EPISODES:
-        last_episode = EPISODES[0]
-        recent_activity = {
-            "text": f"Last episode: {last_episode.get('title', 'Unknown')}",
-            "time": "2h ago",  # Placeholder, can be extended with actual timestamps
-        }
-    else:
-        recent_activity = {
-            "text": "No episodes yet",
-            "time": None,
-        }
+#     # Get recent activity (last episode if available)
+#     recent_activity = None
+#     if EPISODES:
+#         last_episode = EPISODES[0]
+#         recent_activity = {
+#             "text": f"Last episode: {last_episode.get('title', 'Unknown')}",
+#             "time": "2h ago",  # Placeholder, can be extended with actual timestamps
+#         }
+#     else:
+#         recent_activity = {
+#             "text": "No episodes yet",
+#             "time": None,
+#         }
 
-    return {
-        "total_podcasts": total_podcasts,
-        "total_episodes": total_episodes,
-        "total_storage": total_storage,
-        "downloading_count": downloading_count,
-        "recent_activity": recent_activity,
-    }
+#     return {
+#         "total_podcasts": total_podcasts,
+#         "total_episodes": total_episodes,
+#         "total_storage": total_storage,
+#         "downloading_count": downloading_count,
+#         "recent_activity": recent_activity,
+#     }
 
 
-def get_downloading_episodes() -> list:
-    """Get episodes with downloading status."""
-    return [episode for episode in EPISODES if episode.get("status") == "downloading"]
+# def get_downloading_episodes() -> list:
+#     """Get episodes with downloading status."""
+#     return [episode for episode in EPISODES if episode.get("status") == "downloading"]
 
 
 def format_duration(seconds: int) -> str:
