@@ -51,14 +51,14 @@
                                                 <div class="flex items-center gap-1"
                                                      title="Publication date">
                                                     {{ icon_calendar() }}
-                                                    <span>{{ podcast.last_publication_date }}</span>
+                                                    <span>{{ podcast.last_publication_date.strftime('%b %d, %Y') }}</span>
                                                 </div>
                                             {% endif %}
                                             {% if podcast.last_download_date %}
                                                 <div class="flex items-center gap-1"
                                                      title="Download date">
                                                     {{ icon_download() }}
-                                                    <span>{{ podcast.last_download_date }}</span>
+                                                    <span>{{ podcast.last_download_date.strftime('%b %d, %Y') }}</span>
                                                 </div>
                                             {% endif %}
                                         </div>
