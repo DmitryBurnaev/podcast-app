@@ -3,7 +3,8 @@ from litestar.response import Template
 from litestar.exceptions import NotFoundException
 
 from src.modules.db import SASessionUOW
-from src.modules.db.repositories import PodcastRepository, EpisodeRepository
+from src.modules.db.repositories import EpisodeRepository, PodcastRepository
+from src.modules.services.statistic import StatisticService
 from src.modules.views.base import BaseController
 from src.utils import cut_string
 
@@ -13,7 +14,7 @@ class PodcastsController(BaseController):
     async def get(self, request: Request) -> Template:
         async with SASessionUOW() as uow:
             podcast_repository = PodcastRepository(session=uow.session)
-            podcasts = await podcast_repository.all(owner_id=1)
+            podcasts = await podcast_repository.all_with_aggregations(owner_id=1)
 
         return self.get_response_template(
             template_name="podcasts.html",
@@ -37,18 +38,15 @@ class PodcastsDetailsController(BaseController):
                 raise NotFoundException(f"Podcast with id {podcast_id} not found")
 
             episodes = await episode_repository.all(podcast_id=podcast_id)
-            aggregations = await episode_repository.get_aggregated(podcast.id)
+            statistic_service = StatisticService(uow)
+            podcast_stats = await statistic_service.get_podcast_statistics(podcast_id)
 
         return self.get_response_template(
             template_name="podcasts_detail.html",
             context={
                 "podcast": podcast,
                 "episodes": episodes,
-                "episodes_count": aggregations.total_count,
-                "total_duration": aggregations.total_duration,
-                "total_size": aggregations.total_file_size,
-                "last_published_at": aggregations.last_published_at,
-                "last_created_at": aggregations.last_created_at,
+                "podcast_stats": podcast_stats,
                 "current": "podcasts",
                 "title": cut_string(podcast.name, max_length=32),
             },

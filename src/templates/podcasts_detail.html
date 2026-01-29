@@ -55,7 +55,7 @@
                     <!-- Episodes Count -->
                     <div class="flex items-center gap-2 text-sm">
                         {{ icon_music("w-4 h-4 text-slate-400 flex-shrink-0") }}
-                        <span class="text-slate-300 font-medium">{{ episodes_count }} Episodes</span>
+                        <span class="text-slate-300 font-medium">{{ podcast_stats.episodes_count }} Episodes</span>
                     </div>
 
                     <!-- Auto Download Status -->
@@ -87,27 +87,27 @@
                     {% endif %}
 
                     <!-- Total Duration (if available) -->
-                    {% if total_duration and total_duration > 0 %}
+                    {% if podcast_stats.total_duration and podcast_stats.total_duration > 0 %}
                         <div class="flex items-center gap-2 text-sm">
                             {{ icon_clock("w-4 h-4 text-slate-400 flex-shrink-0") }}
-                            <span class="text-slate-400 text-xs">Total: {{ format_duration(total_duration) }}</span>
+                            <span class="text-slate-400 text-xs">Total: {{ format_duration(podcast_stats.total_duration) }}</span>
                         </div>
                     {% endif %}
 
                     <!-- Total Size (if available) -->
-                    {% if total_size and total_size > 0 %}
+                    {% if podcast_stats.total_size and podcast_stats.total_size > 0 %}
                         <div class="flex items-center gap-2 text-sm">
                             {{ icon_database("w-4 h-4 text-slate-400 flex-shrink-0") }}
-                            <span class="text-slate-400 text-xs">Size: {{ format_file_size(total_size) }}</span>
+                            <span class="text-slate-400 text-xs">Size: {{ format_file_size(podcast_stats.total_size) }}</span>
                         </div>
                     {% endif %}
 
                     <!-- Last Published (if available) -->
-                    {% if last_published_at %}
+                    {% if podcast_stats.last_published_at %}
                         <div class="flex items-center gap-2 text-sm">
                             {{ icon_calendar("w-4 h-4 text-slate-400 flex-shrink-0") }}
                             <span class="text-slate-400 text-xs">
-                        Last published: {{ last_published_at.strftime('%b %d, %Y') }}
+                        Last published: {{ podcast_stats.last_published_at.strftime('%b %d, %Y') }}
                     </span>
                         </div>
                     {% endif %}

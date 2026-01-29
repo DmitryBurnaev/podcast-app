@@ -31,7 +31,7 @@ from sqlalchemy.sql.elements import SQLCoreOperations
 from sqlalchemy.sql.roles import ColumnsClauseRole
 
 from src.modules.db.models import BaseModel, User, File
-from src.modules.db.models.podcasts import Podcast, Episode
+from src.modules.db.models.podcasts import Episode, Podcast
 
 __all__ = ("UserRepository",)
 
@@ -210,6 +210,58 @@ class PodcastRepository(BaseRepository[Podcast]):
     """Podcast's repository."""
 
     model = Podcast
+
+    async def all_with_aggregations(self, **filters: FilterT) -> list[Podcast]:
+        """Get podcasts with aggregated episode statistics (count, duration, size, dates).
+
+        Adds dynamic attributes to Podcast objects:
+        - episodes_count: int
+        - duration: int (total seconds)
+        - total_file_size: int (total bytes)
+        - last_publication_date: datetime | None
+        - last_download_date: datetime | None
+        """
+        logger.debug("[DB] Getting podcasts with aggregations: %s", filters)
+        filters_dict = dict(filters)
+
+        # Build aggregation query with LEFT JOINs to include podcasts without episodes
+        statement = (
+            select(
+                Podcast,
+                func.count(Episode.id).label("episodes_count"),
+                func.coalesce(func.sum(Episode.length), 0).label("duration"),
+                func.coalesce(func.sum(File.size), 0).label("total_file_size"),
+                func.max(Episode.published_at).label("last_publication_date"),
+                func.max(Episode.created_at).label("last_download_date"),
+            )
+            .outerjoin(Episode, Podcast.id == Episode.podcast_id)
+            .outerjoin(File, Episode.audio_id == File.id)
+            .group_by(Podcast.id)
+        )
+
+        # Apply filters similar to _prepare_statement logic
+        filters_stmts: list[BinaryExpression[bool]] = []
+        if (ids := filters_dict.pop("ids", None)) and isinstance(ids, list):
+            filters_stmts.append(Podcast.id.in_(ids))
+
+        statement = statement.filter_by(**filters_dict)
+        if filters_stmts:
+            statement = statement.filter(*filters_stmts)
+
+        result = await self.session.execute(statement)
+        return [row[0] for row in result.fetchall()]
+        # podcasts_with_stats = []
+        # for row in rows:
+        #     podcast: Podcast = row[0]
+        #     # Add aggregated attributes dynamically
+        #     podcast.episodes_count = row.episodes_count or 0
+        #     podcast.duration = int(row.duration) if row.duration else 0
+        #     podcast.total_file_size = int(row.total_file_size) if row.total_file_size else 0
+        #     podcast.last_publication_date = row.last_publication_date
+        #     podcast.last_download_date = row.last_download_date
+        #     podcasts_with_stats.append(podcast)
+        #
+        # return podcasts_with_stats
 
 
 class EpisodeRepository(BaseRepository[Episode]):
