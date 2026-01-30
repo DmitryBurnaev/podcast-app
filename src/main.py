@@ -81,7 +81,7 @@ def make_app(settings: AppSettings | None = None) -> PodcastApp:
         lifespan=[lifespan],
         debug=settings.flags.debug_mode,
         dependencies={
-            "settings": Provide(get_app_settings),
+            "settings": Provide(get_app_settings, sync_to_thread=False),
         },
         settings=settings,
     )
@@ -94,14 +94,16 @@ def make_app(settings: AppSettings | None = None) -> PodcastApp:
     return app
 
 
+app: PodcastApp = make_app()
+
 if __name__ == "__main__":
     import uvicorn
 
-    app: PodcastApp = make_app()
     uvicorn.run(
-        app,
+        "main:app",
         host=app.settings.app_host,
         port=app.settings.app_port,
+        reload=app.settings.app_hot_reload,
         log_config=app.settings.log.dict_config_any,
         proxy_headers=True,
     )

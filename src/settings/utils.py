@@ -21,6 +21,7 @@ def prepare_settings(settings_class: type[TypeSettings]) -> TypeSettings:
         error_message = "Unable to validate settings: "
         for error in exc.errors():
             error_message += f"\n\t[{'|'.join(map(str, error['loc']))}] {error['msg']}"
+
         raise AppSettingsError(error_message) from exc
 
     except Exception as exc:
