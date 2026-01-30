@@ -53,6 +53,7 @@ class AppSettings(BaseSettings):
     app_host: str = "0.0.0.0"
     app_port: int = 8000
     app_version: str = "latest"
+    app_hot_reload: bool = False
 
     # nested settings:
     flags: FlagsSettings = Field(default_factory=FlagsSettings)

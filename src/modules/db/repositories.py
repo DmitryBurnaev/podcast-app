@@ -249,19 +249,21 @@ class PodcastRepository(BaseRepository[Podcast]):
             statement = statement.filter(*filters_stmts)
 
         result = await self.session.execute(statement)
-        return [row[0] for row in result.fetchall()]
-        # podcasts_with_stats = []
-        # for row in rows:
-        #     podcast: Podcast = row[0]
-        #     # Add aggregated attributes dynamically
-        #     podcast.episodes_count = row.episodes_count or 0
-        #     podcast.duration = int(row.duration) if row.duration else 0
-        #     podcast.total_file_size = int(row.total_file_size) if row.total_file_size else 0
-        #     podcast.last_publication_date = row.last_publication_date
-        #     podcast.last_download_date = row.last_download_date
-        #     podcasts_with_stats.append(podcast)
-        #
-        # return podcasts_with_stats
+        rows = result.all()
+        # return [row[0] for row in result.fetchall()]
+        podcasts_with_stats = []
+        for row in rows:
+            podcast: Podcast = row[0]
+
+            # Add aggregated attributes dynamically
+            podcast.episodes_count = row.episodes_count or 0
+            podcast.duration = int(row.duration) if row.duration else 0
+            podcast.total_file_size = int(row.total_file_size) if row.total_file_size else 0
+            podcast.last_publication_date = row.last_publication_date
+            podcast.last_download_date = row.last_download_date
+            podcasts_with_stats.append(podcast)
+
+        return podcasts_with_stats
 
 
 class EpisodeRepository(BaseRepository[Episode]):
