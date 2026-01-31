@@ -16,6 +16,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from src.exceptions import BaseApplicationError
 from src.modules.db.models.media import File
 from src.modules.db.models import BaseModel
+from src.schemas import PodcastStatistics
 from src.settings.app import get_app_settings
 from src.utils import utcnow, cut_string, is_basic_emoji
 
@@ -94,6 +95,14 @@ class Podcast(BaseModel):
         app_settings = get_app_settings()
         url = self.image.url if self.image else None
         return url or app_settings.default_podcast_cover
+
+    @property
+    def stat(self) -> PodcastStatistics | None:
+        return getattr(self, "_stat", None)
+
+    @stat.setter
+    def stat(self, value: PodcastStatistics):
+        setattr(self, "_stat", value)
 
     # @classmethod
     # async def create_first_podcast(cls, db_session: AsyncSession, user_id: int):

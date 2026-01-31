@@ -35,6 +35,7 @@ from src.modules.db.models.podcasts import Episode, Podcast
 
 __all__ = ("UserRepository",)
 
+from src.schemas import PodcastStatistics
 
 ModelT = TypeVar("ModelT", bound=BaseModel)
 logger = logging.getLogger(__name__)
@@ -229,10 +230,10 @@ class PodcastRepository(BaseRepository[Podcast]):
             select(
                 Podcast,
                 func.count(Episode.id).label("episodes_count"),
-                func.coalesce(func.sum(Episode.length), 0).label("duration"),
-                func.coalesce(func.sum(File.size), 0).label("total_file_size"),
-                func.max(Episode.published_at).label("last_publication_date"),
-                func.max(Episode.created_at).label("last_download_date"),
+                func.coalesce(func.sum(Episode.length), 0).label("total_duration"),
+                func.coalesce(func.sum(File.size), 0).label("total_size"),
+                func.max(Episode.published_at).label("last_published_at"),
+                func.max(Episode.created_at).label("last_created_at"),
             )
             .outerjoin(Episode, Podcast.id == Episode.podcast_id)
             .outerjoin(File, Episode.audio_id == File.id)
@@ -250,17 +251,16 @@ class PodcastRepository(BaseRepository[Podcast]):
 
         result = await self.session.execute(statement)
         rows = result.all()
-        # return [row[0] for row in result.fetchall()]
         podcasts_with_stats = []
         for row in rows:
             podcast: Podcast = row[0]
-
-            # Add aggregated attributes dynamically
-            podcast.episodes_count = row.episodes_count or 0
-            podcast.duration = int(row.duration) if row.duration else 0
-            podcast.total_file_size = int(row.total_file_size) if row.total_file_size else 0
-            podcast.last_publication_date = row.last_publication_date
-            podcast.last_download_date = row.last_download_date
+            podcast.stat = PodcastStatistics(
+                episodes_count=row.episodes_count,
+                total_duration=row.total_duration,
+                total_size=row.total_size,
+                last_published_at=row.last_published_at,
+                last_created_at=row.last_created_at,
+            )
             podcasts_with_stats.append(podcast)
 
         return podcasts_with_stats
@@ -341,11 +341,10 @@ class EpisodeRepository(BaseRepository[Episode]):
         ).join(File, Episode.audio_id == File.id)
 
         result = await self.session.execute(statement)
-        row: Sequence[Row] | None = result.fetchone()
-        if not row:
+        row_data: Row | None = result.fetchone()
+        if not row_data:
             return EpisodesStatData()
 
-        row_data: Row = row
         return EpisodesStatData(
             total_count=row_data.total_count,
             total_duration=row_data.total_duration,
