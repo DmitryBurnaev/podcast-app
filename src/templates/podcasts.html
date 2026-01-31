@@ -9,11 +9,11 @@
                     <!-- Podcast Image/Icon -->
                     <div class="flex-shrink-0">
                         {% if podcast.image_url %}
-                            <img class="w-16 h-16 rounded-lg object-cover"
+                            <img class="w-20 h-20 rounded-lg object-cover"
                                  src="{{ podcast.image_url }}"
                                  alt="{{ podcast.name }}">
                         {% else %}
-                            <div class="w-16 h-16 rounded-lg bg-slate-700 flex items-center justify-center">
+                            <div class="w-20 h-20 rounded-lg bg-slate-700 flex items-center justify-center">
                                 <span class="text-2xl">{{ podcast.icon }}</span>
                             </div>
                         {% endif %}
@@ -21,7 +21,7 @@
 
                     <!-- Podcast Info -->
                     <div class="flex-1 min-w-0">
-                        <div class="flex items-start justify-between gap-4 mb-2">
+                        <div class="flex items-start justify-between gap-4">
                             <div class="flex-1 min-w-0">
                                 <h3 class="text-lg font-semibold text-white mb-1">
                                     {{ podcast.name }}
@@ -32,33 +32,33 @@
 
                                 <!-- Additional Info -->
                                 <div class="flex items-center gap-4 flex-wrap text-xs text-slate-500">
-                                    {% if podcast.duration %}
+                                    {% if podcast.stat.total_duration %}
                                         <div class="flex items-center gap-1">
                                             {{ icon_clock() }}
-                                            <span>{{ format_duration(podcast.duration) }}</span>
+                                            <span>{{ format_duration(podcast.stat.total_duration) }}</span>
                                         </div>
                                     {% endif %}
-                                    {% if podcast.total_file_size %}
+                                    {% if podcast.stat.total_size %}
                                         <div class="flex items-center gap-1">
                                             {{ icon_database() }}
-                                            <span>{{ format_file_size(podcast.total_file_size) }}</span>
+                                            <span>{{ format_file_size(podcast.stat.total_size) }}</span>
                                         </div>
                                     {% endif %}
 
-                                    {% if podcast.last_publication_date or podcast.last_download_date %}
+                                    {% if podcast.stat.last_published_at or podcast.stat.last_created_at %}
                                         <div class="flex items-center gap-3">
-                                            {% if podcast.last_publication_date %}
+                                            {% if podcast.stat.last_published_at %}
                                                 <div class="flex items-center gap-1"
                                                      title="Publication date">
                                                     {{ icon_calendar() }}
-                                                    <span>{{ podcast.last_publication_date.strftime('%b %d, %Y') }}</span>
+                                                    <span>{{ podcast.stat.last_published_at.strftime('%b %d, %Y') }}</span>
                                                 </div>
                                             {% endif %}
-                                            {% if podcast.last_download_date %}
+                                            {% if podcast.stat.last_created_at %}
                                                 <div class="flex items-center gap-1"
                                                      title="Download date">
                                                     {{ icon_download() }}
-                                                    <span>{{ podcast.last_download_date.strftime('%b %d, %Y') }}</span>
+                                                    <span>{{ podcast.stat.last_created_at.strftime('%b %d, %Y') }}</span>
                                                 </div>
                                             {% endif %}
                                         </div>
@@ -72,18 +72,11 @@
                                 <!-- Control Buttons -->
                                 <div class="flex items-center gap-2">
                                     <button
-                                            onclick="event.preventDefault(); event.stopPropagation(); handleDelete({{ loop.index0 }})"
+                                            onclick="event.preventDefault(); event.stopPropagation(); handleDelete({{ podcast.id }})"
                                             class="p-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition"
                                             title="Delete">
                                         {{ icon_trash() }}
                                     </button>
-                                    <button
-                                            onclick="event.preventDefault(); event.stopPropagation(); handleUpdate({{ loop.index0 }})"
-                                            class="p-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition"
-                                            title="Update">
-                                        {{ icon_edit() }}
-                                    </button>
-
                                 </div>
                             </div>
                         </div>
@@ -96,7 +89,7 @@
                 class="bg-slate-800 rounded-lg border border-slate-700 hover:border-slate-600 transition overflow-hidden cursor-pointer">
             <div class="p-4 flex items-start gap-4">
                 <div class="flex-shrink-0">
-                    <div class="w-16 h-16 rounded-lg bg-slate-700 flex items-center justify-center">
+                    <div class="w-20 h-20 rounded-lg bg-slate-700 flex items-center justify-center">
                         {{ icon_plus("w-8 h-8 text-slate-400") }}
                     </div>
                 </div>

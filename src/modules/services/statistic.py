@@ -1,50 +1,10 @@
 """Statistics service: app-wide and per-podcast stats via Pydantic models."""
 
-from datetime import datetime
-
-from pydantic import BaseModel, computed_field
-
-from src.constants import format_file_size
-from src.modules.db.repositories import EpisodeRepository, PodcastRepository
+from src.schemas import RecentActivity, AppStatistics, PodcastStatistics
 from src.modules.db.services import SASessionUOW
+from src.modules.db.repositories import EpisodeRepository, PodcastRepository
 
-__all__ = ("AppStatistics", "PodcastStatistics", "StatisticService")
-
-
-class RecentActivity(BaseModel):
-    """Recent activity text and optional time string for display."""
-
-    text: str
-    time: str | None = None
-
-
-class AppStatistics(BaseModel):
-    """Application-wide statistics for dashboard (index)."""
-
-    total_episodes: int = 0
-    total_podcasts: int = 0
-    total_duration: int = 0
-    total_size: int = 0
-    downloading_count: int = 0
-    last_published_at: datetime | None = None
-    last_created_at: datetime | None = None
-    recent_activity: RecentActivity = RecentActivity(text="No episodes yet", time=None)
-
-    @computed_field
-    @property
-    def total_storage(self) -> str:
-        """Human-readable total storage size derived from total_size (bytes)."""
-        return format_file_size(self.total_size)
-
-
-class PodcastStatistics(BaseModel):
-    """Per-podcast statistics for podcast detail page."""
-
-    episodes_count: int = 0
-    total_duration: int = 0
-    total_size: int = 0
-    last_published_at: datetime | None = None
-    last_created_at: datetime | None = None
+__all__ = ("StatisticService",)
 
 
 class StatisticService:
@@ -62,7 +22,9 @@ class StatisticService:
 
         last_pub = episodes_agg.last_published_at
         recent_text = (
-            f"Last episode: {last_pub.strftime('%d %b, %Y %H:%M')}" if last_pub else "No episodes yet"
+            f"Last episode: {last_pub.strftime('%d %b, %Y %H:%M')}"
+            if last_pub
+            else "No episodes yet"
         )
         recent_time = last_pub.strftime("%d %b, %Y %H:%M") if last_pub else None
 

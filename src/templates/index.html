@@ -24,16 +24,13 @@
                             <div class="flex items-center gap-2 flex-shrink-0">
                                 <span
                                     class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-green-500/20 text-green-400 border border-green-500/30">
-                                    {{ podcast.episodes_count }} episodes
+                                    {{ podcast.stat.episodes_count }} episodes
                                 </span>
                                 <button
                                     onclick="event.preventDefault(); event.stopPropagation(); openAddEpisodeModal('{{ podcast.name }}')"
                                     class="p-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition"
                                     title="Add Episode">
-                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                            d="M12 4v16m8-8H4"></path>
-                                    </svg>
+                                    {{ icon_plus("w-4 h-4") }}
                                 </button>
                             </div>
                         </div>
@@ -48,10 +45,7 @@
                 <div class="p-4 flex items-start gap-4">
                     <div class="flex-shrink-0">
                         <div class="w-16 h-16 rounded-lg bg-slate-700 flex items-center justify-center">
-                            <svg class="w-8 h-8 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                    d="M12 4v16m8-8H4"></path>
-                            </svg>
+                            {{ icon_plus("w-8 h-8 text-slate-400") }}
                         </div>
                     </div>
                     <div class="flex-1 min-w-0">
@@ -78,10 +72,9 @@
                         </svg>
                     </div>
                     <div class="flex-1 min-w-0">
-                        <p class="text-sm text-slate-400">Total Episodes | Podcasts</p>
+                        <p class="text-sm text-slate-400">Total Episodes</p>
                         <p class="text-2xl font-semibold text-white">
                             {{ stats.total_episodes }}
-                            | {{ stats.total_podcasts }}
                         </p>
                     </div>
                 </div>
