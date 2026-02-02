@@ -59,6 +59,18 @@
             form.reset();
         }
     }
+    // Close modal on Escape key
+    document.addEventListener('keydown', function (event) {
+        if (event.key === 'Escape') {
+            closeAddPodcastModal();
+        }
+    });
+    // Close modal on background click
+    document.getElementById('addPodcastModal').addEventListener('click', function (event) {
+        if (event.target === this) {
+            closeAddPodcastModal();
+        }
+    });
 </script>
 {% endmacro %}
 
