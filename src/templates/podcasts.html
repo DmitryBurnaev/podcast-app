@@ -85,13 +85,15 @@
             </a>
         {% endfor %}
         <!-- Add New Podcast Card -->
-        <div
-                class="bg-slate-800 rounded-lg border border-slate-700 hover:border-slate-600 transition overflow-hidden cursor-pointer">
+        <div class="bg-slate-800 rounded-lg border border-slate-700 hover:border-slate-600 transition overflow-hidden cursor-pointer">
             <div class="p-4 flex items-start gap-4">
                 <div class="flex-shrink-0">
-                    <div class="w-20 h-20 rounded-lg bg-slate-700 flex items-center justify-center">
+                    <button
+                        onclick="event.preventDefault(); event.stopPropagation(); openAddPodcastModal()"
+                        class="w-20 h-20 rounded-lg bg-slate-700 flex items-center justify-center"
+                        title="Add Episode">
                         {{ icon_plus("w-8 h-8 text-slate-400") }}
-                    </div>
+                    </button>
                 </div>
                 <div class="flex-1 min-w-0">
                     <h3 class="text-lg font-semibold text-white mb-1">Add new podcast</h3>
@@ -111,4 +113,8 @@
             }
         }
     </script>
+{% endblock %}
+
+{% block modals %}
+    {{ modal_add_podcast() }}
 {% endblock %}
