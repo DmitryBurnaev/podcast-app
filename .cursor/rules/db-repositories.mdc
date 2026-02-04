@@ -1,0 +1,28 @@
+---
+description: Database access pattern via repositories and Unit of Work
+globs: ["src/modules/db/**/*.py", "src/modules/views/**/*.py", "src/modules/services/**/*.py"]
+---
+
+# DB pattern: repositories and UOW
+
+## Layers
+
+1. **Session** (`modules/db/session.py`) — singleton `AsyncDBConnectors`, `get_session_factory()`, `initialize_database()` / `close_database()` in app lifespan. No direct use in views.
+2. **Dependencies** (`modules/db/dependencies.py`) — `get_db_session()` (session per request, auto commit/rollback), `get_transactional_session()` (manual transaction), `get_uow_with_session()` (UOW with injected session). Used when handlers get session/UOW via DI.
+3. **Repositories** (`modules/db/repositories.py`) — `BaseRepository[ModelT]` with `get(id)`, `first(id)`, `all(**filters)`, `all_paginated(...)`. Concrete repos (e.g. `UserRepository`, `PodcastRepository`, `EpisodeRepository`) inherit and receive `AsyncSession` in `__init__`. All DB reads/writes go through repository methods.
+4. **UOW** (`modules/db/services.py`) — `SASessionUOW`: Unit of Work over one session. Use for multi-repo or multi-step writes that must be atomic. Standalone: `async with SASessionUOW() as uow:`; dependency: inject session then `SASessionUOW(session=...)` and use `uow.session` for repos. Call `uow.mark_for_commit()` when changes should be committed.
+
+## Usage in handlers (views/services)
+
+- **Simple read/write (one repo, one operation):** inject `get_db_session`, create repo with that session, call repo methods. Session dependency handles commit/rollback.
+- **Several repos or atomic multi-step:** use UOW. Example:
+  - `async with SASessionUOW() as uow:`
+  - `repo_a = SomeRepository(session=uow.session)`; `repo_b = OtherRepository(session=uow.session)`
+  - Perform operations on repos
+  - `uow.mark_for_commit()` before exiting context
+- Do **not** create raw `AsyncSession` or run SQL in views/services; use only repositories (and UOW when needed).
+
+## Adding new persistence
+
+- New entity: add model in **modules/db/models/** (inherit base), add repository class in **repositories.py** inheriting `BaseRepository` and setting `model = YourModel`. Implement extra methods (filters, joins) in the repository.
+- New repo method: add to the concrete repository; keep queries and SQL in the repository, not in views or services.

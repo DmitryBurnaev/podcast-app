@@ -1,3 +1,5 @@
+{% from "snippets/icons.html" import icon_close %}
+
 {% macro modal_add_podcast() %}
 <div id="addPodcastModal" class="fixed inset-0 bg-black/50 z-50 hidden items-center justify-center">
     <div class="bg-slate-800 rounded-lg border border-slate-700 w-full max-w-md mx-4 shadow-xl">
@@ -5,10 +7,7 @@
             <div class="flex items-center justify-between">
                 <h3 class="text-lg font-semibold text-white">Add New Podcast</h3>
                 <button onclick="closeAddPodcastModal()" class="text-slate-400 hover:text-white transition">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12">
-                        </path>
-                    </svg>
+                    {{ icon_close() }}
                 </button>
             </div>
         </div>
@@ -83,10 +82,7 @@
             <div class="flex items-center justify-between">
                 <h3 class="text-lg font-semibold text-white">Add New Episode</h3>
                 <button onclick="closeAddEpisodeModal()" class="text-slate-400 hover:text-white transition">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12">
-                        </path>
-                    </svg>
+                    {{ icon_close() }}
                 </button>
             </div>
         </div>
