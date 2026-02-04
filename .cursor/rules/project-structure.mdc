@@ -1,0 +1,28 @@
+---
+description: Layout of main modules and entry points in the podcast app
+globs: ["src/**/*.py"]
+---
+
+# Project structure (src/)
+
+## Root layout
+
+- **main.py** — entry point: `make_app()`, lifespan (DB init/close), `PodcastApp` (Litestar subclass). Route handlers from `BaseController.get_controllers()`, template/static config, dependencies (e.g. `Provide(get_app_settings)`).
+- **constants.py**, **exceptions.py**, **schemas.py**, **utils.py** — shared app-wide (no feature logic).
+- **settings/** — configuration (see settings rule).
+- **modules/** — feature modules (db, auth, views, services, api).
+- **static/**, **templates/** — frontend assets and Jinja templates.
+
+## modules/
+
+- **db/** — database: models, repositories, session, UOW, dependencies. All DB access goes through this module (repositories + optional UOW). See db-repositories rule.
+- **auth/** — authentication: dependencies, hashers, tokens. Used by views/API that need current user or tokens.
+- **views/** — HTTP controllers (Litestar): `BaseController` + concrete controllers (index, podcasts, system, users). Controllers use db (repositories/UOW) and services, return templates or redirects.
+- **services/** — business logic that coordinates repositories or external calls (e.g. `StatisticService`). Used by views; does not define HTTP routes.
+- **api/** — REST/API route handlers (if any). Same pattern as views: use db and services via dependencies or UOW.
+
+## Conventions
+
+- New feature: add controller in **views/** (or **api/**), reuse **db** (repositories/models) and **services/** as needed. Do not put SQL or session handling in views; use repositories and UOW.
+- Shared types/constants: **schemas.py**, **constants.py**. Domain models: **modules/db/models/**.
+- Entry for app creation and wiring is **main.py**; add new global dependencies or lifespan steps there.

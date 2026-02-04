@@ -4,15 +4,9 @@
     <div class="mb-6">
         <nav class="flex items-center gap-2 text-sm text-slate-400">
             <a href="/" class="hover:text-white transition">Home</a>
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                      d="M9 5l7 7-7 7"></path>
-            </svg>
+            {{ icon_chevron_right("w-4 h-4") }}
             <a href="/podcasts/{{ podcast.id }}/" class="hover:text-white transition">{{ podcast.name }}</a>
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                      d="M9 5l7 7-7 7"></path>
-            </svg>
+            {{ icon_chevron_right("w-4 h-4") }}
             <span class="text-slate-300 font-medium">{{ episode.title }}</span>
         </nav>
     </div>
@@ -41,11 +35,7 @@
                     {% else %}
                         <div class="w-32 h-32 rounded-lg bg-gradient-to-br from-purple-500 to-blue-500
                                 flex items-center justify-center border-4 border-slate-700 shadow-lg">
-                            <svg class="w-16 h-16 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                      d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3">
-                                </path>
-                            </svg>
+                            {{ icon_music("w-16 h-16 text-white") }}
                         </div>
                     {% endif %}
                 </div>
@@ -63,12 +53,8 @@
                             <!-- Play/Pause Button (centered) -->
                             <button id="play-button" 
                                     class="w-16 h-16 bg-green-600 hover:bg-green-700 rounded-full flex items-center justify-center transition shadow-lg hover:shadow-green-600/50 mb-4">
-                                <svg id="play-icon" class="w-8 h-8 text-white ml-1" fill="currentColor" viewBox="0 0 24 24">
-                                    <path d="M8 5v14l11-7z"></path>
-                                </svg>
-                                <svg id="pause-icon" class="w-8 h-8 text-white hidden" fill="currentColor" viewBox="0 0 24 24">
-                                    <path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z"></path>
-                                </svg>
+                                {{ icon_play("w-8 h-8 text-white ml-1", id="play-icon") }}
+                                {{ icon_pause("w-8 h-8 text-white hidden", id="pause-icon") }}
                             </button>
 
                             <!-- Time Display -->
@@ -83,23 +69,13 @@
                             <div class="w-full flex items-center justify-center gap-6 text-sm">
                                 {% if episode.length %}
                                     <div class="flex items-center gap-2">
-                                        <svg class="w-4 h-4 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                                  d="M3 18v-6a9 9 0 0 1 18 0v6"></path>
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                                  d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z">
-                                            </path>
-                                        </svg>
+                                        {{ icon_headphones("w-4 h-4 text-green-400") }}
                                         <span class="text-slate-300 font-medium">{{ format_duration(episode.length) }}</span>
                                     </div>
                                 {% endif %}
                                 {% if episode_size and episode_size > 0 %}
                                     <div class="flex items-center gap-2">
-                                        <svg class="w-4 h-4 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                                  d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4">
-                                            </path>
-                                        </svg>
+                                        {{ icon_database("w-4 h-4 text-green-400") }}
                                         <span class="text-slate-300 font-medium">{{ format_file_size(episode_size) }}</span>
                                     </div>
                                 {% endif %}
@@ -116,12 +92,7 @@
                     <!-- Created At -->
                     {% if episode.created_at %}
                         <div class="flex items-start gap-3 text-sm">
-                            <svg class="w-4 h-4 text-slate-400 flex-shrink-0 mt-0.5" fill="none"
-                                 stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                      d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z">
-                                </path>
-                            </svg>
+                            {{ icon_calendar("w-4 h-4 text-slate-400 flex-shrink-0 mt-0.5") }}
                             <div class="flex-1">
                                 <div class="text-slate-500 text-xs mb-0.5">Created At</div>
                                 <div class="text-slate-300 text-sm">{{ episode.created_at.strftime('%b %d, %Y') }}</div>
@@ -132,12 +103,7 @@
                     <!-- Published At -->
                     {% if episode.published_at %}
                         <div class="flex items-start gap-3 text-sm">
-                            <svg class="w-4 h-4 text-slate-400 flex-shrink-0 mt-0.5" fill="none"
-                                 stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                      d="M13 10V3L4 14h7v7l9-11h-7z">
-                                </path>
-                            </svg>
+                            {{ icon_bolt("w-4 h-4 text-slate-400 flex-shrink-0 mt-0.5") }}
                             <div class="flex-1">
                                 <div class="text-slate-500 text-xs mb-0.5">Published At</div>
                                 <div class="text-slate-300 text-sm">{{ episode.published_at.strftime('%b %d, %Y') }}</div>
@@ -148,12 +114,7 @@
                     <!-- Media URL -->
                     {% if audio_url %}
                         <div class="flex items-start gap-3 text-sm">
-                            <svg class="w-4 h-4 text-slate-400 flex-shrink-0 mt-0.5" fill="none"
-                                 stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                      d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3">
-                                </path>
-                            </svg>
+                            {{ icon_music("w-4 h-4 text-slate-400 flex-shrink-0 mt-0.5") }}
                             <div class="flex-1">
                                 <div class="text-slate-500 text-xs mb-0.5">Media URL</div>
                                 <a href="{{ audio_url }}" target="_blank" 
@@ -167,15 +128,7 @@
                     <!-- Source URL -->
                     {% if source_url %}
                         <div class="flex items-start gap-3 text-sm">
-                            <svg class="w-4 h-4 text-slate-400 flex-shrink-0 mt-0.5" fill="none"
-                                 stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                      d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z">
-                                </path>
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                      d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z">
-                                </path>
-                            </svg>
+                            {{ icon_play_circle("w-4 h-4 text-slate-400 flex-shrink-0 mt-0.5") }}
                             <div class="flex-1">
                                 <div class="text-slate-500 text-xs mb-0.5">Source URL</div>
                                 <a href="{{ source_url }}" target="_blank" 
@@ -227,36 +180,18 @@
                     <div class="flex items-center gap-3 pt-4 border-t border-slate-700 mt-auto">
                         <button type="button" onclick="handleUpdate()" class="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition
                                        flex items-center gap-2">
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor"
-                                 viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round"
-                                      stroke-width="1.3"
-                                      d="m14.304 4.844 2.852 2.852M7 7H4a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h11a1 1 0 0 0 1-1v-4.5m2.409-9.91a2.017 2.017 0 0 1 0 2.853l-6.844 6.844L8 14l.713-3.565 6.844-6.844a2.015 2.015 0 0 1 2.852 0Z">
-                                </path>
-                            </svg>
+                            {{ icon_edit("w-4 h-4") }}
                             Update
                         </button>
                         <button type="button" onclick="handleDownload()" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition
                                        flex items-center gap-2">
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor"
-                                 viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round"
-                                      stroke-width="2"
-                                      d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4">
-                                </path>
-                            </svg>
+                            {{ icon_download("w-4 h-4") }}
                             Download
                         </button>
                         <button type="button" onclick="handleDelete()"
                                 class="p-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition ml-auto"
                                 title="Delete episode">
-                            <svg class="w-5 h-5" fill="none" stroke="currentColor"
-                                 viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round"
-                                      stroke-width="2"
-                                      d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16">
-                                </path>
-                            </svg>
+                            {{ icon_trash("w-5 h-5") }}
                         </button>
                     </div>
                 </form>

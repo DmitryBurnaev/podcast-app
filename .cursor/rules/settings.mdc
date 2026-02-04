@@ -1,0 +1,21 @@
+---
+description: How app configuration is split and loaded (pydantic-settings)
+globs: ["src/settings/**/*.py", "src/main.py"]
+---
+
+# Settings pattern
+
+## Layout (src/settings/)
+
+- **app.py** — root `AppSettings` (pydantic-settings): app-level options and **nested** domain settings (`flags`, `log`, `smtp`, `db`, `redis`, `s3`). Single entry: `get_app_settings()` (uses `prepare_settings(AppSettings)`, cached with `@lru_cache`). Exposes `APP_DIR` (path to app root).
+- **db.py** — `DBSettings`, `S3Settings`, `RedisSettings` (each with own `env_prefix`: `DB_`, `S3_`, `REDIS_`). Getters: `get_db_settings()`, `get_s3_settings()`, `get_redis_settings()` — all use `prepare_settings(...)` and `@lru_cache`.
+- **log.py** — `LogSettings` (`LOG_` prefix), `get_log_settings()`. Used by AppSettings or logging bootstrap.
+- **utils.py** — `prepare_settings(settings_class)`: builds instance from env, raises `AppSettingsError` on validation error; used by all getters.
+
+## Conventions
+
+- Each settings class: inherit `BaseSettings`, set `model_config` with `env_file=".env"` if needed and `env_prefix="PREFIX_"`. Use `Field` for defaults/descriptions. Optional: `@cached_property` for derived values (e.g. DSN, paths).
+- Nested settings: define in their own file (e.g. db.py, log.py), then in AppSettings use `Field(default_factory=SomeSettings)` so they are instantiated from env with their prefix.
+- Single public getter per group: `get_*_settings()` with `@lru_cache`, calling `prepare_settings(SomeSettings)`. App code uses these getters, not direct class instantiation.
+- New domain (e.g. email, external API): add `XxxSettings` in a dedicated file under settings/, add getter `get_xxx_settings()`. If it must be available app-wide, add a field on `AppSettings` with `Field(default_factory=XxxSettings)`.
+- Do not read env directly in business code; use settings classes and getters only.

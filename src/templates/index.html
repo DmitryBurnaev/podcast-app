@@ -84,11 +84,7 @@
             <div class="bg-slate-800 rounded-lg border border-slate-700 p-4">
                 <div class="flex items-center gap-4">
                     <div class="flex-shrink-0 w-12 h-12 rounded-lg bg-orange-500/20 flex items-center justify-center">
-                        <svg class="w-6 h-6 text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4">
-                            </path>
-                        </svg>
+                        {{ icon_database("w-6 h-6 text-orange-400") }}
                     </div>
                     <div class="flex-1 min-w-0">
                         <p class="text-sm text-slate-400">Total Storage</p>
@@ -101,10 +97,7 @@
             <div class="bg-slate-800 rounded-lg border border-slate-700 p-4">
                 <div class="flex items-center gap-4">
                     <div class="flex-shrink-0 w-12 h-12 rounded-lg bg-blue-500/20 flex items-center justify-center">
-                        <svg class="w-6 h-6 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
-                        </svg>
+                        {{ icon_download("w-6 h-6 text-blue-400") }}
                     </div>
                     <div class="flex-1 min-w-0">
                         <p class="text-sm text-slate-400">Downloading Episodes</p>
@@ -148,10 +141,7 @@
                             {% endif %}
                         </div>
                         <div class="flex-shrink-0">
-                            <svg class="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7">
-                                </path>
-                            </svg>
+                            {{ icon_chevron_right("w-5 h-5 text-slate-400") }}
                         </div>
                     </div>
                 </a>

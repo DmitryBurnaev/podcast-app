@@ -1,0 +1,29 @@
+---
+description: How SVG icons are organized and how to add new ones
+globs: ["**/templates/**", "**/snippets/icons.html"]
+---
+
+# Icons (SVG) — structure and adding new icons
+
+## How icons are organized
+
+- **Single source of truth:** all inline SVG icons used in templates live as **Jinja2 macros** in `src/templates/snippets/icons.html`.
+- **Usage:** templates get icons via `{% from "snippets/icons.html" import icon_* %}`. Base layout `src/templates/base.html` imports all icon macros and passes them to every page.
+- **Naming:** macro name = `icon_<name>`, e.g. `icon_search`, `icon_close`, `icon_play`. Name is short, snake_case, semantic (filter, play, pause, bolt, play_circle).
+- **Macro signature:** each macro has at least one parameter `class` with a default (e.g. `class="w-5 h-5"`). Optional extra params (e.g. `id`) only when needed for JS (e.g. play/pause toggling).
+- **SVG style:** use `fill="none" stroke="currentColor"` for outline icons, `fill="currentColor"` for solid (e.g. play triangle). Use `viewBox="0 0 24 24"`, `stroke-linecap="round"`, `stroke-linejoin="round"`, `stroke-width="2"` where applicable. Class is applied to the root `<svg>` so Tailwind (e.g. `text-slate-400`, `w-4 h-4`) controls size and color.
+- **No inline SVG in pages:** templates (including `episodes.html`, `index.html`, `episodes_detail.html`, `progress.html`, `snippets/modals.html`, etc.) must **not** contain raw `<svg>...</svg>`. They only call icon macros.
+
+## When adding a new SVG icon
+
+1. **Add a macro** in `src/templates/snippets/icons.html`:
+   - `{% macro icon_<name>(class="w-5 h-5", ...) %}`
+   - Put the `<svg>` markup inside the macro; use `class="{{ class }}"` on the `<svg>`.
+   - Add optional params (e.g. `id=none`) only if the icon is toggled or targeted by JS.
+2. **Export in base:** add the new macro name to the `{% from "snippets/icons.html" import ... %}` list in `src/templates/base.html` so all pages can use it.
+3. **Use in templates:** call `{{ icon_<name>("optional-class-override") }}` or `{{ icon_<name>(id="some-id") }}` where needed. Do **not** paste raw SVG into templates.
+4. **Snippets that don't extend base:** if a snippet (e.g. `modals.html`) uses an icon, it must `{% from "snippets/icons.html" import icon_close %}` (or the needed icons) at the top of that file so the macro has the icon in scope when rendered.
+
+## Summary rule
+
+**New SVG icon → add macro in `snippets/icons.html` → add to base imports → use only via macro in templates. No inline SVG in page/snippet templates.**
