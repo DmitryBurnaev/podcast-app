@@ -89,55 +89,68 @@
                 <div class="space-y-3 mt-4 pt-4 border-t border-slate-700">
                     <h3 class="text-sm font-semibold text-slate-300 mb-3">Episode details</h3>
 
-                    <!-- Created At -->
-                    {% if episode.created_at %}
-                        <div class="flex items-start gap-3 text-sm">
-                            {{ icon_calendar("w-4 h-4 text-slate-400 flex-shrink-0 mt-0.5") }}
-                            <div class="flex-1">
-                                <div class="text-slate-500 text-xs mb-0.5">Created At</div>
-                                <div class="text-slate-300 text-sm">{{ episode.created_at.strftime('%b %d, %Y') }}</div>
-                            </div>
+                <!-- Statistics Section -->
+                    <div class="space-y-3 mt-4 pt-4 border-t border-slate-700">
+                        <!-- Created Date -->
+                        <div class="flex items-center gap-2 text-sm">
+                            {{ icon_calendar("w-4 h-4 text-slate-400 flex-shrink-0") }}
+                            <span class="text-slate-400 text-xs">
+                                Created: {{ episode.created_at.strftime('%b %d, %Y') }}
+                            </span>
                         </div>
-                    {% endif %}
 
-                    <!-- Published At -->
-                    {% if episode.published_at %}
-                        <div class="flex items-start gap-3 text-sm">
-                            {{ icon_bolt("w-4 h-4 text-slate-400 flex-shrink-0 mt-0.5") }}
-                            <div class="flex-1">
-                                <div class="text-slate-500 text-xs mb-0.5">Published At</div>
-                                <div class="text-slate-300 text-sm">{{ episode.published_at.strftime('%b %d, %Y') }}</div>
+                        <!-- Updated Date (if available) -->
+                        {% if episode.updated_at %}
+                            <div class="flex items-center gap-2 text-sm">
+                                {{ icon_refresh("w-4 h-4 text-slate-400 flex-shrink-0") }}
+                                <span class="text-slate-400 text-xs">
+                                    Updated: {{ episode.updated_at.strftime('%b %d, %Y') }}
+                                </span>
                             </div>
-                        </div>
-                    {% endif %}
+                        {% endif %}
 
-                    <!-- Media URL -->
-                    {% if audio_url %}
-                        <div class="flex items-start gap-3 text-sm">
-                            {{ icon_music("w-4 h-4 text-slate-400 flex-shrink-0 mt-0.5") }}
-                            <div class="flex-1">
-                                <div class="text-slate-500 text-xs mb-0.5">Media URL</div>
-                                <a href="{{ audio_url }}" target="_blank" 
-                                   class="text-slate-300 text-sm hover:text-white transition truncate block">
-                                    {{ audio_url|truncate(50, true) }}
-                                </a>
+                        <!-- Duration (if available) -->
+                        {% if episode.length and episode.length > 0 %}
+                            <div class="flex items-center gap-2 text-sm">
+                                {{ icon_clock("w-4 h-4 text-slate-400 flex-shrink-0") }}
+                                <span class="text-slate-400 text-xs">Duration: {{ format_duration(episode.length) }}</span>
                             </div>
-                        </div>
-                    {% endif %}
+                        {% endif %}
 
-                    <!-- Source URL -->
-                    {% if source_url %}
-                        <div class="flex items-start gap-3 text-sm">
-                            {{ icon_play_circle("w-4 h-4 text-slate-400 flex-shrink-0 mt-0.5") }}
-                            <div class="flex-1">
-                                <div class="text-slate-500 text-xs mb-0.5">Source URL</div>
-                                <a href="{{ source_url }}" target="_blank" 
-                                   class="text-slate-300 text-sm hover:text-white transition truncate block">
-                                    {{ source_url|truncate(50, true) }}
-                                </a>
+                        <!-- Size (if available) -->
+                        {% if episode.audio and episode.audio.size %}
+                            <div class="flex items-center gap-2 text-sm">
+                                {{ icon_database("w-4 h-4 text-slate-400 flex-shrink-0") }}
+                                <span class="text-slate-400 text-xs">Size: {{ format_file_size(episode.audio.size) }}</span>
                             </div>
-                        </div>
-                    {% endif %}
+                        {% endif %}
+
+                        <!-- Published (if available) -->
+                        {% if episode.published_at %}
+                            <div class="flex items-center gap-2 text-sm">
+                                {{ icon_calendar("w-4 h-4 text-slate-400 flex-shrink-0") }}
+                                <span class="text-slate-400 text-xs"> Published: {{ episode.published_at.strftime('%b %d, %Y') }}
+                                </span>
+                            </div>
+                        {% endif %}
+
+                        <!-- Media URL -->
+                        {% if audio_url %}
+                            <div class="flex items-start gap-2 text-sm">
+                                {{ icon_music("w-4 h-4 text-slate-400 flex-shrink-0 mt-0.5") }}
+                                <a class="text-slate-400 text-xs" href="{{ audio_url }}" target="_blank">Media URL</a>
+                            </div>
+                        {% endif %}
+
+                        <!-- Source URL -->
+                        {% if source_url %}
+                            <div class="flex items-start gap-2 text-sm">
+                                {{ icon_play_circle("w-4 h-4 text-slate-400 flex-shrink-0 mt-0.5") }}
+                                <a class="text-slate-400 text-xs" href="{{ source_url }}" target="_blank">Source URL</a>
+                            </div>
+                        {% endif %}
+                    </div>
+
                 </div>
             </div>
         </div>

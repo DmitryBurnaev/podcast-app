@@ -6,8 +6,9 @@
         <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
             {{ icon_search("h-5 w-5 text-slate-400") }}
         </div>
+        <label for="search-input"></label>
         <input type="text" id="search-input" placeholder="Search" value="{{ filters.search or '' }}"
-            class="block w-full pl-10 pr-10 py-2 border border-slate-600 rounded-lg bg-slate-700 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent">
+                                                 class="block w-full pl-10 pr-10 py-2 border border-slate-600 rounded-lg bg-slate-700 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent">
         <button onclick="openFiltersModal()" class="absolute inset-y-0 right-0 pr-3 flex items-center">
             {{ icon_filter("h-5 w-5 " ~ ("text-purple-400" if filters else "text-slate-400")) }}
             {% if filters %}
