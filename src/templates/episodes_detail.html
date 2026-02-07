@@ -5,7 +5,8 @@
         <nav class="flex items-center gap-2 text-sm text-slate-400">
             <a href="/" class="hover:text-white transition">Home</a>
             {{ icon_chevron_right("w-4 h-4") }}
-            <a href="/podcasts/{{ podcast.id }}/" class="hover:text-white transition">{{ podcast.name }}</a>
+            <a href="/podcasts/{{ podcast.id }}/"
+               class="hover:text-white transition">{{ podcast.name }}</a>
             {{ icon_chevron_right("w-4 h-4") }}
             <span class="text-slate-300 font-medium">{{ episode.title }}</span>
         </nav>
@@ -51,18 +52,22 @@
                         <!-- Player Controls -->
                         <div class="flex flex-col items-center">
                             <!-- Play/Pause Button (centered) -->
-                            <button id="play-button" 
+                            <button id="play-button"
                                     class="w-16 h-16 bg-green-600 hover:bg-green-700 rounded-full flex items-center justify-center transition shadow-lg hover:shadow-green-600/50 mb-4">
                                 {{ icon_play("w-8 h-8 text-white ml-1", id="play-icon") }}
                                 {{ icon_pause("w-8 h-8 text-white hidden", id="pause-icon") }}
                             </button>
 
                             <!-- Time Display -->
-                            <div class="text-2xl font-mono text-slate-200 mb-3" id="time-display">00:00:00</div>
+                            <div class="text-slate-300 font-medium mb-3" id="time-display">
+                                00:00:00
+                            </div>
 
                             <!-- Progress Bar -->
-                            <div class="w-full bg-slate-600 rounded-full h-1.5 cursor-pointer mb-6" id="progress-container">
-                                <div class="bg-green-600 h-1.5 rounded-full transition-all" id="progress-bar" style="width: 0%"></div>
+                            <div class="w-full bg-slate-600 rounded-full h-1.5 cursor-pointer mb-6"
+                                 id="progress-container">
+                                <div class="bg-green-600 h-1.5 rounded-full transition-all"
+                                     id="progress-bar" style="width: 0%"></div>
                             </div>
 
                             <!-- Duration and Size Info -->
@@ -85,72 +90,67 @@
                     </div>
                 {% endif %}
 
-                <!-- Episode Details Section -->
                 <div class="space-y-3 mt-4 pt-4 border-t border-slate-700">
-                    <h3 class="text-sm font-semibold text-slate-300 mb-3">Episode details</h3>
-
-                <!-- Statistics Section -->
-                    <div class="space-y-3 mt-4 pt-4 border-t border-slate-700">
-                        <!-- Created Date -->
-                        <div class="flex items-center gap-2 text-sm">
-                            {{ icon_calendar("w-4 h-4 text-slate-400 flex-shrink-0") }}
-                            <span class="text-slate-400 text-xs">
+                    <!-- Created Date -->
+                    <div class="flex items-center gap-2 text-sm">
+                        {{ icon_calendar("w-4 h-4 text-slate-400 flex-shrink-0") }}
+                        <span class="text-slate-400 text-xs">
                                 Created: {{ episode.created_at.strftime('%b %d, %Y') }}
                             </span>
-                        </div>
-
-                        <!-- Updated Date (if available) -->
-                        {% if episode.updated_at %}
-                            <div class="flex items-center gap-2 text-sm">
-                                {{ icon_refresh("w-4 h-4 text-slate-400 flex-shrink-0") }}
-                                <span class="text-slate-400 text-xs">
-                                    Updated: {{ episode.updated_at.strftime('%b %d, %Y') }}
-                                </span>
-                            </div>
-                        {% endif %}
-
-                        <!-- Duration (if available) -->
-                        {% if episode.length and episode.length > 0 %}
-                            <div class="flex items-center gap-2 text-sm">
-                                {{ icon_clock("w-4 h-4 text-slate-400 flex-shrink-0") }}
-                                <span class="text-slate-400 text-xs">Duration: {{ format_duration(episode.length) }}</span>
-                            </div>
-                        {% endif %}
-
-                        <!-- Size (if available) -->
-                        {% if episode.audio and episode.audio.size %}
-                            <div class="flex items-center gap-2 text-sm">
-                                {{ icon_database("w-4 h-4 text-slate-400 flex-shrink-0") }}
-                                <span class="text-slate-400 text-xs">Size: {{ format_file_size(episode.audio.size) }}</span>
-                            </div>
-                        {% endif %}
-
-                        <!-- Published (if available) -->
-                        {% if episode.published_at %}
-                            <div class="flex items-center gap-2 text-sm">
-                                {{ icon_calendar("w-4 h-4 text-slate-400 flex-shrink-0") }}
-                                <span class="text-slate-400 text-xs"> Published: {{ episode.published_at.strftime('%b %d, %Y') }}
-                                </span>
-                            </div>
-                        {% endif %}
-
-                        <!-- Media URL -->
-                        {% if audio_url %}
-                            <div class="flex items-start gap-2 text-sm">
-                                {{ icon_music("w-4 h-4 text-slate-400 flex-shrink-0 mt-0.5") }}
-                                <a class="text-slate-400 text-xs" href="{{ audio_url }}" target="_blank">Media URL</a>
-                            </div>
-                        {% endif %}
-
-                        <!-- Source URL -->
-                        {% if source_url %}
-                            <div class="flex items-start gap-2 text-sm">
-                                {{ icon_play_circle("w-4 h-4 text-slate-400 flex-shrink-0 mt-0.5") }}
-                                <a class="text-slate-400 text-xs" href="{{ source_url }}" target="_blank">Source URL</a>
-                            </div>
-                        {% endif %}
                     </div>
 
+                    <!-- Updated Date (if available) -->
+                    {% if episode.updated_at %}
+                        <div class="flex items-center gap-2 text-sm">
+                            {{ icon_refresh("w-4 h-4 text-slate-400 flex-shrink-0") }}
+                            <span class="text-slate-400 text-xs">
+                                    Updated: {{ episode.updated_at.strftime('%b %d, %Y') }}
+                                </span>
+                        </div>
+                    {% endif %}
+
+                    <!-- Duration (if available) -->
+                    {% if episode.length and episode.length > 0 %}
+                        <div class="flex items-center gap-2 text-sm">
+                            {{ icon_clock("w-4 h-4 text-slate-400 flex-shrink-0") }}
+                            <span class="text-slate-400 text-xs">Duration: {{ format_duration(episode.length) }}</span>
+                        </div>
+                    {% endif %}
+
+                    <!-- Size (if available) -->
+                    {% if episode.audio and episode.audio.size %}
+                        <div class="flex items-center gap-2 text-sm">
+                            {{ icon_database("w-4 h-4 text-slate-400 flex-shrink-0") }}
+                            <span class="text-slate-400 text-xs">Size: {{ format_file_size(episode.audio.size) }}</span>
+                        </div>
+                    {% endif %}
+
+                    <!-- Published (if available) -->
+                    {% if episode.published_at %}
+                        <div class="flex items-center gap-2 text-sm">
+                            {{ icon_calendar("w-4 h-4 text-slate-400 flex-shrink-0") }}
+                            <span class="text-slate-400 text-xs"> Published: {{ episode.published_at.strftime('%b %d, %Y') }}
+                                </span>
+                        </div>
+                    {% endif %}
+
+                    <!-- Media URL -->
+                    {% if audio_url %}
+                        <div class="flex items-start gap-2 text-sm">
+                            {{ icon_music("w-4 h-4 text-slate-400 flex-shrink-0 mt-0.5") }}
+                            <a class="text-slate-400 text-xs" href="{{ audio_url }}"
+                               target="_blank">Media URL</a>
+                        </div>
+                    {% endif %}
+
+                    <!-- Source URL -->
+                    {% if source_url %}
+                        <div class="flex items-start gap-2 text-sm">
+                            {{ icon_play_circle("w-4 h-4 text-slate-400 flex-shrink-0 mt-0.5") }}
+                            <a class="text-slate-400 text-xs" href="{{ source_url }}"
+                               target="_blank">Source URL</a>
+                        </div>
+                    {% endif %}
                 </div>
             </div>
         </div>
@@ -166,7 +166,8 @@
                     <div>
                         <label for="episode-title"
                                class="block text-sm font-medium text-slate-300 mb-2">Title</label>
-                        <input type="text" id="episode-title" name="title" value="{{ episode.title }}"
+                        <input type="text" id="episode-title" name="title"
+                               value="{{ episode.title }}"
                                class="w-full px-3 py-2 border border-slate-600 rounded-lg bg-slate-700 text-white
                                       focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent">
                     </div>
@@ -175,7 +176,8 @@
                     <div>
                         <label for="episode-author"
                                class="block text-sm font-medium text-slate-300 mb-2">Author</label>
-                        <input type="text" id="episode-author" name="author" value="{{ episode.author or '' }}"
+                        <input type="text" id="episode-author" name="author"
+                               value="{{ episode.author or '' }}"
                                class="w-full px-3 py-2 border border-slate-600 rounded-lg bg-slate-700 text-white
                                       focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent">
                     </div>
@@ -184,7 +186,7 @@
                     <div>
                         <label for="episode-description"
                                class="block text-sm font-medium text-slate-300 mb-2">Description</label>
-                        <textarea id="episode-description" name="description" rows="8"
+                        <textarea id="episode-description" name="description" rows="13"
                                   class="w-full px-3 py-2 border border-slate-600 rounded-lg bg-slate-700 text-white
                                          focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent">{{ episode.description or '' }}</textarea>
                     </div>
@@ -215,71 +217,71 @@
     <script>
         // Audio player functionality
         {% if audio_url %}
-        (function() {
-            const audio = document.getElementById('episode-audio');
-            const playButton = document.getElementById('play-button');
-            const playIcon = document.getElementById('play-icon');
-            const pauseIcon = document.getElementById('pause-icon');
-            const timeDisplay = document.getElementById('time-display');
-            const progressBar = document.getElementById('progress-bar');
-            const progressContainer = document.getElementById('progress-container');
+            (function () {
+                const audio = document.getElementById('episode-audio');
+                const playButton = document.getElementById('play-button');
+                const playIcon = document.getElementById('play-icon');
+                const pauseIcon = document.getElementById('pause-icon');
+                const timeDisplay = document.getElementById('time-display');
+                const progressBar = document.getElementById('progress-bar');
+                const progressContainer = document.getElementById('progress-container');
 
-            if (!audio || !playButton) return;
+                if (!audio || !playButton) return;
 
-            // Format time as HH:MM:SS
-            function formatTime(seconds) {
-                const h = Math.floor(seconds / 3600);
-                const m = Math.floor((seconds % 3600) / 60);
-                const s = Math.floor(seconds % 60);
-                return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
-            }
-
-            // Update time display and progress
-            function updateProgress() {
-                if (audio.duration) {
-                    const percent = (audio.currentTime / audio.duration) * 100;
-                    progressBar.style.width = percent + '%';
-                    timeDisplay.textContent = formatTime(audio.currentTime);
+                // Format time as HH:MM:SS
+                function formatTime(seconds) {
+                    const h = Math.floor(seconds / 3600);
+                    const m = Math.floor((seconds % 3600) / 60);
+                    const s = Math.floor(seconds % 60);
+                    return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
                 }
-            }
 
-            // Toggle play/pause
-            playButton.addEventListener('click', function() {
-                if (audio.paused) {
-                    audio.play();
-                    playIcon.classList.add('hidden');
-                    pauseIcon.classList.remove('hidden');
-                } else {
-                    audio.pause();
+                // Update time display and progress
+                function updateProgress() {
+                    if (audio.duration) {
+                        const percent = (audio.currentTime / audio.duration) * 100;
+                        progressBar.style.width = percent + '%';
+                        timeDisplay.textContent = formatTime(audio.currentTime);
+                    }
+                }
+
+                // Toggle play/pause
+                playButton.addEventListener('click', function () {
+                    if (audio.paused) {
+                        audio.play();
+                        playIcon.classList.add('hidden');
+                        pauseIcon.classList.remove('hidden');
+                    } else {
+                        audio.pause();
+                        playIcon.classList.remove('hidden');
+                        pauseIcon.classList.add('hidden');
+                    }
+                });
+
+                // Seek on progress bar click
+                progressContainer.addEventListener('click', function (e) {
+                    if (audio.duration) {
+                        const rect = progressContainer.getBoundingClientRect();
+                        const percent = (e.clientX - rect.left) / rect.width;
+                        audio.currentTime = percent * audio.duration;
+                    }
+                });
+
+                // Update progress on timeupdate
+                audio.addEventListener('timeupdate', updateProgress);
+
+                // Initialize time display with total duration
+                audio.addEventListener('loadedmetadata', function () {
+                    timeDisplay.textContent = formatTime(0);
+                });
+
+                // Reset play button when audio ends
+                audio.addEventListener('ended', function () {
                     playIcon.classList.remove('hidden');
                     pauseIcon.classList.add('hidden');
-                }
-            });
-
-            // Seek on progress bar click
-            progressContainer.addEventListener('click', function(e) {
-                if (audio.duration) {
-                    const rect = progressContainer.getBoundingClientRect();
-                    const percent = (e.clientX - rect.left) / rect.width;
-                    audio.currentTime = percent * audio.duration;
-                }
-            });
-
-            // Update progress on timeupdate
-            audio.addEventListener('timeupdate', updateProgress);
-            
-            // Initialize time display with total duration
-            audio.addEventListener('loadedmetadata', function() {
-                timeDisplay.textContent = formatTime(0);
-            });
-
-            // Reset play button when audio ends
-            audio.addEventListener('ended', function() {
-                playIcon.classList.remove('hidden');
-                pauseIcon.classList.add('hidden');
-                audio.currentTime = 0;
-            });
-        })();
+                    audio.currentTime = 0;
+                });
+            })();
         {% endif %}
 
         // Update Episode

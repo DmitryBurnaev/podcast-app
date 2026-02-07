@@ -8,15 +8,14 @@ from typing import Any, AsyncGenerator
 #     ServerSideSessionBackend,
 #     ServerSideSessionConfig,
 # )
-
 from litestar import Litestar
-from litestar.di import Provide
-from litestar.template import TemplateConfig
-from litestar.static_files import StaticFilesConfig
 from litestar.contrib.jinja import JinjaTemplateEngine
+from litestar.di import Provide
+from litestar.static_files import StaticFilesConfig
+from litestar.template import TemplateConfig
 
 from src.exceptions import AppSettingsError, StartupError
-from src.modules.db import initialize_database, close_database
+from src.modules.db import close_database, initialize_database
 from src.modules.views.base import BaseController
 from src.settings.app import APP_DIR, AppSettings, get_app_settings
 
@@ -24,6 +23,8 @@ logger = logging.getLogger("app")
 
 
 class PodcastApp(Litestar):
+    """Podcast application instance"""
+
     def __init__(self, *args, settings: AppSettings, **kwargs) -> None:
         super().__init__(*args, **kwargs)
         self.settings = settings
@@ -33,9 +34,9 @@ class PodcastApp(Litestar):
 
 
 @asynccontextmanager
-async def lifespan(app: PodcastApp) -> AsyncGenerator[None, Any]:
+async def lifespan(podcast_app: PodcastApp) -> AsyncGenerator[None, Any]:
     """Application lifespan context manager for startup and shutdown events."""
-    logger.info("Starting up %s ...", app)
+    logger.info("Starting up %s ...", podcast_app)
     try:
         await initialize_database()
         logger.info("Application startup completed successfully")
@@ -70,11 +71,13 @@ def make_app(settings: AppSettings | None = None) -> PodcastApp:
     logging.captureWarnings(capture=True)
 
     logger.info("Setting up application...")
-    app = PodcastApp(
+    podcast_app = PodcastApp(
         route_handlers=[
             *BaseController.get_controllers(),
         ],
-        template_config=TemplateConfig(directory=APP_DIR / "templates", engine=JinjaTemplateEngine),
+        template_config=TemplateConfig(
+            directory=APP_DIR / "templates", engine=JinjaTemplateEngine
+        ),
         static_files_config=[
             StaticFilesConfig(path="/static", directories=[str(APP_DIR / "static")])
         ],
@@ -91,7 +94,7 @@ def make_app(settings: AppSettings | None = None) -> PodcastApp:
     # app.include_router(proxy_router, prefix="/api", dependencies=[Depends(verify_api_token)])
 
     logger.info("Application configured!")
-    return app
+    return podcast_app
 
 
 app: PodcastApp = make_app()
@@ -100,7 +103,7 @@ if __name__ == "__main__":
     import uvicorn
 
     uvicorn.run(
-        "main:app",
+        "src.main:app",
         host=app.settings.app_host,
         port=app.settings.app_port,
         reload=app.settings.app_hot_reload,
