@@ -3,7 +3,8 @@ import random
 import uuid
 from enum import Enum
 from hashlib import md5
-from typing import NamedTuple
+from types import MappingProxyType
+from typing import NamedTuple, ClassVar
 from functools import cached_property
 from datetime import datetime, timedelta
 from dataclasses import asdict, dataclass
@@ -92,6 +93,10 @@ class Podcast(BaseModel):
 
     @property
     def image_url(self) -> str:
+        return f"/static/images/{random.choice(["default.jpg", "snake.png", "podcast-listen-later.jpg"])}"
+
+    @property
+    def image_url_orig(self) -> str:
         app_settings = get_app_settings()
         url = self.image.url if self.image else None
         return url or app_settings.default_podcast_cover
@@ -246,8 +251,8 @@ class Episode(BaseModel):
         images = ["default.jpg", "snake.png", "podcast-listen-later.jpg"]
         image_name = random.choice(images)
         return f"/static/images/{image_name}"
-        url = self.image.url if self.image else None
-        return url or app_settings.default_episode_cover
+        # url = self.image.url if self.image else None
+        # return url or app_settings.default_episode_cover
 
     @property
     def audio_url(self) -> str | None:

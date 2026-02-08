@@ -1,9 +1,9 @@
 <a href="/episodes/{{ episode.id }}/"
    class="block bg-slate-800 rounded-lg border border-slate-700 hover:border-slate-600 transition overflow-hidden cursor-pointer">
-    <div class="p-4 flex items-start gap-4">
+    <div class="p-3 flex items-start gap-4">
         <!-- Episode Image/Icon -->
         <div class="flex-shrink-0">
-            <img class="w-20 h-20 rounded-lg object-cover"
+            <img class="icon-18 rounded-lg object-cover"
                  src="{{ episode.image_url }}"
                  alt="{{ episode.title }}">
         </div>
@@ -12,12 +12,13 @@
         <div class="flex-1 min-w-0">
             <div class="flex items-start justify-between gap-4">
                 <div class="flex-1 min-w-0">
-                    <h3 class="text-lg font-semibold text-white mb-1">
-                        {% if episode.icon %}
-                            <span class="mr-2">{{ episode.icon }}</span>{% endif %}{{ episode.title }}
+                    <h3 class="text-lg font-semibold text-white">
+                        {% if episode.icon %}<span class="mr-2">{{ episode.icon }}</span>{% endif %}
+                        {{ episode.title }}
                     </h3>
                     {% if episode.description %}
-                        <p class="text-sm text-slate-400 line-clamp-1 mb-2">{{ episode.description }}
+                        <p class="text-sm text-slate-400 line-clamp-1 mb-1">
+                            {{ episode.description }}
                         </p>
                     {% endif %}
 
@@ -81,7 +82,6 @@
                             </span>
                         {% endif %}
                     </div>
-
                     <!-- Control Buttons -->
                     <div class="flex items-center gap-2">
                         {% if normalized_status == "pending" or normalized_status == "error" %}
@@ -91,13 +91,14 @@
                                     title="Download">
                                 {{ icon_download() }}
                             </button>
-                        {% endif %}
+                        {% elif normalized_status == "published" %}
                         <button
                                 onclick="event.preventDefault(); event.stopPropagation(); handleUpdateEpisode({{ episode.id }})"
                                 class="p-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition"
                                 title="Update">
                             {{ icon_refresh() }}
                         </button>
+                        {% endif %}
                         <button
                                 onclick="event.preventDefault(); event.stopPropagation(); handleDeleteEpisode({{ episode.id }})"
                                 class="p-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition"

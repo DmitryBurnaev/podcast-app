@@ -92,65 +92,77 @@
         <!-- Main Content Area -->
         <div class="flex flex-col flex-1 overflow-hidden">
             <!-- Top Navigation Bar -->
-            <header class="bg-slate-800 border-b border-slate-700 px-6 py-4 flex items-center justify-between">
-                {% block search %}
-                <!-- Search -->
-                <div class="flex-1 max-w-lg">
-                    <div class="relative">
-                        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                            {{ icon_search() }}
-                        </div>
-                        <label>
-                            <input type="text" placeholder="Search"
-                                class="block w-full pl-10 pr-3 py-2 border border-slate-600 rounded-lg bg-slate-700 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent">
-                        </label>
-                    </div>
+            <header class="bg-slate-800 border-b border-slate-700 px-6 py-1 flex items-center justify-between">
+                {% block breadcrumbs %}
+                <!-- Breadcrumbs -->
+                <div class="flex">
+                    <nav class="flex items-center gap-2 text-sm text-slate-400">
+                        {{ icon_home() }} <span class="text-slate-300 font-medium">Home</span>
+                    </nav>
                 </div>
                 {% endblock %}
                 <!-- Right side: Notifications, User -->
-                <div class="flex items-center gap-4 ml-6">
+                <div class="flex items-center gap-2 ml-6">
+                    {% if stats %}
+                        <div class="flex items-center gap-1 p-2 text-slate-400">
+                            {{ icon_database() }}
+                            <span>{{ format_file_size(stats.total_size) }}</span>
+                        </div>
+                        <!-- Separator -->
+                        <div class="flex items-center gap-1 p-2 text-slate-400">
+                            {{ icon_melody("h-4 w-4") }}
+                            <span>{{ stats.total_episodes }}</span>
+                        </div>
+                        <div class="h-6 mr-2 ml-2 w-px bg-slate-600"></div>
+                    {% endif %}
+
+                    <!-- Search -->
+                    <button class="p-2 text-slate-400 hover:text-white hover:bg-slate-700 rounded-lg transition" onclick="activateSearch()">
+                        {{ icon_search("h-5 w-5") }}
+                    </button>
                     <!-- Notifications -->
-                    <button class="p-2 text-slate-300 hover:text-white hover:bg-slate-700 rounded-lg transition">
+                    <button class="p-2 text-slate-400 hover:text-white hover:bg-slate-700 rounded-lg transition">
                         {{ icon_bell() }}
                     </button>
 
                     <!-- Separator -->
-                    <div class="h-6 w-px bg-slate-600"></div>
+{#                    <div class="h-6 mr-2 w-px bg-slate-600"></div>#}
 
                     <!-- User Profile Dropdown -->
-                    <div class="relative" id="user-dropdown">
-                        <button id="user-dropdown-button"
-                            class="flex items-center gap-3 text-slate-300 hover:text-white transition">
-                            <div
-                                class="w-8 h-8 rounded-full bg-slate-600 border-2 border-slate-500 flex items-center justify-center">
-                                <span class="text-sm font-medium text-slate-300">{{ user_data.name[0] if user_data and
-                                    user_data.name else 'U' }}</span>
-                            </div>
-                            <span class="text-sm font-medium">{{ user_data.name if user_data and user_data.name else
-                                'User' }}</span>
-                            {{ icon_chevron_down() }}
-                        </button>
-
-                        <!-- Dropdown Menu -->
-                        <div id="user-dropdown-menu"
-                            class="absolute right-0 mt-2 w-48 bg-slate-700 rounded-lg shadow-lg border border-slate-600 z-50 hidden">
-                            <div class="py-1">
-                                <a href="/profile"
-                                    class="block px-4 py-2 text-sm text-slate-300 hover:bg-slate-600 hover:text-white transition">Your
-                                    profile</a>
-                                <a href="#"
-                                    class="block px-4 py-2 text-sm text-slate-300 hover:bg-slate-600 hover:text-white transition">Sign
-                                    out</a>
-                            </div>
-                        </div>
-                    </div>
+{#                    <div class="relative" id="user-dropdown">#}
+{#                        <button id="user-dropdown-button"#}
+{#                            class="flex items-center gap-3 text-slate-300 hover:text-white transition">#}
+{#                            <div#}
+{#                                class="w-8 h-8 rounded-full bg-slate-600 border-2 border-slate-500 flex items-center justify-center">#}
+{#                                <span class="text-sm font-medium text-slate-300">{{ user_data.name[0] if user_data and#}
+{#                                    user_data.name else 'U' }}</span>#}
+{#                            </div>#}
+{#                            <span class="text-sm font-medium">{{ user_data.name if user_data and user_data.name else#}
+{#                                'User' }}</span>#}
+{#                            {{ icon_chevron_down() }}#}
+{#                        </button>#}
+{##}
+{#                        <!-- Dropdown Menu -->#}
+{#                        <div id="user-dropdown-menu"#}
+{#                            class="absolute right-0 mt-2 w-48 bg-slate-700 rounded-lg shadow-lg border border-slate-600 z-50 hidden">#}
+{#                            <div class="py-1">#}
+{#                                <a href="/profile"#}
+{#                                    class="block px-4 py-2 text-sm text-slate-300 hover:bg-slate-600 hover:text-white transition">Your#}
+{#                                    profile</a>#}
+{#                                <a href="#"#}
+{#                                    class="block px-4 py-2 text-sm text-slate-300 hover:bg-slate-600 hover:text-white transition">Sign#}
+{#                                    out</a>#}
+{#                            </div>#}
+{#                        </div>#}
+{#                    </div>#}
                 </div>
             </header>
 
             <!-- Main Content -->
             <main class="flex-1 overflow-y-auto bg-slate-900 pattern-bg">
                 <div class="p-6">
-                    {# <h2 class="text-2xl font-bold text-white mb-6">{{ title }}</h2>#}
+                    {% block search %}
+                    {% endblock %}
                     {% block content %}
                     <div class="text-slate-400">No content</div>
                     {% endblock %}
@@ -194,6 +206,16 @@
                 });
             }
         })();
+        function activateSearch(){
+            const searchBlock = document.getElementById('search-block');
+            const searchInput = document.getElementById('search-input');
+            {#TODO: searchInput.focus#}
+            if (searchBlock.className.indexOf('hidden') !== -1){
+                searchBlock.className = searchBlock.className.replace("hidden", "")
+            } else {
+                searchBlock.className = searchBlock.className + " hidden"
+            }
+        };
     </script>
 
     {% block scripts %}

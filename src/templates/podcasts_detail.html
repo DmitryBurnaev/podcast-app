@@ -1,13 +1,18 @@
 {% extends "base.html" %}
-{% block content %}
+{% block breadcrumbs %}
     <!-- Breadcrumbs -->
-    <div class="mb-6">
+    <div class="flex">
         <nav class="flex items-center gap-2 text-sm text-slate-400">
-            <a href="/" class="hover:text-white transition">Home</a>
-            {{ icon_chevron_right() }}
+            {{ icon_home() }} <a href="/" class="hover:text-white transition">Home</a>
+            {{ icon_chevron_right("w-4 h-4") }}
+            <a href="/podcasts/" class="hover:text-white transition">Podcasts</a>
+            {{ icon_chevron_right("w-4 h-4") }}
             <span class="text-slate-300 font-medium">{{ podcast.name }}</span>
         </nav>
     </div>
+{% endblock %}
+
+{% block content %}
 
     <!-- Two Column Layout: Left - Podcast Info (1/4), Right - Edit Form (3/4) -->
     <div class="grid grid-cols-1 lg:grid-cols-4 gap-6 mb-6">
