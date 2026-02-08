@@ -14,3 +14,8 @@
 .scrollbar-hide::-webkit-scrollbar {
     display: none;
 }
+
+.icon-18{
+    width: 70px !important;
+    height: 70px !important;
+}
