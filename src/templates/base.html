@@ -178,7 +178,7 @@
     <!-- modal windows place here -->
     {% endblock %}
     <!-- Dropdown menu functionality -->
-    <script>
+    <script type="application/javascript">
         (function () {
             const dropdownButton = document.getElementById('user-dropdown-button');
             const dropdownMenu = document.getElementById('user-dropdown-menu');
@@ -206,16 +206,49 @@
                 });
             }
         })();
-        function activateSearch(){
+        function showSearch() {
             const searchBlock = document.getElementById('search-block');
             const searchInput = document.getElementById('search-input');
-            {#TODO: searchInput.focus#}
-            if (searchBlock.className.indexOf('hidden') !== -1){
-                searchBlock.className = searchBlock.className.replace("hidden", "")
+            searchBlock.classList.remove('hidden');
+            searchInput.focus();
+        }
+
+        function hideSearch() {
+            const searchBlock = document.getElementById('search-block');
+            const searchInput = document.getElementById('search-input');
+            searchBlock.classList.add('hidden');
+            searchInput.blur();
+        }
+
+        function activateSearch() {
+            const searchBlock = document.getElementById('search-block');
+            if (searchBlock.classList.contains('hidden')) {
+                showSearch();
             } else {
-                searchBlock.className = searchBlock.className + " hidden"
+                hideSearch();
             }
-        };
+        }
+
+        // Activate search on "/" key (skip when focus is in input/textarea)
+        document.addEventListener('keydown', function (e) {
+            if (e.key !== '/') return;
+            const active = document.activeElement;
+            const inField = active && (
+                active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' ||
+                active.isContentEditable
+            );
+            if (inField) return;
+            e.preventDefault();
+            activateSearch();
+        });
+
+        // Deactivate search on Escape (only when search block is visible)
+        document.addEventListener('keydown', function (e) {
+            if (e.key !== 'Escape') return;
+            const searchBlock = document.getElementById('search-block');
+            if (searchBlock.classList.contains('hidden')) return;
+            hideSearch();
+        });
     </script>
 
     {% block scripts %}
