@@ -1,13 +1,30 @@
+import enum
 import json
 import os
 from pathlib import Path
-from typing import NamedTuple
+from types import MappingProxyType
+from typing import NamedTuple, ClassVar
 
 
 class NavigationItem(NamedTuple):
     title: str
     path: str
     slug: str
+
+
+class ResponseStatus(str, enum.Enum):
+    OK = "OK"
+    INTERNAL_ERROR = "INTERNAL_ERROR"
+    AUTH_FAILED = "AUTH_FAILED"
+    MISSED_CREDENTIALS = "MISSED_CREDENTIALS"
+    SIGNATURE_EXPIRED = "SIGNATURE_EXPIRED"
+    NOT_FOUND = "NOT_FOUND"
+    EXPECTED_NOT_FOUND = "EXPECTED_NOT_FOUND"
+    NOT_ALLOWED = "NOT_ALLOWED"
+    INVITE_ERROR = "INVITE_ERROR"
+    INVALID_PARAMETERS = "INVALID_PARAMETERS"
+    FORBIDDEN = "FORBIDDEN"
+    COMMUNICATION_ERROR = "COMMUNICATION_ERROR"
 
 
 NAVIGATION: tuple[NavigationItem, ...] = (
@@ -17,6 +34,54 @@ NAVIGATION: tuple[NavigationItem, ...] = (
     NavigationItem(title="My Profile", path="/profile", slug="profile"),
     NavigationItem(title="About", path="/about", slug="about"),
 )
+
+
+class StringEnumMixin:
+    __enum_name__: ClassVar[str] = NotImplemented
+    __members__: MappingProxyType = NotImplemented
+
+    @classmethod
+    def members(cls) -> list[str]:
+        return [str(status) for status in cls.__members__]
+
+
+class SourceType(StringEnumMixin, enum.StrEnum):
+    __enum_name__ = "source_type"
+
+    YOUTUBE = "YOUTUBE"
+    YANDEX = "YANDEX"
+    UPLOAD = "UPLOAD"
+
+
+class EpisodeStatus(StringEnumMixin, enum.StrEnum):
+    __enum_name__ = "episode_status"
+
+    NEW = "NEW"
+    DOWNLOADING = "DOWNLOADING"
+    CANCELING = "CANCELING"
+    PUBLISHED = "PUBLISHED"
+    ARCHIVED = "ARCHIVED"
+    ERROR = "ERROR"
+
+    # sub-statuses for DOWNLOADING (that statuses are not written to the DB, just for progress):
+    DL_PENDING = "DL_PENDING"
+    DL_EPISODE_DOWNLOADING = "DL_EPISODE_DOWNLOADING"
+    DL_EPISODE_POSTPROCESSING = "DL_EPISODE_POSTPROCESSING"
+    DL_EPISODE_UPLOADING = "DL_EPISODE_UPLOADING"
+    DL_COVER_DOWNLOADING = "DL_COVER_DOWNLOADING"
+    DL_COVER_UPLOADING = "DL_COVER_UPLOADING"
+
+    @classmethod
+    def members(cls) -> list[str]:
+        return [status for status in cls.__members__ if not status.startswith("DL_")]
+
+
+class FileType(StringEnumMixin, enum.StrEnum):
+    __enum_name__ = "media_type"
+
+    AUDIO = "AUDIO"
+    IMAGE = "IMAGE"
+    RSS = "RSS"
 
 
 def read_from_fixture(filename: str) -> list[dict[str, str]]:

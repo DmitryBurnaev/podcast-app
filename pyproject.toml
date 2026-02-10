@@ -12,6 +12,8 @@ dependencies = [
     "alembic==1.17.2",
     "asyncpg==0.31.0",
     "uvloop==0.22.1",
+    "pycryptodome==3.23.0",
+    "boto3==1.42.45"
 ]
 
 [dependency-groups]
