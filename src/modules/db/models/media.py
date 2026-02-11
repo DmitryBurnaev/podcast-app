@@ -132,7 +132,7 @@ class File(BaseModel):
     #     else:
     #         remote_path = remote_path or REMOTE_PATH_MAP[self.type]
     #         logger.debug("Removing file from S3: %s | called by: %s", remote_path, self)
-    #         await StorageS3().delete_files_async([self.name], remote_path=remote_path)
+    #         await StorageS3().delete_files([self.name], remote_path=remote_path)
     #
     #     return await super().delete(db_session, db_flush)
 
