@@ -143,6 +143,11 @@ class UserCancellationError(BaseApplicationError):
     message = "Current processing was interrupted"
 
 
+class StorageConfigurationError(BaseApplicationError):
+    message = "Missing storage configuration"
+    status_code = 500
+
+
 # class DownloadingInterrupted(Exception):
 #     def __init__(self, code: "TaskResultCode", message: str = ""):
 #         self.code = code

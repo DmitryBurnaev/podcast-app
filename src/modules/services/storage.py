@@ -6,6 +6,7 @@ from typing import Any, Awaitable, Callable, Optional
 
 import aioboto3
 import botocore.exceptions
+from exceptions import StorageConfigurationError
 
 from src.modules.services.redis import RedisClient
 from src.settings.app import get_app_settings
@@ -23,9 +24,23 @@ class StorageS3:
     def __init__(self) -> None:
         logger.debug("Creating S3 session (aioboto3)...")
         self.settings = get_app_settings()
+        if not all(
+            [
+                self.settings.s3.access_key_id,
+                self.settings.s3.secret_access_key,
+                self.settings.s3.bucket_name,
+            ]
+        ):
+            raise StorageConfigurationError("Missing S3 access key or secret key")
+
+        secret_access_key = (
+            self.settings.s3.secret_access_key.get_secret_value()
+            if self.settings.s3.secret_access_key
+            else None
+        )
         self._session = aioboto3.Session(
             aws_access_key_id=self.settings.s3.access_key_id,
-            aws_secret_access_key=self.settings.s3.secret_access_key.get_secret_value(),
+            aws_secret_access_key=secret_access_key,
             region_name=self.settings.s3.region_name,
         )
         logger.debug("aioboto3 S3 Session created")
