@@ -1,0 +1,59 @@
+---
+description: Formatting style (blank line after raise, return, etc.)
+globs: "**/*.py"
+alwaysApply: false
+---
+
+# Formatting
+
+## After `raise`
+
+Always insert a **blank line** after any `raise` statement (including multi-line) before the next logical statement or block.
+
+```python
+# Good
+if not episode:
+    raise NotFoundException(f"Episode with id {episode_id} not found")
+
+file_obj = episode.image
+
+# Good (multi-line raise)
+if not downloaded:
+    raise NotFoundException(
+        f"Episode {episode_id} cover not found in storage"
+    )
+
+logger.info(...)
+```
+
+```python
+# Bad (no blank line after raise)
+if not episode:
+    raise NotFoundException(f"Episode with id {episode_id} not found")
+file_obj = episode.image
+```
+
+## After `return`
+
+Always insert a **blank line** after any `return` statement (including multi-line) before the next logical statement or block (e.g. next `if`, next assignment, or end of block).
+
+```python
+# Good
+if cached_path.exists():
+    return self._build_cover_file_response(cached_path, file_obj)
+
+cache_dir.mkdir(parents=True, exist_ok=True)
+
+# Good (multi-line return)
+return self.get_response_template(
+    template_name="episodes_detail.html",
+    context={"episode": episode},
+)
+```
+
+```python
+# Bad (no blank line after return)
+if cached_path.exists():
+    return self._build_cover_file_response(cached_path, file_obj)
+cache_dir.mkdir(parents=True, exist_ok=True)
+```

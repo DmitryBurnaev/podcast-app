@@ -4,7 +4,7 @@
         <!-- Episode Image/Icon -->
         <div class="flex-shrink-0">
             <img class="icon-18 rounded-lg object-cover"
-                 src="{{ episode.image_url }}"
+                 src="{% if episode.image_id %}/episodes/{{ episode.id }}/cover/{% else %}/static/images/episode-default.jpg{% endif %}"
                  alt="{{ episode.title }}">
         </div>
 

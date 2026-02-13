@@ -6,8 +6,8 @@ from typing import Any, Awaitable, Callable, Optional
 
 import aioboto3
 import botocore.exceptions
-from exceptions import StorageConfigurationError
 
+from src.exceptions import StorageConfigurationError
 from src.modules.services.redis import RedisClient
 from src.settings.app import get_app_settings
 
