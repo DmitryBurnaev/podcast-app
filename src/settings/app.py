@@ -2,7 +2,7 @@ import tempfile
 from functools import lru_cache
 from pathlib import Path
 
-from pydantic import SecretStr, Field
+from pydantic import SecretStr, Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from src.settings.db import DBSettings, RedisSettings, S3Settings
@@ -110,6 +110,19 @@ class AppSettings(BaseSettings):
     retry_upload_timeout: int = 1
     default_episode_cover: str = "episode-default.jpg"
     default_podcast_cover: str = "podcast-default.jpg"
+    episode_cover_cache_dir: Path = Field(
+        default_factory=lambda: APP_DIR / "data" / "episode_cover_cache",
+        description="Local directory for cached episode cover images (env: EPISODE_COVER_CACHE_DIR)",
+    )
+
+    @field_validator("episode_cover_cache_dir", mode="before")
+    @classmethod
+    def coerce_episode_cover_cache_dir_to_path(cls, v: Path | str | None) -> Path | None:
+        """Coerce env string to Path so EPISODE_COVER_CACHE_DIR works."""
+        if v is None or isinstance(v, Path):
+            return v
+
+        return Path(v)
 
     @property
     def template_path(self) -> Path:
