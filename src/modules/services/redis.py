@@ -5,8 +5,6 @@ from typing import Iterable, Any
 import redis
 from redis import asyncio as aioredis
 
-from core import settings
-
 logger = logging.getLogger(__name__)
 JSONT = list[Any] | dict[str, Any] | str | None
 
