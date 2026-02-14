@@ -16,6 +16,7 @@ __all__ = (
 )
 
 APP_DIR = Path(__file__).parent.parent
+ROOT_DIR = APP_DIR.parent
 
 
 class FlagsSettings(BaseSettings):
@@ -110,15 +111,15 @@ class AppSettings(BaseSettings):
     retry_upload_timeout: int = 1
     default_episode_cover: str = "episode-default.jpg"
     default_podcast_cover: str = "podcast-default.jpg"
-    episode_cover_cache_dir: Path = Field(
-        default_factory=lambda: APP_DIR / "data" / "episode_cover_cache",
-        description="Local directory for cached episode cover images (env: EPISODE_COVER_CACHE_DIR)",
+    media_cache_dir: Path = Field(
+        default_factory=lambda: ROOT_DIR / ".local" / "media_cache" / "episodes_cover",
+        description="Local directory for cached episode cover images (env: MEDIA_CACHE_DIR)",
     )
 
-    @field_validator("episode_cover_cache_dir", mode="before")
+    @field_validator("media_cache_dir", mode="before")
     @classmethod
     def coerce_episode_cover_cache_dir_to_path(cls, v: Path | str | None) -> Path | None:
-        """Coerce env string to Path so EPISODE_COVER_CACHE_DIR works."""
+        """Coerce env string to Path so MEDIA_CACHE_DIR works."""
         if v is None or isinstance(v, Path):
             return v
 
@@ -164,6 +165,3 @@ class AppSettings(BaseSettings):
 def get_app_settings() -> AppSettings:
     """Prepares application settings from environment variables"""
     return prepare_settings(AppSettings)
-
-
-# SettingsDep = Annotated[AppSettings, Depends(get_app_settings)]

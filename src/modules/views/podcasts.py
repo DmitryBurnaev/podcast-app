@@ -158,7 +158,7 @@ class EpisodeCoverController(BaseController):
 
         file_obj = episode.image
         suffix = Path(file_obj.path).suffix or ".jpg"
-        cache_dir = Path(settings.episode_cover_cache_dir)
+        cache_dir = Path(settings.media_cache_dir)
         cached_path = cache_dir / f"{file_obj.id}{suffix}"
 
         if cached_path.exists():
