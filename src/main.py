@@ -8,14 +8,16 @@ from typing import Any, AsyncGenerator
 #     ServerSideSessionBackend,
 #     ServerSideSessionConfig,
 # )
+import uvicorn
 from litestar import Litestar
 from litestar.contrib.jinja import JinjaTemplateEngine
 from litestar.di import Provide
 from litestar.static_files import StaticFilesConfig
 from litestar.template import TemplateConfig
 
-from src.exceptions import AppSettingsError, StartupError
+from src.exceptions import AppSettingsError, StartupError, StorageConfigurationError
 from src.modules.db import close_database, initialize_database
+from src.modules.services.storage import validate_s3_settings
 from src.modules.views.base import BaseController
 from src.settings.app import APP_DIR, AppSettings, get_app_settings
 
@@ -39,9 +41,15 @@ async def lifespan(podcast_app: PodcastApp) -> AsyncGenerator[None, Any]:
     logger.info("Starting up %s ...", podcast_app)
     try:
         await initialize_database()
-        logger.info("Application startup completed successfully")
     except Exception as exc:
         raise StartupError("Failed to initialize DB connection") from exc
+
+    try:
+        validate_s3_settings(podcast_app.settings.s3)
+    except StorageConfigurationError as exc:
+        raise StartupError(details=str(exc.details or exc)) from exc
+
+    logger.info("Application startup completed successfully")
 
     yield
 
@@ -75,9 +83,7 @@ def make_app(settings: AppSettings | None = None) -> PodcastApp:
         route_handlers=[
             *BaseController.get_controllers(),
         ],
-        template_config=TemplateConfig(
-            directory=APP_DIR / "templates", engine=JinjaTemplateEngine
-        ),
+        template_config=TemplateConfig(directory=APP_DIR / "templates", engine=JinjaTemplateEngine),
         static_files_config=[
             StaticFilesConfig(path="/static", directories=[str(APP_DIR / "static")])
         ],
@@ -97,13 +103,10 @@ def make_app(settings: AppSettings | None = None) -> PodcastApp:
     return podcast_app
 
 
-app: PodcastApp = make_app()
-
 if __name__ == "__main__":
-    import uvicorn
-
+    app: PodcastApp = make_app()
     uvicorn.run(
-        "src.main:app",
+        app=("src.main:make_app" if app.settings.app_hot_reload else app),
         host=app.settings.app_host,
         port=app.settings.app_port,
         reload=app.settings.app_hot_reload,

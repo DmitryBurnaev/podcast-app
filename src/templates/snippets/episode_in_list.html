@@ -4,8 +4,10 @@
         <!-- Episode Image/Icon -->
         <div class="flex-shrink-0">
             <img class="icon-18 rounded-lg object-cover"
-                 src="{% if episode.image_id %}/episodes/{{ episode.id }}/cover/{% else %}/static/images/episode-default.jpg{% endif %}"
-                 alt="{{ episode.title }}">
+                 src="/episodes/{{ episode.id }}/cover/"
+                 alt="{{ episode.title }}"
+                 onerror="this.src='/static/img/episode-default.jpg'"
+            >
         </div>
 
         <!-- Episode Info -->

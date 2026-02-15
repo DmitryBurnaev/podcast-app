@@ -24,8 +24,11 @@
                 <div class="p-3 flex items-start gap-4">
                     <!-- Podcast Image/Avatar -->
                     <div class="flex-shrink-0">
-                        <img class="icon-18 rounded-lg object-cover" src="{{ podcast.image_url }}"
-                            alt="{{ podcast.name }}">
+                        <img class="icon-18 rounded-lg object-cover"
+                             src="/podcasts/{{ podcast.id }}/cover/"
+                             onerror="this.src='/static/img/podcast-default-neon.jpg'"
+                             alt="{{ podcast.name }}"
+                        >
                     </div>
 
                     <!-- Podcast Info -->
