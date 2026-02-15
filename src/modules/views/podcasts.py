@@ -1,6 +1,7 @@
 import logging
 import mimetypes
 from pathlib import Path
+from typing import ClassVar
 
 from litestar import get, Request
 from litestar.response import File, Template
@@ -63,7 +64,7 @@ class PodcastsDetailsController(BaseController):
 
 
 class EpisodesController(BaseController):
-    @get("/episodes")
+    @get("/episodes/")
     async def get(self, request: Request) -> Template:
         query_params = request.query_params
         filters: dict = {}
@@ -140,13 +141,45 @@ class EpisodeDetailsController(BaseController):
         )
 
 
-class EpisodeCoverController(BaseController):
-    """Serves episode cover image from local cache or S3, caching on first request."""
+class CoverControllerMixin:
+    """Helper class for cover controllers"""
+
+    cache_dir_prefix: ClassVar[str] = ""
+
+    def _build_cover_file_response(self, cached_path: Path, file_obj: MediaFile) -> File:
+        """Build File response for episode cover from local cache path."""
+        media_type, _ = mimetypes.guess_type(str(cached_path)) or (
+            "application/octet-stream",
+            None,
+        )
+        return File(path=cached_path, filename=file_obj.name, media_type=media_type)
+
+    async def _get_or_download_cover(self, file_obj: MediaFile) -> Path:
+        """Get or download cover from S3 and cache if not present locally."""
+        media_cache_dir = get_app_settings().media_cache_dir
+        suffix = Path(file_obj.path).suffix or ".jpg"
+        cached_path = media_cache_dir / self.cache_dir_prefix / f"{file_obj.id}{suffix}"
+        if cached_path.exists():
+            return cached_path
+
+        cached_path.parent.mkdir(parents=True, exist_ok=True)
+        storage = StorageS3()
+        downloaded = await storage.download_file(src_path=file_obj.path, dst_path=cached_path)
+        if not downloaded:
+            raise NotFoundException(f"{file_obj.type.value} cover not found in storage")
+
+        logger.info(
+            f"{file_obj.type.value} cover downloaded from S3 and cached: file_id={file_obj.id}, path={cached_path}",
+        )
+        return cached_path
+
+
+class EpisodeCoverController(BaseController, CoverControllerMixin):
+    cache_dir_prefix = "episodes"
 
     @get("/episodes/{episode_id:int}/cover/")
     async def get_cover(self, episode_id: int) -> File:
         """Return episode cover image; download from S3 and cache if not present locally."""
-        settings = get_app_settings()
         async with SASessionUOW() as uow:
             episode_repository = EpisodeRepository(session=uow.session)
             episode = await episode_repository.first(episode_id)
@@ -156,39 +189,27 @@ class EpisodeCoverController(BaseController):
             if not episode.image_id or not episode.image:
                 raise NotFoundException(f"Episode {episode_id} has no cover image")
 
-        file_obj = episode.image
-        suffix = Path(file_obj.path).suffix or ".jpg"
-        cache_dir = Path(settings.media_cache_dir)
-        cached_path = cache_dir / f"{file_obj.id}{suffix}"
+        cached_path = await self._get_or_download_cover(episode.image)
+        return self._build_cover_file_response(cached_path, episode.image)
 
-        if cached_path.exists():
-            logger.info(
-                "Episode cover served from cache: episode_id=%s, file_id=%s, path=%s",
-                episode_id,
-                file_obj.id,
-                cached_path,
-            )
-            return self._build_cover_file_response(cached_path, file_obj)
 
-        cache_dir.mkdir(parents=True, exist_ok=True)
-        storage = StorageS3()
-        downloaded = await storage.download_file(src_path=file_obj.path, dst_path=cached_path)
-        if not downloaded:
-            raise NotFoundException(f"Episode {episode_id} cover not found in storage")
+class PodcastCoverController(BaseController, CoverControllerMixin):
+    """Serves podcast cover image from local cache or S3, caching on first request."""
 
-        logger.info(
-            "Episode cover downloaded from S3 and cached: episode_id=%s, file_id=%s, path=%s",
-            episode_id,
-            file_obj.id,
-            cached_path,
-        )
-        return self._build_cover_file_response(cached_path, file_obj)
+    cache_dir_prefix = "podcasts"
 
-    @staticmethod
-    def _build_cover_file_response(cached_path: Path, file_obj: MediaFile) -> File:
-        """Build File response for episode cover from local cache path."""
-        media_type, _ = mimetypes.guess_type(str(cached_path)) or (
-            "application/octet-stream",
-            None,
-        )
-        return File(path=cached_path, filename=file_obj.name, media_type=media_type)
+    @get("/podcasts/{podcast_id:int}/cover/")
+    async def get_cover(self, podcast_id: int) -> File:
+        """Return podcast cover image; download from S3 and cache if not present locally."""
+
+        async with SASessionUOW() as uow:
+            podcast_repository = PodcastRepository(session=uow.session)
+            podcast = await podcast_repository.first(podcast_id)
+            if not podcast:
+                raise NotFoundException(f"Podcast with id {podcast_id} not found")
+
+            if not podcast.image_id or not podcast.image:
+                raise NotFoundException(f"Podcast {podcast_id} has no cover image")
+
+        cached_path = await self._get_or_download_cover(podcast.image)
+        return self._build_cover_file_response(cached_path, podcast.image)

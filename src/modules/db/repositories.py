@@ -285,6 +285,9 @@ class EpisodeRepository(BaseRepository[Episode]):
                         )
                     )
 
+                case "podcast_id":
+                    statement = statement.filter(Episode.podcast_id == filter_value)
+
                 case "statuses":
                     statuses_str = str(filter_value)
                     statuses: list[str] = [st.upper() for st in statuses_str.split(",")]

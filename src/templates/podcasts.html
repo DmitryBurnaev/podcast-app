@@ -36,8 +36,10 @@
                     <div class="flex-shrink-0">
                         {% if podcast.image_url %}
                             <img class="icon-18 rounded-lg object-cover"
-                                 src="{{ podcast.image_url }}"
-                                 alt="{{ podcast.name }}">
+                                 src="/podcasts/{{ podcast.id }}/cover/"
+                                 alt="{{ podcast.name }}"
+                                 onerror="this.src='/static/img/episode-default.jpg'"
+                            >
                         {% else %}
                             <div class="icon-18 rounded-lg bg-slate-700 flex items-center justify-center">
                                 <span class="text-2xl">{{ podcast.icon }}</span>

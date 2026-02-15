@@ -34,15 +34,11 @@
             <div class="relative p-6 flex flex-col flex-1 min-h-0">
                 <!-- Episode Image -->
                 <div class="mb-4 flex justify-center">
-                    {% if episode.image_id %}
-                        <img src="/episodes/{{ episode.id }}/cover/" alt="{{ episode.title }}"
-                             class="w-32 h-32 rounded-lg object-cover border-4 border-slate-700 shadow-lg">
-                    {% else %}
-                        <div class="w-32 h-32 rounded-lg bg-gradient-to-br from-purple-500 to-blue-500
-                                flex items-center justify-center border-4 border-slate-700 shadow-lg">
-                            {{ icon_music("w-16 h-16 text-white") }}
-                        </div>
-                    {% endif %}
+                    <img src="/episodes/{{ episode.id }}/cover/"
+                         alt="{{ episode.title }}"
+                         class="w-32 h-32 rounded-lg object-cover border-4 border-slate-700 shadow-lg"
+                         onerror="this.src='/static/img/episode-default.jpg'"
+                    >
                 </div>
 
                 <!-- Episode Title -->

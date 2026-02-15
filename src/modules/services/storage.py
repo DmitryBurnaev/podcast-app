@@ -10,8 +10,31 @@ import botocore.exceptions
 from src.exceptions import StorageConfigurationError
 from src.modules.services.redis import RedisClient
 from src.settings.app import get_app_settings
+from src.settings.db import S3Settings
 
 logger = logging.getLogger(__name__)
+
+
+def validate_s3_settings(s3_settings: S3Settings) -> None:
+    """
+    Validate that required S3 storage settings are present (credentials and bucket).
+    Raises StorageConfigurationError if any required setting is missing.
+    Called at application startup via lifespan, similar to DB connectivity check.
+    """
+    required = [
+        s3_settings.access_key_id,
+        s3_settings.secret_access_key,
+        s3_settings.bucket_name,
+    ]
+    if not all(required):
+        missing = []
+        if not s3_settings.access_key_id:
+            missing.append("access_key_id")
+        if not s3_settings.secret_access_key:
+            missing.append("secret_access_key")
+        if not s3_settings.bucket_name:
+            missing.append("bucket_name")
+        raise StorageConfigurationError(details=f"Missing required S3 settings: {', '.join(missing)}")
 
 
 class StorageS3:
@@ -24,14 +47,7 @@ class StorageS3:
     def __init__(self) -> None:
         logger.debug("Creating S3 session (aioboto3)...")
         self.settings = get_app_settings()
-        if not all(
-            [
-                self.settings.s3.access_key_id,
-                self.settings.s3.secret_access_key,
-                self.settings.s3.bucket_name,
-            ]
-        ):
-            raise StorageConfigurationError("Missing S3 access key or secret key")
+        validate_s3_settings(self.settings.s3)
 
         secret_access_key = (
             self.settings.s3.secret_access_key.get_secret_value()
