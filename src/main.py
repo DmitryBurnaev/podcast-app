@@ -47,6 +47,7 @@ async def lifespan(podcast_app: PodcastApp) -> AsyncGenerator[None, Any]:
     try:
         validate_s3_settings(podcast_app.settings.s3)
     except StorageConfigurationError as exc:
+        logger.error("Failed to validate S3 settings: %s", exc)
         raise StartupError(details=str(exc.details or exc)) from exc
 
     logger.info("Application startup completed successfully")
