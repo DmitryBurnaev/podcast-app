@@ -27,6 +27,12 @@ class BaseApplicationError(Exception):
         self.status_code = status_code or self.status_code
         self.response_status = response_status or self.response_status
 
+    def __str__(self) -> str:
+        return f"{self.message} ({self.details})"
+
+    def __repr__(self) -> str:
+        return f"<{self.__class__.__name__} {self.message} ({self.details})>"
+
 
 class AppSettingsError(BaseApplicationError):
     """Settings error"""

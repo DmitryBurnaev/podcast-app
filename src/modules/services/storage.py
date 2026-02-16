@@ -29,12 +29,12 @@ def validate_s3_settings(s3_settings: S3Settings) -> None:
     if not all(required):
         missing = []
         if not s3_settings.access_key_id:
-            missing.append("access_key_id")
+            missing.append("S3_ACCESS_KEY_ID")
         if not s3_settings.secret_access_key:
-            missing.append("secret_access_key")
+            missing.append("S3_SECRET_ACCESS_KEY")
         if not s3_settings.bucket_name:
-            missing.append("bucket_name")
-        raise StorageConfigurationError(details=f"Missing required S3 settings: {', '.join(missing)}")
+            missing.append("S3_BUCKET_NAME")
+        raise StorageConfigurationError(details=f"Missing S3 settings: {', '.join(missing)}")
 
 
 class StorageS3:
