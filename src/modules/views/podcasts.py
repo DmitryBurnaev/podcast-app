@@ -7,6 +7,7 @@ from litestar import get, Request
 from litestar.response import File, Template
 from litestar.exceptions import NotFoundException
 
+from settings.app import AppSettings
 from src.modules.db import SASessionUOW
 from src.modules.db.models import File as MediaFile
 from src.modules.db.repositories import EpisodeRepository, PodcastRepository
@@ -146,7 +147,8 @@ class CoverControllerMixin:
 
     cache_dir_prefix: ClassVar[str] = ""
 
-    def _build_cover_file_response(self, cached_path: Path, file_obj: MediaFile) -> File:
+    @staticmethod
+    def _build_cover_file_response(cached_path: Path, file_obj: MediaFile) -> File:
         """Build File response for episode cover from local cache path."""
         media_type, _ = mimetypes.guess_type(str(cached_path)) or (
             "application/octet-stream",
@@ -178,7 +180,7 @@ class EpisodeCoverController(BaseController, CoverControllerMixin):
     cache_dir_prefix = "episodes"
 
     @get("/episodes/{episode_id:int}/cover/")
-    async def get_cover(self, episode_id: int) -> File:
+    async def get_cover(self, episode_id: int, settings: AppSettings) -> File:
         """Return episode cover image; download from S3 and cache if not present locally."""
         async with SASessionUOW() as uow:
             episode_repository = EpisodeRepository(session=uow.session)
@@ -188,8 +190,11 @@ class EpisodeCoverController(BaseController, CoverControllerMixin):
 
             if not episode.image_id or not episode.image:
                 raise NotFoundException(f"Episode {episode_id} has no cover image")
+        try:
+            cached_path = await self._get_or_download_cover(episode.image)
+        except NotFoundException:
+            cached_path = settings.app_dir / "static" / "img" / "podcast-default.jpg"
 
-        cached_path = await self._get_or_download_cover(episode.image)
         return self._build_cover_file_response(cached_path, episode.image)
 
 

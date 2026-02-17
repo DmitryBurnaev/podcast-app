@@ -20,31 +20,19 @@
         <div class="lg:col-span-1 bg-slate-800 rounded-lg border border-slate-700 overflow-hidden relative flex flex-col h-full">
             <!-- Background Image with Blur -->
             <div class="absolute inset-0 overflow-hidden">
-                {% if podcast.image_url %}
-                    <img src="{{ podcast.image_url }}" alt="{{ podcast.name }}"
-                         class="w-full h-full object-cover blur-3xl opacity-20">
-                {% else %}
-                    <div class="w-full h-full bg-gradient-to-br from-purple-500 to-blue-500 opacity-20"></div>
-                {% endif %}
+                <img src="/podcasts/{{ podcast.id }}/cover/" alt="{{ podcast.name }}"
+                     class="w-full h-full object-cover blur-3xl opacity-20" onerror="this.src='/static/img/podcast-default.jpg'">
             </div>
 
             <!-- Content -->
             <div class="relative p-6 flex flex-col flex-1 min-h-0">
                 <!-- Podcast Image -->
                 <div class="mb-4 flex justify-center">
-                    {% if podcast.image_url %}
-                        <img src="{{ podcast.image_url }}" alt="{{ podcast.name }}"
-                             class="w-24 h-24 rounded-full object-cover border-4 border-slate-700 shadow-lg">
-                    {% else %}
-                        <div class="w-24 h-24 rounded-full bg-gradient-to-br from-purple-500 to-blue-500
-                                flex items-center justify-center border-4 border-slate-700 shadow-lg">
-                            {% if podcast.icon %}
-                                <span class="text-3xl">{{ podcast.icon }}</span>
-                            {% else %}
-                                <span class="text-3xl text-white">{{ podcast.name[0] if podcast.name else 'P' }}</span>
-                            {% endif %}
-                        </div>
-                    {% endif %}
+                    <img class="w-24 h-24 rounded-full object-cover border-4 border-slate-700 shadow-lg"
+                         src="/podcasts/{{ podcast.id }}/cover/"
+                         alt="{{ podcast.name }}"
+                         onerror="this.src='/static/img/podcast-default.jpg'"
+                    >
                 </div>
 
                 <!-- Podcast Info -->

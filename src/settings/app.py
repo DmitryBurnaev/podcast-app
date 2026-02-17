@@ -55,6 +55,7 @@ class AppSettings(BaseSettings):
     app_port: int = 8000
     app_version: str = "latest"
     app_hot_reload: bool = False
+    app_dir: Path = APP_DIR
 
     # nested settings:
     flags: FlagsSettings = Field(default_factory=FlagsSettings)
