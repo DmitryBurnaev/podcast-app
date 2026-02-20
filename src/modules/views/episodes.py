@@ -3,37 +3,59 @@ import mimetypes
 from pathlib import Path
 from typing import ClassVar
 
-from litestar import get, Request
+from litestar import get, post, Request
 from litestar.response import File, Template
-from litestar.exceptions import NotFoundException
+from litestar.exceptions import HTTPException, NotFoundException
+from litestar.status_codes import HTTP_201_CREATED
 
-from settings.app import AppSettings
 from src.modules.db import SASessionUOW
 from src.modules.db.models import File as MediaFile
 from src.modules.db.repositories import EpisodeRepository, PodcastRepository
 from src.modules.services.cover import CoverService
-from src.modules.services.statistic import StatisticService
+from src.modules.services.episode_creator import EpisodeCreator
 from src.modules.views.base import BaseController
 from src.settings.app import get_app_settings
 from src.utils import cut_string
 
+logger = logging.getLogger(__name__)
+
 
 class EpisodesController(BaseController):
 
-    @post("/episodes/")
-    async def post(self, request: Request) -> Template:
-        """Create episodes with URL link"""
+    @post("/episodes/", status_code=HTTP_201_CREATED)
+    async def post(self, request: Request) -> dict:
+        """Create episode from source URL (JSON body: sourceURL). Returns { id }."""
+        body = await request.json() or {}
+        source_url = body.get("sourceURL") or ""
+        if not str(source_url).strip():
+            logger.warning("POST /episodes/: missing or empty sourceURL")
+            raise HTTPException(status_code=400, detail="sourceURL is required")
+
         query_params = request.query_params
-        return self.get_response_template(
-            template_name="episodes.html",
-            context={
-                "episodes": episodes,
-                "podcasts": podcasts,
-                "filters": filters,
-                "current": "episodes",
-                "title": "episodes",
-            },
-        )
+        podcast_id = query_params.get("podcast_id")
+        if podcast_id is not None:
+            try:
+                podcast_id = int(podcast_id)
+            except (TypeError, ValueError):
+                logger.warning("POST /episodes/: invalid podcast_id=%s", podcast_id)
+                raise HTTPException(status_code=400, detail="Invalid podcast_id")
+
+        logger.info("Creating episode from source_url (podcast_id=%s)", podcast_id)
+        async with SASessionUOW() as uow:
+            creator = EpisodeCreator(session=uow.session)
+            try:
+                episode = await creator.create_from_source_url(
+                    source_url=str(source_url).strip(), podcast_id=podcast_id
+                )
+            except ValueError as e:
+                logger.warning("Episode creation failed: %s", e)
+                raise HTTPException(status_code=400, detail=str(e)) from e
+
+        if logger.isEnabledFor(logging.DEBUG):
+            logger.debug("Episode created: #%s | url: %r", episode.id, source_url)
+        else:
+            logger.info("Episode created: #%s", episode.id)
+        return {"id": episode.id}
 
     @get("/episodes/")
     async def get(self, request: Request) -> Template:
@@ -112,20 +134,7 @@ class EpisodeDetailsController(BaseController):
         )
 
 
-class CoverControllerMixin:
-    """Builds Litestar File response from cached cover path and media file meta."""
-
-    @staticmethod
-    def _build_cover_file_response(cached_path: Path, file_obj: MediaFile) -> File:
-        """Build File response for cover from local cache path."""
-        media_type, _ = mimetypes.guess_type(str(cached_path)) or (
-            "application/octet-stream",
-            None,
-        )
-        return File(path=cached_path, filename=file_obj.name, media_type=media_type)
-
-
-class EpisodeCoverController(BaseController, CoverControllerMixin):
+class EpisodeCoverController(BaseController):
     cache_dir_prefix: ClassVar[str] = "episodes"
     cache_file_prefix: ClassVar[str] = "episode_cover"
 
@@ -154,30 +163,11 @@ class EpisodeCoverController(BaseController, CoverControllerMixin):
 
         return self._build_cover_file_response(cached_path, image)
 
-
-class PodcastCoverController(BaseController, CoverControllerMixin):
-    """Serves podcast cover image from local cache or S3, caching on first request."""
-
-    cache_dir_prefix: ClassVar[str] = "podcasts"
-    cache_file_prefix: ClassVar[str] = "podcast_cover"
-
-    @get("/podcasts/{podcast_id:int}/cover/")
-    async def get_cover(self, podcast_id: int) -> File:
-        """Return podcast cover image; download from S3 or source_url and cache."""
-
-        async with SASessionUOW() as uow:
-            podcast_repository = PodcastRepository(session=uow.session)
-            podcast = await podcast_repository.first(podcast_id)
-            if not podcast:
-                raise NotFoundException(f"Podcast with id {podcast_id} not found")
-
-            if not podcast.image_id or not podcast.image:
-                raise NotFoundException(f"Podcast {podcast_id} has no cover image")
-
-            image = podcast.image
-
-        cover_service = CoverService()
-        cached_path = await cover_service.get_or_download(
-            image, self.cache_dir_prefix, self.cache_file_prefix
+    @staticmethod
+    def _build_cover_file_response(cached_path: Path, file_obj: MediaFile) -> File:
+        """Build File response for cover from local cache path."""
+        media_type, _ = mimetypes.guess_type(str(cached_path)) or (
+            "application/octet-stream",
+            None,
         )
-        return self._build_cover_file_response(cached_path, image)
+        return File(path=cached_path, filename=file_obj.name, media_type=media_type)

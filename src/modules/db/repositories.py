@@ -271,10 +271,16 @@ class EpisodeRepository(BaseRepository[Episode]):
 
     model = Episode
 
+    async def add_episode(self, payload: dict[str, Any]) -> Episode:
+        """Insert a new episode and flush so that id is available."""
+        episode = await self.create(payload)
+        await self.session.flush()
+        return episode
+
     async def all(self, **filters: FilterT) -> list[Episode]:
-        """Get all episodes, but with extended filters' logic"""
+        """Get all episodes, but with extended filters' logic."""
         logger.debug("[DB] Getting all episodes: %s", filters)
-        statement = select(self.model).join(File, Episode.audio_id == File.id)
+        statement = select(self.model).outerjoin(File, Episode.audio_id == File.id)
         for filter_key, filter_value in filters.items():
             match filter_key:
                 case "search":
