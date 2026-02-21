@@ -57,6 +57,7 @@ class EpisodeCreator:
             "watch_url": watch_url,
             "audio_id": None,
             "image_id": None,
+            "cookie_id": None,
             "length": random.randint(60, 3600),
             "description": f"Stub episode from {url[:50]}{'...' if len(url) > 50 else ''}",
             "author": None,

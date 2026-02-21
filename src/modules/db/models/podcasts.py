@@ -1,7 +1,9 @@
+import asyncio
 import enum
+import logging
+from pathlib import Path
 import random
 import uuid
-from enum import Enum
 from hashlib import md5
 from types import MappingProxyType
 from typing import NamedTuple, ClassVar
@@ -14,12 +16,15 @@ from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
+from src.modules.services.encryption import SensitiveData
 from src.exceptions import BaseApplicationError
 from src.modules.db.models.media import File
 from src.modules.db.models import BaseModel
 from src.schemas import PodcastStatistics
 from src.settings.app import get_app_settings
 from src.utils import utcnow, cut_string, is_basic_emoji
+
+logger = logging.getLogger(__name__)
 
 
 class StringEnumMixin:
@@ -56,8 +61,10 @@ class EpisodeStatus(StringEnumMixin, enum.StrEnum):
         return [status for status in cls.__members__ if not status.startswith("DL_")]
 
 
-class SourceType(str, Enum):
+class SourceType(StringEnumMixin, enum.StrEnum):
     """Episode source type enumeration"""
+
+    __enum_name__ = "source_type"
 
     YOUTUBE = "YOUTUBE"
     YANDEX = "YANDEX"
@@ -93,7 +100,7 @@ class Podcast(BaseModel):
 
     @property
     def image_url(self) -> str:
-        return f"/static/images/{random.choice(["default.jpg", "snake.png", "podcast-listen-later.jpg"])}"
+        return f"/static/images/{random.choice(['default.jpg', 'snake.png', 'podcast-listen-later.jpg'])}"
 
     @property
     def image_url_orig(self) -> str:
@@ -189,7 +196,9 @@ class Episode(BaseModel):
     title: Mapped[str] = mapped_column(sa.String(length=256), nullable=False)
     source_id: Mapped[str] = mapped_column(sa.String(length=32), index=True, nullable=False)
     source_type: Mapped[SourceType] = mapped_column(
-        sa.Enum(SourceType), default=SourceType.YOUTUBE, nullable=False
+        sa.Enum(SourceType, name=SourceType.__enum_name__),
+        default=SourceType.YOUTUBE,
+        nullable=False,
     )
     podcast_id: Mapped[int] = mapped_column(
         sa.ForeignKey("podcast_podcasts.id", ondelete="RESTRICT"), index=True, nullable=False
@@ -354,3 +363,59 @@ class Episode(BaseModel):
         # await db_session.delete(self)
         # if db_flush:
         #     await db_session.flush()
+
+
+class Cookie(BaseModel):
+    """Saving cookies (in netscape format) for accessing to auth-only resources"""
+
+    __tablename__ = "podcast_cookies"
+    # __file_path: Path | None = None
+
+    id: Mapped[int] = mapped_column(sa.Integer, primary_key=True)
+    source_type: Mapped[SourceType] = mapped_column(sa.Enum(SourceType), nullable=False)
+    data: Mapped[str] = mapped_column(sa.Text, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        sa.DateTime(timezone=True), default=utcnow, nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        sa.DateTime(timezone=True), default=utcnow, nullable=False
+    )
+    owner_id: Mapped[int] = mapped_column(sa.ForeignKey("auth_users.id"))
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.__file_path: Path | None = None
+
+    def __str__(self):
+        return f'<Cookie #{self.id} "{self.source_type}" at {self.created_at}>'
+
+    async def as_file(self) -> Path:
+        """Library for downloading content takes only path to cookie's file (stored on the disk)"""
+        settings = get_app_settings()
+
+        def store_tmp_file():
+            cookies_file = settings.TMP_COOKIES_PATH / f"cookie_{self.source_type}_{self.id}.txt"
+            if not cookies_file.exists():
+                logger.debug("Cookie #%s: Generation tmp cookie file [%s]", self.id, cookies_file)
+                with open(cookies_file, "wt", encoding="utf-8") as f:
+                    decr_data = SensitiveData().decrypt(self.data)
+                    f.write(decr_data)
+            else:
+                logger.debug("Cookie #%s: Found already generated file [%s]", self.id, cookies_file)
+
+            return cookies_file
+
+        return await asyncio.to_thread(store_tmp_file)
+
+    @classmethod
+    def get_encrypted_data(cls, data: str) -> str:
+        """Return encrypted value for provided in `data` argument"""
+        return SensitiveData().encrypt(data)
+
+    @property
+    def file_path(self):
+        return self.__file_path
+
+    @file_path.setter
+    def file_path(self, value):
+        self.__file_path = value

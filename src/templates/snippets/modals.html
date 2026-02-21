@@ -113,10 +113,11 @@
 <script type="application/javascript">
     let addEpisodePodcastId = null;
 
-    function openAddEpisodeModal(podcastId, podcastTitle) {
+    function openAddEpisodeModal(podcastId, podcastName) {
+        console.log("here")
         const modal = document.getElementById('addEpisodeModal');
         const titleEl = document.getElementById('episodePodcastTitle');
-        titleEl.textContent = podcastTitle || '';
+        titleEl.textContent = podcastName || '';
         addEpisodePodcastId = podcastId != null ? Number(podcastId) : null;
 
         modal.classList.remove('hidden');
