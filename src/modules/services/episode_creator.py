@@ -25,7 +25,9 @@ class EpisodeCreator:
         self._session = session
 
     async def create_from_source_url(
-        self, source_url: str, podcast_id: int | None = None
+        self,
+        source_url: str,
+        podcast_id: int | None = None,
     ) -> Episode:
         """
         Create an episode from the given source URL.

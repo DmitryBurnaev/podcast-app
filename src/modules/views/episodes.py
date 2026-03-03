@@ -45,7 +45,8 @@ class EpisodesController(BaseController):
             creator = EpisodeCreator(session=uow.session)
             try:
                 episode = await creator.create_from_source_url(
-                    source_url=str(source_url).strip(), podcast_id=podcast_id
+                    source_url=str(source_url).strip(),
+                    podcast_id=podcast_id,
                 )
             except ValueError as e:
                 logger.warning("Episode creation failed: %s", e)
