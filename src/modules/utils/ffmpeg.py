@@ -6,11 +6,11 @@ import hashlib
 import tempfile
 import subprocess
 from pathlib import Path
-from typing import NamedTuple, TYPE_CHECKING
+from typing import NamedTuple
 from contextlib import suppress
 from multiprocessing import Process
 
-from src.modules.services import utils as services_utils
+from src.modules.utils import common as services_utils
 
 # from common.utils import cut_string
 # from common.enums import EpisodeStatus
