@@ -6,15 +6,13 @@ from typing import NamedTuple
 from functools import partial
 
 import yt_dlp
-from starlette.concurrency import run_in_threadpool
 from yt_dlp.utils import YoutubeDLError
 
-from core import settings
 from common.enums import SourceType, EpisodeStatus
 from common.exceptions import InvalidRequestError
 from modules.auth.hasher import get_random_hash
 from modules.podcast.models import EpisodeChapter
-from modules.podcast.utils import episode_process_hook
+from src.modules.utils.common import episode_process_hook
 
 logger = logging.getLogger(__name__)
 
