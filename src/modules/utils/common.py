@@ -1,18 +1,18 @@
+import asyncio
 import re
 import logging
 import dataclasses
 from pathlib import Path
 from typing import NamedTuple
-from functools import partial
 
 import yt_dlp
 from yt_dlp.utils import YoutubeDLError
 
-from common.enums import SourceType, EpisodeStatus
-from common.exceptions import InvalidRequestError
-from modules.auth.hasher import get_random_hash
-from modules.podcast.models import EpisodeChapter
-from src.modules.utils.common import episode_process_hook
+from src.exceptions import InvalidRequestError
+from src.modules.auth.hashers import get_random_hash
+from src.modules.db.models.podcasts import EpisodeChapter, SourceType, EpisodeStatus
+from src.modules.utils.processing import episode_process_hook
+from src.settings.app import get_app_settings
 
 logger = logging.getLogger(__name__)
 
@@ -37,7 +37,14 @@ class SourceConfig:
     regexp_playlist: str | None = None
     need_postprocessing: bool = False
     need_downloading: bool = True
-    proxy_url: str | None = None
+
+    @property
+    def proxy_url(self) -> str | None:
+        if self.type is SourceType.YOUTUBE:
+            settings = get_app_settings()
+            return settings.http_proxy_url
+
+        return None
 
 
 @dataclasses.dataclass
@@ -61,7 +68,6 @@ SOURCE_CFG_MAP = {
             r"^https://(?:www\.)?youtube\.com/playlist\?list=(?P<source_id>[0-9a-zA-Z-_]+)"
         ),
         need_postprocessing=True,
-        proxy_url=settings.PROXY_YOUTUBE,
     ),
     SourceType.YANDEX: SourceConfig(
         type=SourceType.YANDEX,
@@ -126,7 +132,8 @@ async def download_audio(
     :param proxy_url: proxy DSN for downloading video (specified for each source's type_
     :return path to downloaded file
     """
-    result_path = settings.TMP_AUDIO_PATH / filename
+    settings = get_app_settings()
+    result_path = settings.tmp_audio_path / filename
     params = {
         "format": "bestaudio/best",
         "outtmpl": str(result_path),
@@ -149,15 +156,22 @@ async def get_source_media_info(source_info: SourceInfo) -> tuple[str, SourceMed
     """Allows extract info about providers video from Source (powered by yt_dlp)"""
 
     logger.info("Started fetching data for %s", source_info.url)
-    params = {"logger": logger, "noplaylist": True, "cookiefile": source_info.cookie_path}
+    params: dict[str, str | bool] = {
+        "logger": logger,
+        "noplaylist": True,
+        "cookiefile": source_info.cookie_path,
+    }
     if source_info.proxy_url:
         params["proxy"] = source_info.proxy_url
         logger.info("YoutubeDL: Using proxy: %s", source_info.proxy_url)
 
     try:
         with yt_dlp.YoutubeDL(params) as ydl:
-            extract_info = partial(ydl.extract_info, source_info.url, download=False)
-            source_details = await run_in_threadpool(extract_info)
+            source_details = await asyncio.to_thread(
+                ydl.extract_info,
+                source_info.url,
+                download=False,
+            )
 
     except YoutubeDLError as exc:
         logger.exception("ydl.extract_info failed: %s | Error: %r", source_info.url, exc)

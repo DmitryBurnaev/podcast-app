@@ -189,11 +189,7 @@ class StorageS3:
         _, result = await self._run_with_client(_delete)
         return result
 
-    async def delete_files(
-        self,
-        filenames: list[str],
-        remote_path: str,
-    ) -> None:
+    async def delete_files(self, filenames: list[str], remote_path: str) -> None:
         """Delete multiple objects from S3."""
         for filename in filenames:
             dst_path = os.path.join(remote_path, filename)
@@ -202,27 +198,28 @@ class StorageS3:
     async def get_presigned_url(self, remote_path: str) -> str:
         """Get or create cached presigned URL for object."""
         redis = RedisClient()
-        url: str | None = None
-        if not (url := await redis.async_get(remote_path)):
+        cached_url = await redis.async_get(remote_path)
+        if isinstance(cached_url, str) and cached_url:
+            return cached_url
 
-            async def _presign(s3: Any) -> str:
-                # generate_presigned_url is sync (local signing, no I/O)
-                return s3.generate_presigned_url(
-                    ClientMethod="get_object",
-                    Params={
-                        "Bucket": self.settings.s3.bucket_name,
-                        "Key": remote_path,
-                    },
-                    ExpiresIn=self.settings.s3.link_expires_in,
-                )
+        async def _presign(s3: Any) -> str:
+            # generate_presigned_url is sync (local signing, no I/O)
+            return s3.generate_presigned_url(
+                ClientMethod="get_object",
+                Params={
+                    "Bucket": self.settings.s3.bucket_name,
+                    "Key": remote_path,
+                },
+                ExpiresIn=self.settings.s3.link_expires_in,
+            )
 
-            _, url = await self._run_with_client(_presign)
-            if url:
-                await redis.async_set(
-                    remote_path,
-                    value=url,
-                    ttl=self.settings.s3.link_cache_expires_in,
-                )
+        _, url = await self._run_with_client(_presign)
+        if url:
+            await redis.async_set(
+                remote_path,
+                value=url,
+                ttl=self.settings.s3.link_cache_expires_in,
+            )
 
         return url or ""
 

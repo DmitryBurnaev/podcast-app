@@ -10,12 +10,13 @@ from typing import NamedTuple
 from contextlib import suppress
 from multiprocessing import Process
 
-from src.modules.utils import common as services_utils
+from src.modules.db.models.podcasts import EpisodeStatus
+from src.modules.utils import common as common_utils
 
 # from common.utils import cut_string
 # from common.enums import EpisodeStatus
 # from common.exceptions import UserCancellationError
-# from modules.podcast import utils as services_utils
+# from modules.podcast import utils as common_utils
 # from modules.providers.exceptions import FFMPegPreparationError, FFMPegParseError
 
 # if TYPE_CHECKING:
@@ -50,9 +51,9 @@ def ffmpeg_preparation(
     """
     filename = os.path.basename(str(src_path))
     logger.info("Start FFMPEG preparations for %s === ", filename)
-    total_bytes = services_utils.get_file_size(src_path)
+    total_bytes = common_utils.get_file_size(src_path)
     if call_process_hook:
-        services_utils.episode_process_hook(
+        common_utils.episode_process_hook(
             status=EpisodeStatus.DL_EPISODE_POSTPROCESSING,
             filename=filename,
             total_bytes=total_bytes,
@@ -63,7 +64,7 @@ def ffmpeg_preparation(
 
     logger.info("=== Start SUBPROCESS (filesize watching) for %s === ", filename)
     watcher_process = Process(
-        target=services_utils.post_processing_process_hook,
+        target=common_utils.post_processing_process_hook,
         kwargs={
             "filename": filename,
             "target_path": tmp_path,
@@ -89,7 +90,7 @@ def ffmpeg_preparation(
         if isinstance(exc, subprocess.CalledProcessError) and exc.returncode == 255:
             raise UserCancellationError("Background FFMPEG processing was interrupted") from exc
 
-        services_utils.episode_process_hook(status=EpisodeStatus.ERROR, filename=filename)
+        common_utils.episode_process_hook(status=EpisodeStatus.ERROR, filename=filename)
         with suppress(IOError):
             os.remove(tmp_path)
 
@@ -115,12 +116,12 @@ def ffmpeg_preparation(
         os.rename(tmp_path, src_path)
 
     except IOError as exc:
-        services_utils.episode_process_hook(status=EpisodeStatus.ERROR, filename=filename)
+        common_utils.episode_process_hook(status=EpisodeStatus.ERROR, filename=filename)
         raise FFMPegPreparationError(f"Failed to rename/remove tmp file: {exc}") from exc
 
-    total_file_size = services_utils.get_file_size(src_path)
+    total_file_size = common_utils.get_file_size(src_path)
     if call_process_hook:
-        services_utils.episode_process_hook(
+        common_utils.episode_process_hook(
             status=EpisodeStatus.DL_EPISODE_POSTPROCESSING,
             filename=filename,
             total_bytes=total_file_size,
@@ -254,10 +255,10 @@ artist={episode_author}
         raise RuntimeError(f"Episode title '{metadata.episode_title}' not found in metadata")
 
     logger.info("Finished setting metadata for the file %s", tmp_audio_file)
-    services_utils.delete_file(metadata_file_path)
+    common_utils.delete_file(metadata_file_path)
 
     logger.debug("Moving updated file: %s -> %s", src_path, tmp_audio_file)
-    services_utils.move_file(tmp_audio_file, src_path)
+    common_utils.move_file(tmp_audio_file, src_path)
     logger.info("Metadata was set for the file %s", src_path)
 
 
@@ -329,7 +330,7 @@ def audio_cover(audio_file_path: Path) -> CoverMetaData | None:
     return CoverMetaData(
         path=new_cover_path,
         hash=cover_hash,
-        size=services_utils.get_file_size(new_cover_path),
+        size=common_utils.get_file_size(new_cover_path),
     )
 
 
