@@ -12,6 +12,8 @@ from multiprocessing import Process
 
 from src.modules.db.models.podcasts import EpisodeStatus
 from src.modules.utils import common as common_utils
+from src.modules.utils import files as file_utils
+from src.settings.app import get_app_settings
 
 # from common.utils import cut_string
 # from common.enums import EpisodeStatus
@@ -51,7 +53,7 @@ def ffmpeg_preparation(
     """
     filename = os.path.basename(str(src_path))
     logger.info("Start FFMPEG preparations for %s === ", filename)
-    total_bytes = common_utils.get_file_size(src_path)
+    total_bytes = file_utils.get_file_size(src_path)
     if call_process_hook:
         common_utils.episode_process_hook(
             status=EpisodeStatus.DL_EPISODE_POSTPROCESSING,
@@ -60,7 +62,8 @@ def ffmpeg_preparation(
             processed_bytes=0,
         )
 
-    tmp_path = settings.TMP_AUDIO_PATH / f"tmp_{filename}"
+    settings = get_app_settings()
+    tmp_path = settings.tmp_audio_path / f"tmp_{filename}"
 
     logger.info("=== Start SUBPROCESS (filesize watching) for %s === ", filename)
     watcher_process = Process(
