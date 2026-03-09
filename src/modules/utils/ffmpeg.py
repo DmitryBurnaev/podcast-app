@@ -6,23 +6,20 @@ import hashlib
 import tempfile
 import subprocess
 from pathlib import Path
-from typing import NamedTuple
+from typing import NamedTuple, TYPE_CHECKING
 from contextlib import suppress
 from multiprocessing import Process
 
-from src.modules.db.models.podcasts import EpisodeStatus
+from src.constants import EpisodeStatus
+from src.exceptions import UserCancellationError, FFMPegPreparationError, FFMPegParseError
 from src.modules.utils import common as common_utils
-from src.modules.utils import files as file_utils
+from src.modules.utils import processing as proc_utils
 from src.settings.app import get_app_settings
+from src.utils import cut_string
 
-# from common.utils import cut_string
-# from common.enums import EpisodeStatus
-# from common.exceptions import UserCancellationError
-# from modules.podcast import utils as common_utils
-# from modules.providers.exceptions import FFMPegPreparationError, FFMPegParseError
+if TYPE_CHECKING:
+    from src.modules.db.models.podcasts import EpisodeMetadata
 
-# if TYPE_CHECKING:
-#     from modules.podcast.models import EpisodeMetadata
 
 logger = logging.getLogger(__name__)
 AUDIO_META_REGEXP = re.compile(r"(?P<meta>Metadata.+)?(?P<duration>Duration:\s?[\d:]+)", re.DOTALL)
@@ -53,7 +50,7 @@ def ffmpeg_preparation(
     """
     filename = os.path.basename(str(src_path))
     logger.info("Start FFMPEG preparations for %s === ", filename)
-    total_bytes = file_utils.get_file_size(src_path)
+    total_bytes = proc_utils.get_file_size(src_path)
     if call_process_hook:
         common_utils.episode_process_hook(
             status=EpisodeStatus.DL_EPISODE_POSTPROCESSING,
@@ -67,7 +64,7 @@ def ffmpeg_preparation(
 
     logger.info("=== Start SUBPROCESS (filesize watching) for %s === ", filename)
     watcher_process = Process(
-        target=common_utils.post_processing_process_hook,
+        target=proc_utils.post_processing_process_hook,
         kwargs={
             "filename": filename,
             "target_path": tmp_path,
@@ -84,7 +81,7 @@ def ffmpeg_preparation(
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             check=True,
-            timeout=settings.FFMPEG_TIMEOUT,
+            timeout=settings.ffmpeg_timeout,
         )
 
     except Exception as exc:
@@ -122,7 +119,7 @@ def ffmpeg_preparation(
         common_utils.episode_process_hook(status=EpisodeStatus.ERROR, filename=filename)
         raise FFMPegPreparationError(f"Failed to rename/remove tmp file: {exc}") from exc
 
-    total_file_size = common_utils.get_file_size(src_path)
+    total_file_size = proc_utils.get_file_size(src_path)
     if call_process_hook:
         common_utils.episode_process_hook(
             status=EpisodeStatus.DL_EPISODE_POSTPROCESSING,
@@ -135,7 +132,7 @@ def ffmpeg_preparation(
 
 def execute_ffmpeg(command: list[str]) -> str:
     """Call ffmpeg's subprocess to execute given command"""
-
+    settings = get_app_settings()
     try:
         logger.debug("Executing FFMPEG: '%s'", " ".join(map(str, command)))
         completed_proc = subprocess.run(
@@ -143,7 +140,7 @@ def execute_ffmpeg(command: list[str]) -> str:
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             check=True,
-            timeout=settings.FFMPEG_TIMEOUT,
+            timeout=settings.ffmpeg_timeout,
         )
     except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as exc:
         err_details = f"FFMPEG failed with errors: {exc}"
@@ -219,13 +216,14 @@ artist={episode_author}
         src_path,
         len(metadata.episode_chapters),
     )
-    tmp_audio_file = settings.TMP_AUDIO_PATH / f"tmp_{src_path.name}"
+    settings = get_app_settings()
+    tmp_audio_file = settings.tmp_audio_path / f"tmp_{src_path.name}"
     chapters_rendered = ""
     for chapter in metadata.episode_chapters:
         chapters_rendered += chapter_tpl.rstrip().format(
             start=chapter.start * 1000,
             end=chapter.end * 1000,
-            title=cut_string(chapter.title, max_length=settings.EPISODE_CHAPTERS_TITLE_LENGTH),
+            title=cut_string(chapter.title, max_length=settings.episode_chapters_title_length),
         )
 
     result_metadata = metadata_tpl.format(
@@ -236,7 +234,7 @@ artist={episode_author}
     )
 
     logger.debug("Generated metadata for the file %s:\n%s", src_path, result_metadata)
-    metadata_file_path = settings.TMP_META_PATH / f"episode_{metadata.episode_id}.txt"
+    metadata_file_path = settings.tmp_meta_path / f"episode_{metadata.episode_id}.txt"
     metadata_file_path.write_text(result_metadata)
     metadata_str = execute_ffmpeg(
         command=[
@@ -245,7 +243,7 @@ artist={episode_author}
             "-i",
             str(src_path),
             "-i",
-            metadata_file_path.absolute(),
+            str(metadata_file_path.absolute()),
             "-map_metadata",
             "1",
             "-codec",
@@ -258,10 +256,10 @@ artist={episode_author}
         raise RuntimeError(f"Episode title '{metadata.episode_title}' not found in metadata")
 
     logger.info("Finished setting metadata for the file %s", tmp_audio_file)
-    common_utils.delete_file(metadata_file_path)
+    proc_utils.delete_file(metadata_file_path)
 
     logger.debug("Moving updated file: %s -> %s", src_path, tmp_audio_file)
-    common_utils.move_file(tmp_audio_file, src_path)
+    proc_utils.move_file(tmp_audio_file, src_path)
     logger.info("Metadata was set for the file %s", src_path)
 
 
@@ -286,9 +284,9 @@ def audio_metadata(file_path: Path | str) -> AudioMetaData:
     if not find_results:
         raise FFMPegParseError(f"Found result: {metadata_str}")
 
-    find_results = find_results.groupdict()
-    duration = _human_time_to_sec(find_results.get("duration", "").replace("Duration:", ""))
-    metadata = _raw_meta_to_dict((find_results.get("meta") or "").replace("Metadata:\n", ""))
+    meta_data: dict[str, str] = find_results.groupdict()
+    duration = _human_time_to_sec(meta_data.get("duration", "").replace("Duration:", ""))
+    metadata = _raw_meta_to_dict((meta_data.get("meta") or "").replace("Metadata:\n", ""))
 
     logger.debug(
         "FFMPEG success done extracting duration from the file %s:\nmeta: %s\nduration: %s",
@@ -308,19 +306,20 @@ def audio_metadata(file_path: Path | str) -> AudioMetaData:
 def audio_cover(audio_file_path: Path) -> CoverMetaData | None:
     """Extracts cover from audio file (if exists)"""
 
+    settings = get_app_settings()
     try:
-        cover_path = settings.TMP_IMAGE_PATH / f"tmp_cover_{uuid.uuid4().hex}.jpg"
+        cover_path = settings.tmp_image_path / f"tmp_cover_{uuid.uuid4().hex}.jpg"
         execute_ffmpeg(
             [
                 "ffmpeg",
                 "-y",
                 "-i",
-                audio_file_path,
+                str(audio_file_path),
                 "-an",
                 "-an",
                 "-c:v",
                 "copy",
-                cover_path,
+                str(cover_path),
             ]
         )
     except FFMPegPreparationError as exc:
@@ -328,12 +327,12 @@ def audio_cover(audio_file_path: Path) -> CoverMetaData | None:
         return None
 
     cover_hash = _get_file_hash(cover_path)
-    new_cover_path = settings.TMP_IMAGE_PATH / f"cover_{cover_hash}.jpg"
+    new_cover_path = settings.tmp_image_path / f"cover_{cover_hash}.jpg"
     os.rename(cover_path, new_cover_path)
     return CoverMetaData(
         path=new_cover_path,
         hash=cover_hash,
-        size=common_utils.get_file_size(new_cover_path),
+        size=proc_utils.get_file_size(new_cover_path),
     )
 
 
@@ -342,7 +341,7 @@ def _get_file_hash(file_path: Path) -> str:
     return hashlib.sha256(file_content).hexdigest()[:32]
 
 
-def _raw_meta_to_dict(meta: str | None) -> dict:
+def _raw_meta_to_dict(meta: str | None) -> dict[str, str]:
     """
     Converts raw metadata from ffmpeg to dict values
 
@@ -350,7 +349,10 @@ def _raw_meta_to_dict(meta: str | None) -> dict:
     {'album': 'TestAlbum', 'artist': 'Artist'}
 
     """
-    result = {}
+    result: dict[str, str] = {}
+    if not meta:
+        return result
+
     for meta_str in meta.split("\n"):
         try:
             key, value = meta_str.split(":")

@@ -1,26 +1,23 @@
+import asyncio
 import dataclasses
 import json
 import os
 import shutil
 import time
 import logging
-import typing
 from pathlib import Path
 from typing import Iterable, Optional
 from functools import partial, lru_cache
 
+from litestar.datastructures import UploadFile
 from rq.job import Job
-from starlette.concurrency import run_in_threadpool
-from starlette.datastructures import UploadFile
 
-from core import settings
-from common.redis import RedisClient
-from common.storage import StorageS3
-from common.enums import EpisodeStatus
-from common.exceptions import UserCancellationError
-
-if typing.TYPE_CHECKING:
-    from modules.podcast.models import Episode
+from src.constants import EpisodeStatus
+from src.exceptions import UserCancellationError
+from src.modules.db.models import Episode
+from src.modules.services.redis import RedisClient
+from src.modules.services.storage import StorageS3
+from src.settings.app import get_app_settings
 
 logger = logging.getLogger(__name__)
 
@@ -44,7 +41,8 @@ class TaskContext:
     @lru_cache
     def create_from_redis(cls, filename: str) -> Optional["TaskContext"]:
         key = cls._redis_key_pattern.format(filename)
-        if job_id := RedisClient().get(key):
+        job_id = RedisClient().get(key)
+        if isinstance(job_id, str) and job_id:
             return TaskContext(job_id=job_id)
 
         return None
@@ -156,7 +154,7 @@ def episode_process_hook(
     status: EpisodeStatus,
     filename: str,
     total_bytes: int = 0,
-    processed_bytes: int = None,
+    processed_bytes: int = 0,
     chunk: int = 0,
     processing_filepath: str | Path | None = None,
 ) -> None:
@@ -164,21 +162,22 @@ def episode_process_hook(
     redis_client = RedisClient()
     filename = os.path.basename(filename)
     event_key = redis_client.get_key_by_filename(filename)
-    current_event_data = redis_client.get(event_key) or {}
-    total_bytes = total_bytes or current_event_data.get("total_bytes", 0)
-    if processed_bytes is None:
-        processed_bytes = current_event_data.get("processed_bytes") + chunk
+    current_event_data = redis_client.get(event_key)
+    if current_event_data and isinstance(current_event_data, dict):
+        total_bytes = total_bytes or current_event_data.get("total_bytes", 0)
+        processed_bytes = processed_bytes or current_event_data.get("processed_bytes", 0) + chunk
 
-    event_data = {
+    event_data: dict[str, str | int] = {
         "event_key": event_key,
         "status": str(status),
         "processed_bytes": processed_bytes,
         "total_bytes": total_bytes,
     }
-    redis_client.set(event_key, event_data, ttl=settings.DOWNLOAD_EVENT_REDIS_TTL)
+    settings = get_app_settings()
+    redis_client.set(event_key, event_data, ttl=settings.download_event_redis_ttl)
     redis_client.publish(
-        channel=settings.REDIS_PROGRESS_PUBSUB_CH,
-        message=settings.REDIS_PROGRESS_PUBSUB_SIGNAL,
+        channel=settings.redis.progress_pubsub_ch,
+        message=settings.redis.progress_pubsub_signal,
     )
     task_context = TaskContext.create_from_redis(filename)
     if task_context and task_context.task_canceled():
@@ -197,7 +196,7 @@ def episode_process_hook(
     logger.info("[%s] for %s: %s", status, filename, progress)
 
 
-def upload_episode(src_path: str | Path) -> str | None:
+async def upload_episode(src_path: str | Path) -> str | None:
     """Allows uploading src_path to S3 storage"""
 
     filename = os.path.basename(src_path)
@@ -208,9 +207,10 @@ def upload_episode(src_path: str | Path) -> str | None:
         total_bytes=get_file_size(src_path),
     )
     logger.info("Upload for %s started.", filename)
-    remote_path = StorageS3().upload_file(
+    settings = get_app_settings()
+    remote_path = await StorageS3().upload_file(
         src_path=str(src_path),
-        dst_path=settings.S3_BUCKET_AUDIO_PATH,
+        dst_path=settings.s3.bucket_audio_path,
         callback=partial(upload_process_hook, filename),
     )
     if not remote_path:
@@ -223,7 +223,7 @@ def upload_episode(src_path: str | Path) -> str | None:
     return remote_path
 
 
-def remote_copy_episode(src_path: str, dst_path: str, src_file_size: int) -> str | None:
+async def remote_copy_episode(src_path: str, dst_path: str, src_file_size: int) -> str | None:
     """Allows uploading src_path to S3 storage"""
 
     filename = os.path.basename(src_path)
@@ -234,7 +234,7 @@ def remote_copy_episode(src_path: str, dst_path: str, src_file_size: int) -> str
         total_bytes=src_file_size,
     )
     logger.debug("Remotely copying for %s started.", filename)
-    remote_path = StorageS3().copy_file(src_path=str(src_path), dst_path=dst_path)
+    remote_path = await StorageS3().copy_file(src_path=str(src_path), dst_path=dst_path)
     if not remote_path:
         logger.warning("Couldn't move file in S3 storage remotely. SKIP")
         episode_process_hook(filename=filename, status=EpisodeStatus.ERROR, processed_bytes=0)
@@ -251,7 +251,7 @@ async def save_uploaded_file(
     result_file_path = tmp_path / f"{prefix}{file_ext}"
     file_content = await uploaded_file.read()
     with open(result_file_path, "wb") as f:
-        await run_in_threadpool(f.write, file_content)
+        await asyncio.to_thread(f.write, file_content)
 
     file_size = get_file_size(result_file_path)
     if file_size < 1:
@@ -264,8 +264,9 @@ async def save_uploaded_file(
 
 
 async def publish_redis_stop_downloading(episode_id: int) -> None:
+    settings = get_app_settings()
     await RedisClient().async_publish(
-        channel=settings.REDIS_STOP_DOWNLOADING_PUBSUB_CH,
+        channel=settings.redis.stop_downloading_pubsub_ch,
         message=json.dumps({"episode_id": episode_id}),
     )
 

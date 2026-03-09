@@ -154,6 +154,18 @@ class StorageConfigurationError(BaseApplicationError):
     status_code = 500
 
 
+class FFMPegPreparationError(BaseApplicationError):
+    message = "We couldn't prepare file by ffmpeg"
+
+
+class FFMPegParseError(BaseApplicationError):
+    message = "We couldn't parse info from ffmpeg"
+
+
+class SourceFetchError(BaseApplicationError):
+    message = "We couldn't extract info about requested episode."
+
+
 # class DownloadingInterrupted(Exception):
 #     def __init__(self, code: "TaskResultCode", message: str = ""):
 #         self.code = code
