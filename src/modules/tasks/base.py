@@ -17,6 +17,7 @@ class TaskResultCode(enum.StrEnum):
     SKIP = "SKIP"
     ERROR = "ERROR"
     CANCEL = "CANCEL"
+    PENDING = "PENDING"
 
 
 class RQTask:

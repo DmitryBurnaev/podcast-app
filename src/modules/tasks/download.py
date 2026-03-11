@@ -5,30 +5,12 @@ from pathlib import Path
 from yt_dlp.utils import YoutubeDLError
 
 from src.constants import EpisodeStatus
-from src.exceptions import UserCancellationError
+from src.exceptions import UserCancellationError, DownloadingInterrupted
 from src.modules.db import SASessionUOW
 from src.modules.db.models import Episode
 from src.modules.db.repositories import EpisodeRepository
 from src.modules.services.storage import StorageS3
 from src.modules.tasks.base import TaskResultCode, RQTask
-
-# from core import settings
-# from common.redis import RedisClient
-# from common.storage import StorageS3
-# from common.enums import EpisodeStatus
-# from common.db_utils import make_session_maker
-# from common.exceptions import (
-#     DownloadingInterrupted,
-#     UserCancellationError,
-# )
-# from modules.media.models import File
-# from modules.podcast.models import Episode, cookie_file_ctx
-# from modules.podcast.tasks.base import RQTask, TaskResultCode
-# from modules.podcast.tasks.rss import GenerateRSSTask
-# from modules.providers import utils as provider_utils
-# from modules.podcast import utils as podcast_utils
-# from modules.providers.utils import SOURCE_CFG_MAP, SourceConfig
-# from modules.providers import ffmpeg
 
 log_levels = {
     TaskResultCode.SUCCESS: logging.INFO,
@@ -60,39 +42,34 @@ class DownloadEpisodeTask(RQTask):
     async def run(self, episode_id: int) -> TaskResultCode:
         self.storage = StorageS3()
         self.task_context = self.task_context or self._prepare_task_context(episode_id)
+        if not self.db_session:
+            raise RuntimeError("No database session available")
+
+        episode_repository = EpisodeRepository(self.db_session)
 
         try:
             code = await self.perform_run(int(episode_id))
-            code_value = code.value
 
         except UserCancellationError as exc:
             message = "Episode downloading was interrupted by user canceling: %r"
             logger.log(log_levels[TaskResultCode.CANCEL], message, exc)
-            code_value = TaskResultCode.CANCEL
-            await Episode.async_update(
-                self.db_session,
-                filter_kwargs={"id": episode_id},
-                update_data={"status": Episode.Status.NEW},
-            )
+            code = TaskResultCode.CANCEL
+            await episode_repository.update_by_ids([episode_id], {"status": Episode.Status.NEW})
 
         except DownloadingInterrupted as exc:
             message = "Episode downloading was interrupted: %r"
             logger.log(log_levels[exc.code], message, exc)
-            code_value = exc.code.value
+            code = TaskResultCode(exc.code.value)
 
         except Exception as exc:
             logger.exception("Unable to prepare/publish episode: %r", exc)
-            await Episode.async_update(
-                self.db_session,
-                filter_kwargs={"id": episode_id},
-                update_data={"status": Episode.Status.ERROR},
-            )
-            code_value = TaskResultCode.ERROR
+            await episode_repository.update_by_ids([episode_id], {"status": Episode.Status.ERROR})
+            code = TaskResultCode.ERROR
 
         finally:
             await self._publish_redis_signal()
 
-        return code_value
+        return code
 
     async def perform_run(self, episode_id: int) -> TaskResultCode:
         """
