@@ -1,8 +1,12 @@
 import logging
+from typing import TYPE_CHECKING
 
 from http import HTTPStatus
 
 from src.constants import ResponseStatus
+
+if TYPE_CHECKING:
+    from src.modules.tasks.base import TaskResultCode
 
 
 class BaseApplicationError(Exception):
@@ -166,10 +170,10 @@ class SourceFetchError(BaseApplicationError):
     message = "We couldn't extract info about requested episode."
 
 
-# class DownloadingInterrupted(Exception):
-#     def __init__(self, code: "TaskResultCode", message: str = ""):
-#         self.code = code
-#         self.message = message
-#
-#     def __repr__(self):
-#         return f'DownloadingInterrupted({self.code.name}, "{self.message}")'
+class DownloadingInterrupted(Exception):
+    def __init__(self, code: "TaskResultCode", message: str = ""):
+        self.code = code
+        self.message = message
+
+    def __repr__(self):
+        return f'DownloadingInterrupted({self.code.name}, "{self.message}")'
