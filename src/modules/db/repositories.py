@@ -31,7 +31,7 @@ from sqlalchemy.sql.elements import SQLCoreOperations
 from sqlalchemy.sql.roles import ColumnsClauseRole
 
 from src.modules.db.models import BaseModel, User, File
-from src.modules.db.models.podcasts import Episode, Podcast
+from src.modules.db.models.podcasts import Episode, Podcast, Cookie
 
 __all__ = ("UserRepository",)
 
@@ -361,3 +361,11 @@ class EpisodeRepository(BaseRepository[Episode]):
             last_created_at=row_data.last_created_at,
             last_published_at=row_data.last_published_at,
         )
+
+
+class CookieRepository(BaseRepository[Cookie]):
+    """
+    Cookie Repository class
+    """
+
+    model = Cookie

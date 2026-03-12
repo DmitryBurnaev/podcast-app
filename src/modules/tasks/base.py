@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.modules.db import SASessionUOW
 from src.modules.services.redis import RedisClient
 from src.modules.utils.processing import TaskContext
+from src.settings.app import AppSettings, get_app_settings
 
 logger = logging.getLogger(__name__)
 
@@ -26,6 +27,7 @@ class RQTask:
     def __init__(self, db_session: AsyncSession | None = None):
         self.db_session: AsyncSession | None = db_session
         self.task_context: TaskContext | None = None
+        self.settings: AppSettings = get_app_settings()
 
     async def run(self, *args, **kwargs):
         """We need to override this method to implement main task logic"""
