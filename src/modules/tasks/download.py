@@ -9,8 +9,15 @@ from src.exceptions import UserCancellationError, DownloadingInterrupted
 from src.modules.db import SASessionUOW
 from src.modules.db.models import Episode
 from src.modules.db.repositories import EpisodeRepository
+from src.modules.db.utils import cookie_file_ctx
+from src.modules.services.redis import RedisClient
 from src.modules.services.storage import StorageS3
 from src.modules.tasks.base import TaskResultCode, RQTask
+from src.modules.tasks.rss import GenerateRSSTask
+from src.modules.utils import processing as processing_utils
+from src.modules.utils import common as common_utils
+from src.modules.utils import ffmpeg as ffmpeg_utils
+from src.modules.utils.common import SOURCE_CFG_MAP, SourceConfig
 
 log_levels = {
     TaskResultCode.SUCCESS: logging.INFO,
@@ -77,8 +84,7 @@ class DownloadEpisodeTask(RQTask):
 
         :raise: DownloadingInterrupted (if downloading is broken or unnecessary)
         """
-
-        episode: Episode = await Episode.async_get(self.db_session, id=episode_id)
+        episode: Episode = await EpisodeRepository(self.db_session).get(episode_id)
         logger.info(
             "=== [%s] START downloading process URL: %s ===",
             episode.source_id,
@@ -103,7 +109,7 @@ class DownloadEpisodeTask(RQTask):
         await self._update_files(episode, {"size": remote_file_size, "available": True})
         await self._update_all_rss(episode.source_id)
 
-        podcast_utils.delete_file(self.tmp_audio_path)
+        processing_utils.delete_file(self.tmp_audio_path)
 
         logger.info("=== [%s] DOWNLOADING total finished ===", episode.source_id)
         return TaskResultCode.SUCCESS
@@ -158,7 +164,7 @@ class DownloadEpisodeTask(RQTask):
 
         async with cookie_file_ctx(self.db_session, cookie_id=episode.cookie_id) as cookie:
             try:
-                result_path = await provider_utils.download_audio(
+                result_path = await common_utils.download_audio(
                     episode.watch_url,
                     filename=episode.audio_filename,
                     cookie_path=(cookie.file_path if cookie else None),
@@ -192,7 +198,7 @@ class DownloadEpisodeTask(RQTask):
                 episode.status,
                 audio_path,
             )
-            self.storage.delete_file(audio_path)
+            await self.storage.delete_file(audio_path)
 
     @staticmethod
     async def _process_file(episode: Episode, tmp_audio_path: Path) -> None:
@@ -200,8 +206,8 @@ class DownloadEpisodeTask(RQTask):
         source_config: SourceConfig = SOURCE_CFG_MAP[episode.source_type]
         if source_config.need_postprocessing:
             logger.info("=== [%s] POST PROCESSING === ", episode.source_id)
-            ffmpeg.ffmpeg_preparation(src_path=tmp_audio_path)
-            ffmpeg.ffmpeg_set_metadata(
+            ffmpeg_utils.ffmpeg_preparation(src_path=tmp_audio_path)
+            ffmpeg_utils.ffmpeg_set_metadata(
                 src_path=tmp_audio_path,
                 metadata=episode.generate_metadata(),
             )
@@ -213,14 +219,14 @@ class DownloadEpisodeTask(RQTask):
         """Uploading file to the storage (S3)"""
 
         logger.info("=== [%s] UPLOADING === ", episode.source_id)
-        remote_path = podcast_utils.upload_episode(tmp_audio_path)
+        remote_path = processing_utils.upload_episode(tmp_audio_path)
         if not remote_path:
             logger.warning("=== [%s] UPLOADING was broken === ")
             await self._update_episodes(episode, {"status": Episode.Status.ERROR})
             raise DownloadingInterrupted(code=TaskResultCode.ERROR)
 
         await self._update_files(episode, {"path": remote_path})
-        result_file_size = self.storage.get_file_size(tmp_audio_path.name)
+        result_file_size = await self.storage.get_file_size(tmp_audio_path.name)
         logger.info(
             "=== [%s] UPLOADING was done (%i bytes) === ",
             episode.source_id,
@@ -266,11 +272,10 @@ class DownloadEpisodeTask(RQTask):
             db_commit=True,
         )
 
-    @staticmethod
-    async def _publish_redis_signal() -> None:
+    async def _publish_redis_signal(self) -> None:
         await RedisClient().async_publish(
-            channel=settings.REDIS_PROGRESS_PUBSUB_CH,
-            message=settings.REDIS_PROGRESS_PUBSUB_SIGNAL,
+            channel=self.settings.redis.progress_pubsub_ch,
+            message=self.settings.redis.progress_pubsub_signal,
         )
 
 
@@ -331,8 +336,8 @@ class UploadedEpisodeTask(DownloadEpisodeTask):
         """Uploading file to the storage (S3)"""
 
         logger.info("=== [%s] REMOTE COPYING === ", episode.source_id)
-        dst_path = os.path.join(settings.S3_BUCKET_AUDIO_PATH, episode.audio_filename)
-        remote_path = podcast_utils.remote_copy_episode(
+        dst_path = os.path.join(self.settings.s3.bucket_audio_path, episode.audio_filename)
+        remote_path = processing_utils.remote_copy_episode(
             src_path=episode.audio.path,
             dst_path=dst_path,
             src_file_size=episode.audio.size,
