@@ -174,6 +174,17 @@ class BaseRepository(Generic[ModelT]):
         await self.session.flush()
         logger.info("[DB] Updated %i instances", result.rowcount)
 
+    async def update_by_filters(self, filters: dict[str, FilterT], value: dict[str, Any]) -> None:
+        """Update the instances by some filters"""
+        logger.info("[DB] Updating instances by filter: %s", filters)
+
+        statement = update(self.model).filter_by(**filters)
+        result: CursorResult[Any] = cast(
+            CursorResult[Any], await self.session.execute(statement, value)
+        )
+        await self.session.flush()
+        logger.info("[DB] Updated %i instances", result.rowcount)
+
     def _prepare_statement(
         self,
         filters: dict[str, FilterT],
@@ -369,3 +380,11 @@ class CookieRepository(BaseRepository[Cookie]):
     """
 
     model = Cookie
+
+
+class FileRepository(BaseRepository[File]):
+    """
+    File Repository class
+    """
+
+    model = File

@@ -8,7 +8,7 @@ from src.constants import EpisodeStatus
 from src.exceptions import UserCancellationError, DownloadingInterrupted
 from src.modules.db import SASessionUOW
 from src.modules.db.models import Episode
-from src.modules.db.repositories import EpisodeRepository
+from src.modules.db.repositories import EpisodeRepository, FileRepository
 from src.modules.db.utils import cookie_file_ctx
 from src.modules.services.redis import RedisClient
 from src.modules.services.storage import StorageS3
@@ -44,6 +44,7 @@ class DownloadEpisodeTask(RQTask):
 
     storage: StorageS3
     tmp_audio_path: Path
+    episode_repository: EpisodeRepository
 
     # pylint: disable=arguments-differ
     async def run(self, episode_id: int) -> TaskResultCode:
@@ -52,7 +53,7 @@ class DownloadEpisodeTask(RQTask):
         if not self.db_session:
             raise RuntimeError("No database session available")
 
-        episode_repository = EpisodeRepository(self.db_session)
+        self.episode_repository = EpisodeRepository(self.db_session)
 
         try:
             code = await self.perform_run(int(episode_id))
@@ -61,7 +62,9 @@ class DownloadEpisodeTask(RQTask):
             message = "Episode downloading was interrupted by user canceling: %r"
             logger.log(log_levels[TaskResultCode.CANCEL], message, exc)
             code = TaskResultCode.CANCEL
-            await episode_repository.update_by_ids([episode_id], {"status": Episode.Status.NEW})
+            await self.episode_repository.update_by_ids(
+                [episode_id], {"status": Episode.Status.NEW}
+            )
 
         except DownloadingInterrupted as exc:
             message = "Episode downloading was interrupted: %r"
@@ -70,7 +73,9 @@ class DownloadEpisodeTask(RQTask):
 
         except Exception as exc:
             logger.exception("Unable to prepare/publish episode: %r", exc)
-            await episode_repository.update_by_ids([episode_id], {"status": Episode.Status.ERROR})
+            await self.episode_repository.update_by_ids(
+                [episode_id], {"status": Episode.Status.ERROR}
+            )
             code = TaskResultCode.ERROR
 
         finally:
@@ -238,7 +243,7 @@ class DownloadEpisodeTask(RQTask):
         """Regenerating rss for all podcast with requested episode (by source_id)"""
 
         logger.info("=== [%s] Updating rss for all podcast === ", source_id)
-        affected_episodes = await Episode.async_filter(self.db_session, source_id=source_id)
+        affected_episodes = await self.episode_repository.all(source_id=source_id)
         podcast_ids = sorted([episode.podcast_id for episode in affected_episodes])
         logger.info("[%s] Found podcasts for rss updates: %s", source_id, podcast_ids)
         generate_rss_task = GenerateRSSTask(db_session=self.db_session)
@@ -253,23 +258,17 @@ class DownloadEpisodeTask(RQTask):
             "status__ne": Episode.Status.ARCHIVED,
         }
         logger.debug("Episodes update filter: %s | data: %s", filter_kwargs, update_data)
-        await Episode.async_update(
-            self.db_session,
-            filter_kwargs=filter_kwargs,
-            update_data=update_data,
-            db_commit=True,
-        )
+        await self.episode_repository.update_by_filters(filters=filter_kwargs, value=update_data)
 
     async def _update_files(self, episode: Episode, update_data: dict) -> None:
         """Updating data for stored files"""
 
         source_url = episode.audio.source_url
         logger.debug("Files update: source_url: %s | data: %s", source_url, update_data)
-        await File.async_update(
-            self.db_session,
-            filter_kwargs={"source_url": source_url},
-            update_data=update_data,
-            db_commit=True,
+        file_repository: FileRepository = FileRepository(self.db_session)
+        await file_repository.update_by_filters(
+            filters={"source_url": source_url},
+            value=update_data,
         )
 
     async def _publish_redis_signal(self) -> None:
