@@ -289,8 +289,7 @@ class UploadedEpisodeTask(DownloadEpisodeTask):
 
         :raise: DownloadingInterrupted (if downloading is broken or unnecessary)
         """
-
-        episode: Episode = await Episode.async_get(self.db_session, id=episode_id)
+        episode: Episode = await self.episode_repository.get(episode_id)
         logger.info(
             "=== [%s] START performing uploaded episodes: %s ===",
             episode.source_id,
@@ -312,22 +311,22 @@ class UploadedEpisodeTask(DownloadEpisodeTask):
             )
 
         remote_path = await self._copy_file(episode)
-        remote_size = self.storage.get_file_size(os.path.basename(remote_path))
+        remote_size = await self.storage.get_file_size(os.path.basename(remote_path))
 
-        await episode.update(
-            self.db_session,
-            status=Episode.Status.PUBLISHED,
+        await self.episode_repository.update(
+            episode,
+            status=EpisodeStatus.PUBLISHED,
             published_at=episode.created_at,
         )
-        await episode.audio.update(
-            self.db_session,
+        file_repository: FileRepository = FileRepository(self.db_session)
+        await file_repository.update(
+            episode.audio,
             path=remote_path,
             size=remote_size,
             available=True,
         )
         await self._update_all_rss(episode.source_id)
         await self.db_session.flush()
-        # self._delete_tmp_file(old_path)
         logger.info("=== [%s] DOWNLOADING total finished ===", episode.source_id)
         return TaskResultCode.SUCCESS
 
@@ -336,7 +335,7 @@ class UploadedEpisodeTask(DownloadEpisodeTask):
 
         logger.info("=== [%s] REMOTE COPYING === ", episode.source_id)
         dst_path = os.path.join(self.settings.s3.bucket_audio_path, episode.audio_filename)
-        remote_path = processing_utils.remote_copy_episode(
+        remote_path = await processing_utils.remote_copy_episode(
             src_path=episode.audio.path,
             dst_path=dst_path,
             src_file_size=episode.audio.size,
@@ -344,7 +343,7 @@ class UploadedEpisodeTask(DownloadEpisodeTask):
         )
         if not remote_path:
             logger.warning("=== [%s] REMOTE COPYING was broken === ")
-            await episode.update(self.db_session, status=Episode.Status.ERROR)
+            await self.episode_repository.update(episode, status=EpisodeStatus.ERROR)
             raise DownloadingInterrupted(code=TaskResultCode.ERROR)
 
         logger.info(
@@ -355,7 +354,7 @@ class UploadedEpisodeTask(DownloadEpisodeTask):
         )
         return remote_path
 
-    def _delete_tmp_file(self, old_file_path: str):
+    async def _delete_tmp_file(self, old_file_path: str) -> None:
         logger.debug("Removing old file %s...", old_file_path)
-        self.storage.delete_file(dst_path=old_file_path)
+        await self.storage.delete_file(dst_path=old_file_path)
         logger.debug("Removing done for old file %s.", old_file_path)
