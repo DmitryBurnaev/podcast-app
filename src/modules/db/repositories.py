@@ -42,6 +42,7 @@ logger = logging.getLogger(__name__)
 P = ParamSpec("P")
 RT = TypeVar("RT")
 type FilterT = int | str | list[int] | None
+type UpdateT = int | str | datetime | None
 
 
 class VendorsFilter(TypedDict):
@@ -148,7 +149,7 @@ class BaseRepository(Generic[ModelT]):
 
         return instance
 
-    async def update(self, instance: ModelT, **value: dict[str, Any]) -> None:
+    async def update(self, instance: ModelT, **value: UpdateT) -> None:
         """Just updates the instance with provided update_value."""
         for key, value in value.items():
             setattr(instance, key, value)
