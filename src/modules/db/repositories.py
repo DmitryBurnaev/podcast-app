@@ -28,6 +28,7 @@ from sqlalchemy import (
 from sqlalchemy.exc import NoResultFound
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql.elements import SQLCoreOperations
+from sqlalchemy.sql.operators import isnot
 from sqlalchemy.sql.roles import ColumnsClauseRole
 
 from src.modules.db.models import BaseModel, User, File
@@ -293,6 +294,30 @@ class EpisodeRepository(BaseRepository[Episode]):
         """Get all episodes, but with extended filters' logic."""
         logger.debug("[DB] Getting all episodes: %s", filters)
         statement = select(self.model).outerjoin(File, Episode.audio_id == File.id)
+
+        def process_suffix(statement: Select, field_name: str, suffix: str, value: Any) -> Select:
+            field = getattr(self.model, field_name)
+            match suffix:
+                case "ne":
+                    statement = statement.filter(field != value)
+                case "gt":
+                    statement = statement.filter(field > value)
+                case "lt":
+                    statement = statement.filter(field < value)
+                case "lte":
+                    statement = statement.filter(field <= value)
+                case "gte":
+                    statement = statement.filter(field >= value)
+                case "isnot":
+                    statement = statement.filter(isnot(field, value))
+                case _:
+                    logger.warning(
+                        "[DB] Unknown filter suffix '%s' | field: '%s'", suffix, field_name
+                    )
+                    statement = statement
+
+            return statement
+
         for filter_key, filter_value in filters.items():
             match filter_key:
                 case "search":
@@ -327,6 +352,16 @@ class EpisodeRepository(BaseRepository[Episode]):
                     statement = statement.join(Podcast, Episode.podcast_id == Podcast.id).filter(
                         Podcast.name.ilike(f"%{filter_value}%")
                     )
+
+                case _:
+                    field_name, _, suffix = filter_key.partition("__")
+                    if suffix:
+                        statement = process_suffix(
+                            statement=statement,
+                            field_name=field_name,
+                            suffix=suffix,
+                            value=filter_value,
+                        )
 
         result = await self.session.execute(statement.order_by(Episode.created_at.desc()))
         return [row[0] for row in result.fetchall()]

@@ -3,14 +3,15 @@ import re
 import logging
 import dataclasses
 from pathlib import Path
-from typing import NamedTuple
+from typing import NamedTuple, TypedDict
 
 import yt_dlp
 from yt_dlp.utils import YoutubeDLError
 
+from src.constants import EpisodeStatus
 from src.exceptions import InvalidRequestError
 from src.modules.auth.hashers import get_random_hash
-from src.modules.db.models.podcasts import EpisodeChapter, SourceType, EpisodeStatus
+from src.modules.db.models.podcasts import EpisodeChapter, SourceType
 from src.modules.utils.processing import episode_process_hook
 from src.settings.app import get_app_settings
 
@@ -152,11 +153,23 @@ async def download_audio(
     return result_path
 
 
+class SourceDetails(TypedDict):
+    title: str
+    description: str | None
+    webpage_url: str
+    id: str
+    thumbnail: str
+    uploader: str | None
+    artist: str | None
+    duration: int
+    chapters: list[dict] | None
+
+
 async def get_source_media_info(source_info: SourceInfo) -> tuple[str, SourceMediaInfo | None]:
     """Allows extract info about providers video from Source (powered by yt_dlp)"""
 
     logger.info("Started fetching data for %s", source_info.url)
-    params: dict[str, str | bool] = {
+    params: dict[str, str | bool | logging.Logger | Path | None] = {
         "logger": logger,
         "noplaylist": True,
         "cookiefile": source_info.cookie_path,
@@ -167,7 +180,7 @@ async def get_source_media_info(source_info: SourceInfo) -> tuple[str, SourceMed
 
     try:
         with yt_dlp.YoutubeDL(params) as ydl:
-            source_details = await asyncio.to_thread(
+            source_details: SourceDetails = await asyncio.to_thread(
                 ydl.extract_info,
                 source_info.url,
                 download=False,
@@ -177,13 +190,14 @@ async def get_source_media_info(source_info: SourceInfo) -> tuple[str, SourceMed
         logger.exception("ydl.extract_info failed: %s | Error: %r", source_info.url, exc)
         return str(exc), None
 
+    author: str = source_details.get("uploader", "") or source_details.get("artist") or "unknown"
     youtube_info = SourceMediaInfo(
         title=source_details["title"],
         description=source_details.get("description") or source_details.get("title"),
         watch_url=source_details["webpage_url"],
         source_id=source_details["id"],
         thumbnail_url=source_details["thumbnail"],
-        author=source_details.get("uploader") or source_details.get("artist"),
+        author=author,
         length=source_details["duration"],
         chapters=chapters_processing(source_details.get("chapters")),
     )

@@ -64,7 +64,7 @@ class StorageS3:
     async def upload_file(
         self,
         src_path: str | Path,
-        dst_path: str,
+        dst_path: str | Path,
         filename: str | None = None,
         callback: Optional[Callable] = None,
     ) -> str | None:
@@ -77,7 +77,7 @@ class StorageS3:
             await s3.upload_file(
                 Filename=str(src_path),
                 Bucket=self.settings.s3.bucket_name,
-                Key=dst_path,
+                Key=str(dst_path),
                 Callback=callback,
                 ExtraArgs={"ContentType": mimetype},
             )
