@@ -3,7 +3,13 @@ import re
 import logging
 import dataclasses
 from pathlib import Path
-from typing import NamedTuple, TypedDict
+from typing import (
+    NamedTuple,
+    TypedDict,
+    Callable,
+    Any,
+    NotRequired,
+)
 
 import yt_dlp
 from yt_dlp.utils import YoutubeDLError
@@ -16,6 +22,17 @@ from src.modules.utils.processing import episode_process_hook
 from src.settings.app import get_app_settings
 
 logger = logging.getLogger(__name__)
+
+
+class YTDLParamsT(TypedDict):
+    format: NotRequired[str]
+    outtmpl: NotRequired[str]
+    logger: NotRequired[logging.Logger]
+    progress_hooks: NotRequired[list[Callable[[dict[str, Any]], None]]]
+    noprogress: NotRequired[bool]
+    cookiefile: NotRequired[str | Path | None]
+    noplaylist: NotRequired[bool]
+    proxy: NotRequired[str]
 
 
 class SourceMediaInfo(NamedTuple):
@@ -104,7 +121,7 @@ def extract_source_info(source_url: str | None = None, playlist: bool = False) -
     raise InvalidRequestError(f"Requested domain is not supported now {source_url}")
 
 
-def download_process_hook(event: dict):
+def download_process_hook(event: dict[str, int | str]) -> None:
     """
     Allows handling processes of downloading episode's file.
     It is called by `yt_dlp.YoutubeDL`
@@ -135,7 +152,7 @@ async def download_audio(
     """
     settings = get_app_settings()
     result_path = settings.tmp_audio_path / filename
-    params = {
+    params: YTDLParamsT = {
         "format": "bestaudio/best",
         "outtmpl": str(result_path),
         "logger": logging.getLogger("yt_dlp.YoutubeDL"),
@@ -143,6 +160,7 @@ async def download_audio(
         "noprogress": True,
         "cookiefile": cookie_path,
     }
+
     if proxy_url:
         logger.info("YoutubeDL: Using proxy: %s", proxy_url)
         params["proxy"] = proxy_url
@@ -169,7 +187,7 @@ async def get_source_media_info(source_info: SourceInfo) -> tuple[str, SourceMed
     """Allows extract info about providers video from Source (powered by yt_dlp)"""
 
     logger.info("Started fetching data for %s", source_info.url)
-    params: dict[str, str | bool | logging.Logger | Path | None] = {
+    params: YTDLParamsT = {
         "logger": logger,
         "noplaylist": True,
         "cookiefile": source_info.cookie_path,
