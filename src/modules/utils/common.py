@@ -165,6 +165,7 @@ async def download_audio(
         logger.info("YoutubeDL: Using proxy: %s", proxy_url)
         params["proxy"] = proxy_url
 
+    # noinspection PyTypeChecker
     with yt_dlp.YoutubeDL(params) as ydl:
         ydl.download([source_url])
 
@@ -197,6 +198,7 @@ async def get_source_media_info(source_info: SourceInfo) -> tuple[str, SourceMed
         logger.info("YoutubeDL: Using proxy: %s", source_info.proxy_url)
 
     try:
+        # noinspection PyTypeChecker
         with yt_dlp.YoutubeDL(params) as ydl:
             source_details: SourceDetails = await asyncio.to_thread(
                 ydl.extract_info,
