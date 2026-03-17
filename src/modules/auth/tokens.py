@@ -6,14 +6,6 @@ import datetime
 from typing import NamedTuple
 
 import jwt
-from fastapi import Security
-from fastapi.security import APIKeyHeader
-from starlette.exceptions import HTTPException
-from starlette.requests import Request
-
-from src.settings import SettingsDep
-from src.db.repositories import TokenRepository
-from src.db.services import SASessionUOW, logger
 
 __all__ = (
     "make_api_token",

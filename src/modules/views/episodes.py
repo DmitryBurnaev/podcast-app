@@ -12,7 +12,7 @@ from src.modules.db import SASessionUOW
 from src.modules.db.models import File as MediaFile
 from src.modules.db.repositories import EpisodeRepository, PodcastRepository
 from src.modules.services.cover import CoverService
-from src.modules.services.episode_creator import EpisodeCreator
+from src.modules.services.episodes import EpisodeCreator
 from src.modules.views.base import BaseController
 from src.settings.app import get_app_settings
 from src.utils import cut_string

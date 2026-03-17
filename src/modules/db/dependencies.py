@@ -1,5 +1,3 @@
-"""Database dependencies for FastAPI application."""
-
 import logging
 from typing import AsyncGenerator
 

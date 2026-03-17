@@ -16,7 +16,8 @@ dependencies = [
     "aioboto3==15.5.0",
     "redis==7.3.0",
     "yt-dlp==2026.3.13",
-    "rq==2.7.0"
+    "rq==2.7.0",
+    "pyjwt==2.12.1",
 ]
 
 [dependency-groups]

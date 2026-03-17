@@ -4,7 +4,6 @@ from typing import Any, AsyncGenerator
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.modules.db import SASessionUOW
 from src.modules.db.models.podcasts import Cookie, SourceType
 from src.modules.db.repositories import CookieRepository
 from src.modules.utils import processing as processing_utils
@@ -41,7 +40,7 @@ async def cookie_file_ctx(
     if cookie_id:
         cookie = await cookie_repository.get(cookie_id)
     elif user_id and source_type:
-        cookie_filter = {"source_type": source_type, "owner_id": user_id}
+        cookie_filter: dict[str, str | int] = {"source_type": source_type, "owner_id": user_id}
         cookies = await cookie_repository.all(**cookie_filter)
         if cookies:
             cookie = cookies[0]
