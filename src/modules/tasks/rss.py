@@ -68,7 +68,7 @@ class GenerateRSSTask(RQTask):
                 "file_type": FileType.RSS,
                 "owner_id": podcast.owner_id,
             }
-            rss_file: File = await self.file_repository.create(value=rss_file_data)
+            rss_file: File = await self.file_repository.create(**rss_file_data)
             await self.podcast_repository.update_by_filters(filters={"rss_id": rss_file.id})
 
         logger.info("Podcast #%i: RSS file uploaded, podcast record updated", podcast.id)

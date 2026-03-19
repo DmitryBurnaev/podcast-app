@@ -44,6 +44,7 @@ P = ParamSpec("P")
 RT = TypeVar("RT")
 type FilterT = int | str | list[int] | None
 type UpdateT = int | str | datetime | None
+type CreateT = int | str | datetime | None
 
 
 class VendorsFilter(TypedDict):
@@ -134,7 +135,7 @@ class BaseRepository(Generic[ModelT]):
 
         return list(objects.all()), total
 
-    async def create(self, value: dict[str, Any]) -> ModelT:
+    async def create(self, **value: CreateT) -> ModelT:
         """Creates new instance"""
         logger.debug("[DB] Creating [%s]: %s", self.model.__name__, value)
         instance = self.model(**value)
@@ -145,7 +146,7 @@ class BaseRepository(Generic[ModelT]):
         """Tries to find an instance by ID and create if it wasn't found"""
         instance = await self.first(id_)
         if instance is None:
-            await self.create(value | {"id": id_})
+            await self.create(**(value | {"id": id_}))
             instance = await self.get(id_)
 
         return instance
@@ -284,12 +285,6 @@ class EpisodeRepository(BaseRepository[Episode]):
 
     model = Episode
 
-    async def add_episode(self, payload: dict[str, Any]) -> Episode:
-        """Insert a new episode and flush so that id is available."""
-        episode = await self.create(payload)
-        await self.session.flush()
-        return episode
-
     async def all(self, **filters: FilterT) -> list[Episode]:
         """Get all episodes, but with extended filters' logic."""
         logger.debug("[DB] Getting all episodes: %s", filters)
@@ -424,3 +419,15 @@ class FileRepository(BaseRepository[File]):
     """
 
     model = File
+
+    async def copy(self, file_id: int, owner_id: int, available: bool = True) -> File:
+        source_file: File = await self.get(file_id)
+        logger.debug("Copying file: source %s | owner_id %s", source_file, owner_id)
+        return await self.create(
+            type=source_file.type,
+            owner_id=owner_id,
+            available=available,
+            path=source_file.path,
+            size=source_file.size,
+            source_url=source_file.source_url,
+        )
