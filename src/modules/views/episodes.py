@@ -42,15 +42,21 @@ class EpisodesController(BaseController):
 
         logger.info("Creating episode from source_url (podcast_id=%s)", podcast_id)
         async with SASessionUOW() as uow:
-            creator = EpisodeCreator(session=uow.session)
+            creator = EpisodeCreator(db_session=uow.session, user_id=request.user.id)
             try:
-                episode = await creator.create_from_source_url(
-                    source_url=str(source_url).strip(),
+                episode = await creator.create(
                     podcast_id=podcast_id,
+                    source_url=str(source_url).strip(),
                 )
             except ValueError as e:
                 logger.warning("Episode creation failed: %s", e)
                 raise HTTPException(status_code=400, detail=str(e)) from e
+
+        if podcast.download_automatically:
+            await episode.update(self.db_session, status=Episode.Status.DOWNLOADING)
+            await self._run_task(tasks.DownloadEpisodeTask, episode_id=episode.id)
+
+        await self._run_task(tasks.DownloadEpisodeImageTask, episode_id=episode.id)
 
         if logger.isEnabledFor(logging.DEBUG):
             logger.debug("Episode created: #%s | url: %r", episode.id, source_url)

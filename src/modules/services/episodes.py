@@ -33,24 +33,30 @@ class EpisodeCreator:
 
     symbols_regex = re.compile(r"[&^<>*#]")
     http_link_regex = re.compile(r"https?://(?:[a-zA-Z]|[0-9]|[?._\-@*()%=/])+")
+    podcast_id: int
+    source_info: SourceInfo
+    source_id: str
 
-    def __init__(self, db_session: AsyncSession, podcast_id: int, source_url: str, user_id: int):
+    def __init__(self, db_session: AsyncSession, user_id: int):
         self.db_session: AsyncSession = db_session
-        self.podcast_id: int = podcast_id
         self.user_id: int = user_id
-        self.source_info: SourceInfo = common_utils.extract_source_info(source_url)
-        self.source_id: str = self.source_info.id
+
         self.episode_repository: EpisodeRepository = EpisodeRepository(db_session)
         self.podcast_repository: PodcastRepository = PodcastRepository(db_session)
 
-    async def create(self) -> Episode:
+    async def create(self, podcast_id: int, source_url: str) -> Episode:
         """
         Allows to create new or return exists episode for current podcast
 
         :raise: `modules.providers.exceptions.SourceFetchError`
         :return: New <Episode> object
         """
-        same_episodes: list[Episode] = await self.episode_repository.all(source_id=self.source_id)
+        self.podcast_id: int = podcast_id
+        self.source_info = common_utils.extract_source_info(source_url)
+
+        same_episodes: list[Episode] = await self.episode_repository.all(
+            source_id=self.source_info.id
+        )
         episode_in_podcast, last_same_episode = None, None
         for episode in same_episodes:
             last_same_episode = last_same_episode or episode
@@ -61,7 +67,7 @@ class EpisodeCreator:
         if episode_in_podcast:
             logger.info(
                 "Episode for video [%s] already exists for current podcast %s. Retrieving %s...",
-                self.source_id,
+                self.source_info.id,
                 self.podcast_id,
                 episode_in_podcast,
             )
@@ -91,10 +97,12 @@ class EpisodeCreator:
         """
 
         if same_episode:
-            logger.info("Episode for video %s already exists: %s.", self.source_id, same_episode)
+            logger.info(
+                "Episode for video %s already exists: %s.", self.source_info.id, same_episode
+            )
             same_episode_data = same_episode.to_dict()
         else:
-            logger.info("New episode for source %s will be created.", self.source_id)
+            logger.info("New episode for source %s will be created.", self.source_info.id)
             same_episode_data = {}
 
         async with cookie_file_ctx(self.db_session, self.user_id, self.source_info.type) as cookie:
@@ -109,7 +117,7 @@ class EpisodeCreator:
                 chapters = [chapter.as_dict for chapter in source_info.chapters]
 
             new_episode_data = {
-                "source_id": self.source_id,
+                "source_id": self.source_info.id,
                 "source_type": self.source_info.type,
                 "watch_url": source_info.watch_url,
                 "title": self._replace_special_symbols(source_info.title),
@@ -170,7 +178,7 @@ class EpisodeCreator:
         else:
             raise SourceFetchError(
                 f"Creating new files failed: same_episode or source_info required | source_id: "
-                f"{self.source_id}"
+                f"{self.source_info.id}"
             )
 
         return audio_file, image_file
