@@ -5,6 +5,7 @@ from litestar import Controller
 from litestar.response import Template
 
 from src import constants as const
+from src.modules.tasks.base import RQTask
 
 __all__ = ("BaseController",)
 
@@ -38,3 +39,9 @@ class BaseController(Controller):
     @lru_cache
     def get_controllers(cls) -> list[type["BaseController"]]:
         return [c for c in cls.__subclasses__()]
+
+    @classmethod
+    def _run_task(cls, task: type[RQTask], *args: Any, **kwargs: Any) -> None:
+        """Run a task asynchronously."""
+        task_instance = task(*args, **kwargs)
+        task_instance.run()

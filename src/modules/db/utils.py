@@ -8,7 +8,6 @@ from src.modules.db.models.podcasts import Cookie, SourceType
 from src.modules.db.repositories import CookieRepository
 from src.modules.utils import processing as processing_utils
 
-
 logger = logging.getLogger(__name__)
 
 

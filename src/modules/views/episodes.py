@@ -7,10 +7,14 @@ from litestar import get, post, Request
 from litestar.response import File, Template
 from litestar.exceptions import HTTPException, NotFoundException
 from litestar.status_codes import HTTP_201_CREATED
+from pydantic import ValidationError
 
+from src.constants import EpisodeStatus
+from src.modules import tasks
 from src.modules.db import SASessionUOW
 from src.modules.db.models import File as MediaFile
 from src.modules.db.repositories import EpisodeRepository, PodcastRepository
+from src.modules.schemas import EpisodeCreateSchema
 from src.modules.services.cover import CoverService
 from src.modules.services.episodes import EpisodeCreator
 from src.modules.views.base import BaseController
@@ -21,39 +25,56 @@ logger = logging.getLogger(__name__)
 
 
 class EpisodesController(BaseController):
+    """
+    Allows create episode from source URL (JSON body: sourceURL) and retrieve all episodes.
+    """
 
     @post("/episodes/", status_code=HTTP_201_CREATED)
     async def post(self, request: Request) -> dict:
-        """Create episode from source URL (JSON body: sourceURL). Returns { id }."""
-        body = await request.json() or {}
-        source_url = body.get("sourceURL") or ""
-        if not str(source_url).strip():
-            logger.warning("POST /episodes/: missing or empty sourceURL")
-            raise HTTPException(status_code=400, detail="sourceURL is required")
+        """
+        Create episode from source URL (JSON body: sourceURL). Returns { id }.
 
-        query_params = request.query_params
-        podcast_id = query_params.get("podcast_id")
-        if podcast_id is not None:
-            try:
-                podcast_id = int(podcast_id)
-            except (TypeError, ValueError):
-                logger.warning("POST /episodes/: invalid podcast_id=%s", podcast_id)
-                raise HTTPException(status_code=400, detail="Invalid podcast_id")
+        Example:
+        {
+            "sourceURL": "https://www.youtube.com/watch?v=testyoutubeid",
+            "podcastID": 1
+        }
 
-        logger.info("Creating episode from source_url (podcast_id=%s)", podcast_id)
+        Returns:
+        {
+            "id": 1
+        }
+        """
+        episode_create_schema = await self._validate_create_episode_request(request)
+        podcast_id = episode_create_schema.podcast_id
+        source_url = episode_create_schema.normalized_source_url
+
+        logger.info(
+            "Creating episode from source_url (podcast_id=%s, source_url=%s)",
+            podcast_id,
+            source_url,
+        )
+        podcast_repository = PodcastRepository(session=self.db_session)
+        podcast = await podcast_repository.first(podcast_id)
+        if not podcast:
+            raise NotFoundException(f"Podcast with id {podcast_id} not found")
+
         async with SASessionUOW() as uow:
             creator = EpisodeCreator(db_session=uow.session, user_id=request.user.id)
             try:
                 episode = await creator.create(
                     podcast_id=podcast_id,
-                    source_url=str(source_url).strip(),
+                    source_url=source_url,
                 )
             except ValueError as e:
                 logger.warning("Episode creation failed: %s", e)
                 raise HTTPException(status_code=400, detail=str(e)) from e
 
+            episode_repository = EpisodeRepository(self.db_session)
+            if podcast.download_automatically:
+                await episode_repository.update(episode, status=EpisodeStatus.DOWNLOADING)
+
         if podcast.download_automatically:
-            await episode.update(self.db_session, status=Episode.Status.DOWNLOADING)
             await self._run_task(tasks.DownloadEpisodeTask, episode_id=episode.id)
 
         await self._run_task(tasks.DownloadEpisodeImageTask, episode_id=episode.id)
@@ -62,6 +83,7 @@ class EpisodesController(BaseController):
             logger.debug("Episode created: #%s | url: %r", episode.id, source_url)
         else:
             logger.info("Episode created: #%s", episode.id)
+
         return {"id": episode.id}
 
     @get("/episodes/")
@@ -99,6 +121,16 @@ class EpisodesController(BaseController):
                 "title": "episodes",
             },
         )
+
+    async def _validate_create_episode_request(self, request: Request) -> EpisodeCreateSchema:
+        """
+        Validate create episode request and return EpisodeCreateSchema object.
+        """
+        try:
+            return EpisodeCreateSchema.model_validate(await request.json())
+        except ValidationError as e:
+            logger.warning("Invalid create episode request: %s", e)
+            raise HTTPException(status_code=400, detail=str(e)) from e
 
 
 class EpisodeDetailsController(BaseController):
