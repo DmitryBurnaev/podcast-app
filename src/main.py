@@ -4,6 +4,8 @@ import sys
 from contextlib import asynccontextmanager
 from typing import Any, AsyncGenerator
 
+import rq
+
 # from litestar.middleware.session.server_side import (
 #     ServerSideSessionBackend,
 #     ServerSideSessionConfig,
@@ -14,6 +16,7 @@ from litestar.contrib.jinja import JinjaTemplateEngine
 from litestar.di import Provide
 from litestar.static_files import StaticFilesConfig
 from litestar.template import TemplateConfig
+from redis import Redis
 
 from src.exceptions import AppSettingsError, StartupError, StorageConfigurationError
 from src.modules.db import close_database, initialize_database
@@ -27,25 +30,32 @@ logger = logging.getLogger("app")
 class PodcastApp(Litestar):
     """Podcast application instance"""
 
+    rq_queue: rq.Queue
+
     def __init__(self, *args, settings: AppSettings, **kwargs) -> None:
         super().__init__(*args, **kwargs)
         self.settings = settings
+        self.rq_queue = rq.Queue(
+            name=settings.rq_queue_name,
+            connection=Redis(*settings.redis.connection_tuple),
+            default_timeout=settings.rq_default_timeout,
+        )
 
     def __str__(self) -> str:
         return f"PodcastApp #{id(self)}"
 
 
 @asynccontextmanager
-async def lifespan(podcast_app: PodcastApp) -> AsyncGenerator[None, Any]:
+async def lifespan(settings: AppSettings, start_msg_suffix: str = "") -> AsyncGenerator[None, Any]:
     """Application lifespan context manager for startup and shutdown events."""
-    logger.info("Starting up %s ...", podcast_app)
+    logger.info("Starting up %s...", start_msg_suffix or "PodcastApp")
     try:
         await initialize_database()
     except Exception as exc:
         raise StartupError("Failed to initialize DB connection") from exc
 
     try:
-        validate_s3_settings(podcast_app.settings.s3)
+        validate_s3_settings(settings.s3)
     except StorageConfigurationError as exc:
         logger.error("Failed to validate S3 settings: %s", exc)
         raise StartupError(details=str(exc.details or exc)) from exc
@@ -88,7 +98,7 @@ def make_app(settings: AppSettings | None = None) -> PodcastApp:
         static_files_config=[
             StaticFilesConfig(path="/static", directories=[str(APP_DIR / "static")])
         ],
-        lifespan=[lifespan],
+        lifespan=[lambda _: lifespan(settings)],
         debug=settings.flags.debug_mode,
         dependencies={
             "settings": Provide(get_app_settings, sync_to_thread=False),

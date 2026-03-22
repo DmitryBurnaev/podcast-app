@@ -26,7 +26,7 @@ logger = logging.getLogger(__name__)
 
 class EpisodesController(BaseController):
     """
-    Allows create episode from source URL (JSON body: sourceURL) and retrieve all episodes.
+    Allows to create episode from source URL (JSON body: sourceURL) and retrieve all episodes.
     """
 
     @post("/episodes/", status_code=HTTP_201_CREATED)
@@ -48,19 +48,22 @@ class EpisodesController(BaseController):
         episode_create_schema = await self._validate_create_episode_request(request)
         podcast_id = episode_create_schema.podcast_id
         source_url = episode_create_schema.normalized_source_url
+        # TODO: replace with real user
+        user_id = 1
 
         logger.info(
             "Creating episode from source_url (podcast_id=%s, source_url=%s)",
             podcast_id,
             source_url,
         )
-        podcast_repository = PodcastRepository(session=self.db_session)
-        podcast = await podcast_repository.first(podcast_id)
-        if not podcast:
-            raise NotFoundException(f"Podcast with id {podcast_id} not found")
 
         async with SASessionUOW() as uow:
-            creator = EpisodeCreator(db_session=uow.session, user_id=request.user.id)
+            podcast_repository = PodcastRepository(session=uow.session)
+            podcast = await podcast_repository.first(podcast_id)
+            if not podcast:
+                raise NotFoundException(f"Podcast with id {podcast_id} not found")
+
+            creator = EpisodeCreator(db_session=uow.session, user_id=user_id)
             try:
                 episode = await creator.create(
                     podcast_id=podcast_id,
@@ -70,14 +73,14 @@ class EpisodesController(BaseController):
                 logger.warning("Episode creation failed: %s", e)
                 raise HTTPException(status_code=400, detail=str(e)) from e
 
-            episode_repository = EpisodeRepository(self.db_session)
+            episode_repository = EpisodeRepository(uow.session)
             if podcast.download_automatically:
                 await episode_repository.update(episode, status=EpisodeStatus.DOWNLOADING)
 
         if podcast.download_automatically:
-            await self._run_task(tasks.DownloadEpisodeTask, episode_id=episode.id)
+            await self._run_task(request.app, tasks.DownloadEpisodeTask, episode_id=episode.id)
 
-        await self._run_task(tasks.DownloadEpisodeImageTask, episode_id=episode.id)
+        await self._run_task(request.app, tasks.DownloadEpisodeImageTask, episode_id=episode.id)
 
         if logger.isEnabledFor(logging.DEBUG):
             logger.debug("Episode created: #%s | url: %r", episode.id, source_url)
@@ -122,7 +125,8 @@ class EpisodesController(BaseController):
             },
         )
 
-    async def _validate_create_episode_request(self, request: Request) -> EpisodeCreateSchema:
+    @staticmethod
+    async def _validate_create_episode_request(request: Request) -> EpisodeCreateSchema:
         """
         Validate create episode request and return EpisodeCreateSchema object.
         """
@@ -135,7 +139,7 @@ class EpisodesController(BaseController):
 
 class EpisodeDetailsController(BaseController):
     @get("/episodes/{episode_id:int}/")
-    async def get_detail(self, episode_id: int, request: Request) -> Template:
+    async def get_detail(self, episode_id: int, _: Request) -> Template:
         """Get episode detail page with edit form"""
         async with SASessionUOW() as uow:
             episode_repository = EpisodeRepository(session=uow.session)

@@ -18,7 +18,7 @@ from src.modules.utils import common as common_utils
 __all__ = ("EpisodeCreator",)
 
 from src.modules.utils.common import SourceInfo, SourceConfig, SOURCE_CFG_MAP, SourceMediaInfo
-from src.settings.old__settings import RENDER_LINKS
+from src.settings.app import AppSettings, get_app_settings
 
 logger = logging.getLogger(__name__)
 
@@ -39,7 +39,7 @@ class EpisodeCreator:
     def __init__(self, db_session: AsyncSession, user_id: int):
         self.db_session: AsyncSession = db_session
         self.user_id: int = user_id
-
+        self.settings: AppSettings = get_app_settings()
         self.episode_repository: EpisodeRepository = EpisodeRepository(db_session)
         self.podcast_repository: PodcastRepository = PodcastRepository(db_session)
 
@@ -79,7 +79,7 @@ class EpisodeCreator:
         return episode
 
     def _replace_special_symbols(self, value):
-        if RENDER_LINKS:
+        if self.settings.render_links:
             # skip links masking for showing links in description
             return value
 
