@@ -143,14 +143,12 @@
             alert('Please enter source URL');
             return;
         }
-        const url = addEpisodePodcastId != null
-            ? '/episodes/?podcast_id=' + encodeURIComponent(addEpisodePodcastId)
-            : '/episodes/';
+        const url = '/episodes/'
         try {
             const response = await fetch(url, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ sourceURL: sourceUrl })
+                body: JSON.stringify({ sourceURL: sourceUrl, podcastID: addEpisodePodcastId })
             });
             const data = await response.json().catch(() => ({}));
             if (response.ok) {

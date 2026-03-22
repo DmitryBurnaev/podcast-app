@@ -1,13 +1,16 @@
-from functools import lru_cache
+import asyncio
+import logging
 from typing import Any
+from functools import lru_cache
 
-from litestar import Controller
+from litestar import Controller, Litestar
 from litestar.response import Template
 
 from src import constants as const
 from src.modules.tasks.base import RQTask
 
 __all__ = ("BaseController",)
+logger = logging.getLogger(__name__)
 
 
 class BaseController(Controller):
@@ -41,7 +44,11 @@ class BaseController(Controller):
         return [c for c in cls.__subclasses__()]
 
     @classmethod
-    def _run_task(cls, task: type[RQTask], *args: Any, **kwargs: Any) -> None:
+    async def _run_task(
+        cls, app: Litestar, task_class: type[RQTask], *args: Any, **kwargs: Any
+    ) -> None:
         """Run a task asynchronously."""
-        task_instance = task(*args, **kwargs)
-        task_instance.run()
+        logger.info("RUN task %s", task_class)
+        task = task_class()
+        kwargs["job_id"] = task_class.get_job_id(*args, **kwargs)
+        await asyncio.to_thread(app.rq_queue.enqueue, task, *args, **kwargs)

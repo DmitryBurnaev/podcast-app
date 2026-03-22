@@ -1,23 +1,18 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, PositiveInt
 
 
 class EpisodeCreateSchema(BaseModel):
     source_url: str = Field(
-        ...,
         alias="sourceURL",
         title="Source URL",
-        format="uri",
         description="The URL of the source media",
         min_length=1,
         max_length=2048,
     )
-
-    podcast_id: int = Field(
-        ...,
+    podcast_id: PositiveInt = Field(
         alias="podcastID",
         title="Podcast ID",
         description="The ID of the podcast",
-        min_value=1,
     )
 
     @property
@@ -26,7 +21,7 @@ class EpisodeCreateSchema(BaseModel):
         return str(self.source_url).strip()
 
     class Config:
-        schema_extra = {
+        json_schema_extra = {
             "example": {
                 "sourceURL": "https://www.youtube.com/watch?v=testyoutubeid",
                 "podcastID": 1,

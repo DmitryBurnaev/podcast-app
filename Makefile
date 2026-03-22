@@ -36,6 +36,11 @@ run: .env ## Run app
 	uv run python -m src.main
 
 .PHONY: run
+run-worker: .env ## Run app
+	@echo Run background worker process...
+	uv run python -m src.worker
+
+.PHONY: run
 run-in-docker: .env ## Run app
 	@echo Run project in container...
 	docker compose up app --build

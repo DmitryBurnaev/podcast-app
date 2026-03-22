@@ -1,5 +1,5 @@
 from .download import DownloadEpisodeTask, UploadedEpisodeTask
-from .process import BaseEpisodePostProcessTask
+from .process import BaseEpisodePostProcessTask, DownloadEpisodeImageTask
 from .rss import GenerateRSSTask
 
 __all__ = (
@@ -7,4 +7,5 @@ __all__ = (
     "UploadedEpisodeTask",
     "BaseEpisodePostProcessTask",
     "GenerateRSSTask",
+    "DownloadEpisodeImageTask",
 )
