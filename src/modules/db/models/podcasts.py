@@ -372,7 +372,9 @@ class Cookie(BaseModel):
     # __file_path: Path | None = None
 
     id: Mapped[int] = mapped_column(sa.Integer, primary_key=True)
-    source_type: Mapped[SourceType] = mapped_column(sa.Enum(SourceType), nullable=False)
+    source_type: Mapped[SourceType] = mapped_column(
+        sa.Enum(SourceType, name=SourceType.__enum_name__), nullable=False
+    )
     data: Mapped[str] = mapped_column(sa.Text, nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         sa.DateTime(timezone=True), default=utcnow, nullable=False
@@ -394,7 +396,7 @@ class Cookie(BaseModel):
         settings = get_app_settings()
 
         def store_tmp_file():
-            cookies_file = settings.TMP_COOKIES_PATH / f"cookie_{self.source_type}_{self.id}.txt"
+            cookies_file = settings.tmp_cookies_path / f"cookie_{self.source_type}_{self.id}.txt"
             if not cookies_file.exists():
                 logger.debug("Cookie #%s: Generation tmp cookie file [%s]", self.id, cookies_file)
                 with open(cookies_file, "wt", encoding="utf-8") as f:

@@ -357,6 +357,8 @@ class EpisodeRepository(BaseRepository[Episode]):
                             suffix=suffix,
                             value=filter_value,
                         )
+                    else:
+                        statement = statement.filter(getattr(Episode, field_name) == filter_value)
 
         result = await self.session.execute(statement.order_by(Episode.created_at.desc()))
         return [row[0] for row in result.fetchall()]
