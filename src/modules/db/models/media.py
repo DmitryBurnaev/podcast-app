@@ -1,3 +1,4 @@
+import enum
 import logging
 import os.path
 import urllib.parse
@@ -9,6 +10,7 @@ from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.sql import expression
 
+from src.constants import StringEnumMixin
 from src.exceptions import NotSupportedError
 from src.modules.auth.hashers import get_random_hash
 from src.modules.db.models import BaseModel
@@ -19,8 +21,10 @@ logger = logging.getLogger(__name__)
 TOKEN_LENGTH = 48
 
 
-class FileType(str, Enum):
+class FileType(StringEnumMixin, enum.StrEnum):
     """File type enumeration"""
+
+    __enum_name__ = "file_type"
 
     AUDIO = "audio"
     RSS = "rss"
@@ -33,7 +37,9 @@ class File(BaseModel):
     __tablename__ = "media_files"
 
     id: Mapped[int] = mapped_column(sa.Integer, primary_key=True)
-    type: Mapped[FileType] = mapped_column(sa.Enum(FileType), nullable=False)
+    type: Mapped[FileType] = mapped_column(
+        sa.Enum(FileType, name=FileType.__enum_name__), nullable=False
+    )
     path: Mapped[str] = mapped_column(sa.String(length=256), nullable=False, default="")
     size: Mapped[int] = mapped_column(sa.Integer, default=0, nullable=False)
     source_url: Mapped[str] = mapped_column(sa.String(length=512), nullable=False, default="")

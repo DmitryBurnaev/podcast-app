@@ -101,7 +101,7 @@ SOURCE_CFG_MAP = {
 
 def extract_source_info(source_url: str | None = None, playlist: bool = False) -> SourceInfo:
     """Extracts providers (source) info and finds source ID"""
-
+    logger.info(f"Extracting source information from {source_url}")
     if not source_url:
         random_hash = get_random_hash(size=6)
         return SourceInfo(id=f"U-{random_hash}", type=SourceType.UPLOAD)
