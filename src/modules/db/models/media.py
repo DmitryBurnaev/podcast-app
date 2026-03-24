@@ -21,10 +21,10 @@ logger = logging.getLogger(__name__)
 TOKEN_LENGTH = 48
 
 
-class FileType(StringEnumMixin, enum.StrEnum):
+class MediaType(StringEnumMixin, enum.StrEnum):
     """File type enumeration"""
 
-    __enum_name__ = "file_type"
+    __enum_name__ = "media_type"
 
     AUDIO = "audio"
     RSS = "rss"
@@ -37,8 +37,8 @@ class File(BaseModel):
     __tablename__ = "media_files"
 
     id: Mapped[int] = mapped_column(sa.Integer, primary_key=True)
-    type: Mapped[FileType] = mapped_column(
-        sa.Enum(FileType, name=FileType.__enum_name__), nullable=False
+    type: Mapped[MediaType] = mapped_column(
+        sa.Enum(MediaType, name=MediaType.__enum_name__), nullable=False
     )
     path: Mapped[str] = mapped_column(sa.String(length=256), nullable=False, default="")
     size: Mapped[int] = mapped_column(sa.Integer, default=0, nullable=False)
@@ -89,9 +89,9 @@ class File(BaseModel):
             return None
 
         pattern = {
-            FileType.RSS: f"/r/{self.access_token}/",
-            FileType.IMAGE: f"/m/{self.access_token}/",
-            FileType.AUDIO: f"/m/{self.access_token}/",
+            MediaType.RSS: f"/r/{self.access_token}/",
+            MediaType.IMAGE: f"/m/{self.access_token}/",
+            MediaType.AUDIO: f"/m/{self.access_token}/",
         }
         return urllib.parse.urljoin(app_settings.service_url, pattern[self.type])
 
