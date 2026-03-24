@@ -72,6 +72,9 @@ class EpisodesController(BaseController):
             except ValueError as e:
                 logger.warning("Episode creation failed: %s", e)
                 raise HTTPException(status_code=400, detail=str(e)) from e
+            except Exception as e:
+                logger.warning("Episode creation failed: %s", e)
+                raise HTTPException(status_code=500, detail=str(e)) from e
 
             episode_repository = EpisodeRepository(uow.session)
             if podcast.download_automatically:

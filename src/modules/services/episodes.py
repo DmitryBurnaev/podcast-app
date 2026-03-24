@@ -4,6 +4,7 @@ import hashlib
 import logging
 import random
 import re
+import uuid
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -167,12 +168,14 @@ class EpisodeCreator:
                 available=False,
                 owner_id=self.user_id,
                 source_url=source_info.thumbnail_url,
+                access_token=uuid.uuid4().hex,
             )
             audio_file = await file_repository.create(
                 type=FileType.AUDIO,
                 available=False,
                 owner_id=self.user_id,
                 source_url=source_info.watch_url,
+                access_token=uuid.uuid4().hex,
             )
         else:
             raise SourceFetchError(
