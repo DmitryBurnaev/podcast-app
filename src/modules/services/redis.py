@@ -5,6 +5,8 @@ from typing import Iterable, Any
 import redis
 from redis import asyncio as aioredis
 
+from src.settings.db import get_redis_settings
+
 logger = logging.getLogger(__name__)
 JSONT = list[Any] | dict[str, Any] | str | None
 
@@ -22,32 +24,15 @@ class RedisClient:
         return cls.__instance
 
     @property
-    def sync_redis(self) -> redis.Redis:
-        if not (sync_redis := self.__sync_redis):
-            sync_redis = redis.Redis(*settings.REDIS_CON)
-            self.__sync_redis = sync_redis
-
-        return sync_redis
-
-    @property
     def async_redis(self) -> aioredis.Redis:
-        if not (async_redis := self.__async_redis):
-            async_redis = aioredis.Redis(**settings.REDIS)
-            self.__async_redis = async_redis
+        """Async Redis client instance"""
+        settings = get_redis_settings()
+        self.__async_redis = aioredis.Redis(**settings.connection_dict)
+        if not self.__async_redis:
+            logger.error("Failed to create Async Redis client: %s", settings.connection_dict)
+            raise RuntimeError("Failed to create Async Redis client")
 
-        return async_redis
-
-    def get(self, key: str) -> JSONT:
-        logger.debug("Redis > Getting value by key %s", key)
-        return json.loads(self.sync_redis.get(key) or "null")
-
-    def set(self, key: str, value: JSONT, ttl: int = 120) -> None:
-        logger.debug("Redis > Setting value by key %s", key)
-        self.sync_redis.set(key, json.dumps(value), ttl)
-
-    def publish(self, channel: str, message: str) -> None:
-        logger.debug("Redis > Publishing message %s to channel %s ", message, channel)
-        self.sync_redis.publish(channel, message)
+        return self.__async_redis
 
     async def async_set(self, key: str, value: JSONT, ttl: int = 120) -> None:
         logger.debug("AsyncRedis > Setting value by key %s", key)
@@ -97,3 +82,14 @@ class RedisClient:
     @staticmethod
     def get_key_by_filename(filename) -> str:
         return filename.partition(".")[0]
+
+
+async def check_redis_connection() -> None:
+    """Check if Redis connection is alive"""
+    try:
+        await RedisClient().async_redis.ping()
+    except redis.exceptions.ConnectionError as exc:
+        logger.error("Failed to check Redis connection: %r", exc)
+        raise RuntimeError("Failed to check Redis connection") from exc
+
+    logger.info("Redis connection is alive")
