@@ -20,6 +20,7 @@ from redis import Redis
 
 from src.exceptions import AppSettingsError, StartupError, StorageConfigurationError
 from src.modules.db import close_database, initialize_database
+from src.modules.services.redis import check_redis_connection
 from src.modules.services.storage import validate_s3_settings
 from src.modules.views.base import BaseController
 from src.settings.app import APP_DIR, AppSettings, get_app_settings
@@ -59,6 +60,11 @@ async def lifespan(settings: AppSettings, start_msg_suffix: str = "") -> AsyncGe
     except StorageConfigurationError as exc:
         logger.error("Failed to validate S3 settings: %s", exc)
         raise StartupError(details=str(exc.details or exc)) from exc
+
+    try:
+        await check_redis_connection()
+    except Exception as exc:
+        raise StartupError("Failed to initialize Redis connection") from exc
 
     logger.info("Application startup completed successfully")
 

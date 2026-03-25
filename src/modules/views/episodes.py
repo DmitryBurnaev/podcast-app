@@ -142,7 +142,7 @@ class EpisodesController(BaseController):
 
 class EpisodeDetailsController(BaseController):
     @get("/episodes/{episode_id:int}/")
-    async def get_detail(self, episode_id: int, _: Request) -> Template:
+    async def get_detail(self, episode_id: int, request: Request) -> Template:
         """Get episode detail page with edit form"""
         async with SASessionUOW() as uow:
             episode_repository = EpisodeRepository(session=uow.session)
