@@ -14,11 +14,11 @@ dependencies = [
     "uvloop==0.22.1",
     "pycryptodome==3.23.0",
     "aioboto3==15.5.0",
-    "redis==7.3.0",
+    "redis==7.4.0",
     "yt-dlp==2026.3.17",
     "rq==2.7.0",
     "pyjwt==2.12.1",
-    "sentry-sdk[litestar, rq]==2.55.0"
+    "sentry-sdk[litestar, rq]==2.56.0"
 ]
 
 [dependency-groups]
