@@ -3,7 +3,6 @@ import logging
 import os.path
 import urllib.parse
 from datetime import datetime
-from enum import Enum
 
 import sqlalchemy as sa
 from sqlalchemy.dialects.postgresql import JSONB

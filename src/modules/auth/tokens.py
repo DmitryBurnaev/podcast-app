@@ -3,17 +3,23 @@ import uuid
 import random
 import hashlib
 import datetime
+import logging
 from typing import NamedTuple
 
 import jwt
+from litestar import Request
+from litestar.exceptions import HTTPException
+
+from src.modules.db import SASessionUOW
+from src.settings.app import AppSettings
+from src.utils import cut_string
 
 __all__ = (
     "make_api_token",
     "hash_token",
     "verify_api_token",
 )
-
-from src.utils import cut_string
+logger = logging.getLogger(__name__)
 
 type JWT_PAYLOAD_RAW_T = dict[str, str | int | datetime.datetime]
 
@@ -34,7 +40,7 @@ class JWTPayload:
 
 def jwt_encode(
     payload: JWTPayload,
-    settings: SettingsDep,
+    settings: AppSettings,
     expires_at: datetime.datetime | None = None,
 ) -> str:
     """
@@ -49,7 +55,7 @@ def jwt_encode(
     return encrypted_token
 
 
-def jwt_decode(jwt_token: str, settings: SettingsDep) -> JWTPayload:
+def jwt_decode(jwt_token: str, settings: AppSettings) -> JWTPayload:
     """
     Returns decoded JWT payload.
     """
@@ -70,7 +76,7 @@ def jwt_decode(jwt_token: str, settings: SettingsDep) -> JWTPayload:
 
 def make_api_token(
     expires_at: datetime.datetime | None,
-    settings: SettingsDep,
+    settings: AppSettings,
 ) -> GeneratedToken:
     """
     Generates token, and it hashed value (requires for storage).
@@ -108,7 +114,7 @@ def make_api_token(
     return GeneratedToken(value=result_value, hashed_value=hash_token(token_identifier))
 
 
-def decode_api_token(token: str, settings: SettingsDep) -> JWTPayload:
+def decode_api_token(token: str, settings: AppSettings) -> JWTPayload:
     """
     Decodes custom formatted JWT token (without header part).
 
@@ -167,8 +173,8 @@ def hash_token(token: str) -> str:
 
 async def verify_api_token(
     request: Request,
-    settings: SettingsDep,
-    auth_token: str | None = Security(APIKeyHeader(name="Authorization", auto_error=False)),
+    settings: AppSettings,
+    auth_token: str | None,
 ) -> str:
     """
     Dependency for authentication by API token (placed in the header 'Authorization').
@@ -189,21 +195,21 @@ async def verify_api_token(
     if not raw_token_identity:
         raise HTTPException(status_code=401, detail="Not authenticated: token has no identity")
 
-    hashed_token = hash_token(raw_token_identity)
+    # hashed_token = hash_token(raw_token_identity)
 
-    async with SASessionUOW() as uow:
-        token = await TokenRepository(session=uow.session).get_by_token(hashed_token)
+    async with SASessionUOW() as _:
+        raise RuntimeError("Not implemented")
 
-    logger.info("[auth] Verification: token extracted '%s'", token)
-    if not token:
-        raise HTTPException(status_code=401, detail="Not authenticated: unknown token")
-
-    if not token.is_active:
-        raise HTTPException(status_code=401, detail="Not authenticated: inactive token")
-
-    if not token.user.is_active:
-        raise HTTPException(status_code=401, detail="Not authenticated: user is not active")
-
-    logger.info("[auth] Verified token for %(user)s", {"user": token.user})
-
-    return auth_token
+    # logger.info("[auth] Verification: token extracted '%s'", token)
+    # if not token:
+    #     raise HTTPException(status_code=401, detail="Not authenticated: unknown token")
+    #
+    # if not token.is_active:
+    #     raise HTTPException(status_code=401, detail="Not authenticated: inactive token")
+    #
+    # if not token.user.is_active:
+    #     raise HTTPException(status_code=401, detail="Not authenticated: user is not active")
+    #
+    # logger.info("[auth] Verified token for %(user)s", {"user": token.user})
+    #
+    # return auth_token

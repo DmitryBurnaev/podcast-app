@@ -1,8 +1,6 @@
 """Episode creation service: create episode from source URL (stub with random data)."""
 
-import hashlib
 import logging
-import random
 import re
 import uuid
 
@@ -11,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.constants import FileType
 from src.exceptions import SourceFetchError
 from src.modules.db.models import File
-from src.modules.db.models.podcasts import Episode, EpisodeStatus, SourceType
+from src.modules.db.models.podcasts import Episode
 from src.modules.db.repositories import EpisodeRepository, PodcastRepository, FileRepository
 from src.modules.db.utils import cookie_file_ctx
 from src.modules.utils import common as common_utils
