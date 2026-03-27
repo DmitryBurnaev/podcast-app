@@ -256,7 +256,7 @@ class Episode(BaseModel):
     @property
     def image_url(self) -> str:
         """Provides saved or the default one of episode's cover image"""
-        app_settings = get_app_settings()
+        # app_settings = get_app_settings()
         images = ["default.jpg", "snake.png", "podcast-listen-later.jpg"]
         image_name = random.choice(images)
         return f"/static/images/{image_name}"
