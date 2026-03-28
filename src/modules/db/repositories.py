@@ -44,7 +44,7 @@ P = ParamSpec("P")
 RT = TypeVar("RT")
 type FilterT = int | str | list[int] | None
 type UpdateT = int | str | datetime | None
-type CreateT = int | str | datetime | None
+type CreateT = int | str | datetime | list[dict] | None
 
 
 class VendorsFilter(TypedDict):

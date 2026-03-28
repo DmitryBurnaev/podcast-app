@@ -4,7 +4,8 @@ from typing import Any, AsyncGenerator
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.modules.db.models.podcasts import Cookie, SourceType
+from src.constants import SourceType
+from src.modules.db.models.podcasts import Cookie
 from src.modules.db.repositories import CookieRepository
 from src.modules.utils import processing as processing_utils
 
