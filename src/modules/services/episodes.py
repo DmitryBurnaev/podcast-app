@@ -3,10 +3,11 @@
 import logging
 import re
 import uuid
+from typing import NotRequired, TypedDict
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.constants import FileType
+from src.constants import FileType, SourceType
 from src.exceptions import SourceFetchError
 from src.modules.db.models import File
 from src.modules.db.models.podcasts import Episode
@@ -22,6 +23,24 @@ __all__ = ("EpisodeCreator",)
 DEFAULT_OWNER_ID = 1
 SOURCE_ID_MAX_LENGTH = 32
 WATCH_URL_MAX_LENGTH = 128
+
+
+class EpisodeData(TypedDict):
+    podcast_id: int
+    owner_id: int
+    cookie_id: NotRequired[int | None]
+    audio: NotRequired[File]
+    image: NotRequired[File]
+    image_id: NotRequired[int]
+    audio_id: NotRequired[int]
+    source_id: str
+    source_type: SourceType
+    watch_url: str | None
+    title: str
+    description: str
+    author: str
+    length: int
+    chapters: list[dict] | None
 
 
 class EpisodeCreator:
@@ -48,11 +67,9 @@ class EpisodeCreator:
         :return: New <Episode> object
         """
         self.podcast_id: int = podcast_id
-        self.source_info = common_utils.extract_source_info(source_url)
+        self.source_info: SourceInfo = common_utils.extract_source_info(source_url)
 
-        same_episodes: list[Episode] = await self.episode_repository.all(
-            source_id=self.source_info.id
-        )
+        same_episodes = await self.episode_repository.all(source_id=self.source_info.id)
         episode_in_podcast, last_same_episode = None, None
         for episode in same_episodes:
             last_same_episode = last_same_episode or episode
@@ -71,7 +88,20 @@ class EpisodeCreator:
 
         episode_data = await self._get_episode_data(same_episode=last_same_episode)
         audio, image = episode_data.pop("audio"), episode_data.pop("image")
-        episode = await self.episode_repository.create(**episode_data)
+        episode = await self.episode_repository.create(
+            source_id=episode_data["source_id"],
+            source_type=episode_data["source_type"],
+            watch_url=episode_data["watch_url"],
+            title=episode_data["title"],
+            description=episode_data["description"],
+            author=episode_data["author"],
+            length=episode_data["length"],
+            chapters=episode_data["chapters"],
+            podcast_id=self.podcast_id,
+            owner_id=self.user_id,
+            image_id=episode_data.get("image_id"),
+            audio_id=episode_data.get("audio_id"),
+        )
         episode.audio, episode.image = audio, image
         return episode
 
@@ -83,7 +113,7 @@ class EpisodeCreator:
         res = self.http_link_regex.sub("[LINK]", value)
         return self.symbols_regex.sub("", res)
 
-    async def _get_episode_data(self, same_episode: Episode | None) -> dict:
+    async def _get_episode_data(self, same_episode: Episode | None) -> EpisodeData:
         """
         Allows getting information for new episode.
         This info can be given from same episode (episode which has same source_id)
@@ -112,20 +142,39 @@ class EpisodeCreator:
             if source_info.chapters:
                 chapters = [chapter.as_dict for chapter in source_info.chapters]
 
-            new_episode_data = {
-                "source_id": self.source_info.id,
-                "source_type": self.source_info.type,
-                "watch_url": source_info.watch_url,
-                "title": self._replace_special_symbols(source_info.title),
-                "description": self._replace_special_symbols(source_info.description),
-                "author": source_info.author,
-                "length": source_info.length,
-                "chapters": chapters,
-            }
+            new_episode_data = EpisodeData(
+                {
+                    "podcast_id": self.podcast_id,
+                    "source_id": self.source_info.id,
+                    "source_type": self.source_info.type,
+                    "watch_url": source_info.watch_url,
+                    "title": self._replace_special_symbols(source_info.title),
+                    "description": self._replace_special_symbols(source_info.description),
+                    "author": source_info.author,
+                    "length": source_info.length,
+                    "chapters": chapters,
+                }
+            )
 
         elif same_episode:
             same_episode_data.pop("id", None)
-            new_episode_data = same_episode_data
+            new_episode_data = EpisodeData(
+                source_id=same_episode.source_id,
+                source_type=same_episode.source_type,
+                watch_url=same_episode.watch_url,
+                title=same_episode.title,
+                description=same_episode.description,
+                author=same_episode.author,
+                length=same_episode.length,
+                chapters=same_episode.chapters,
+                image_id=same_episode.image_id,
+                audio_id=same_episode.audio_id,
+                cookie_id=same_episode.cookie_id,
+                image=same_episode.image,
+                audio=same_episode.audio,
+                podcast_id=self.podcast_id,
+                owner_id=self.user_id,
+            )
 
         else:
             raise SourceFetchError(f"Extracting data for new Episode failed: {extract_error}")
@@ -145,10 +194,12 @@ class EpisodeCreator:
         return new_episode_data
 
     async def _create_files(
-        self, same_episode: Episode, source_info: SourceMediaInfo
+        self,
+        same_episode: Episode | None,
+        source_info: SourceMediaInfo | None,
     ) -> tuple[File, File]:
         file_repository = FileRepository(self.db_session)
-        if same_episode:
+        if same_episode is not None:
             image_file = await file_repository.copy(
                 owner_id=self.user_id, file_id=same_episode.image_id
             )

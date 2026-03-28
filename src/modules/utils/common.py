@@ -14,10 +14,10 @@ from typing import (
 import yt_dlp
 from yt_dlp.utils import YoutubeDLError
 
-from src.constants import EpisodeStatus
+from src.constants import EpisodeStatus, SourceType
 from src.exceptions import InvalidRequestError
 from src.modules.auth.hashers import get_random_hash
-from src.modules.db.models.podcasts import EpisodeChapter, SourceType
+from src.modules.db.models.podcasts import EpisodeChapter
 from src.modules.utils.processing import episode_process_hook
 from src.settings.app import get_app_settings
 

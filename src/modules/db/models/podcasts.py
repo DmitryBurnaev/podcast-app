@@ -384,11 +384,11 @@ class Cookie(BaseModel):
     )
     owner_id: Mapped[int] = mapped_column(sa.ForeignKey("auth_users.id"))
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
         self.__file_path: Path | None = None
 
-    def __str__(self):
+    def __str__(self) -> str:
         return f'<Cookie #{self.id} "{self.source_type}" at {self.created_at}>'
 
     async def as_file(self) -> Path:
@@ -415,9 +415,9 @@ class Cookie(BaseModel):
         return SensitiveData().encrypt(data)
 
     @property
-    def file_path(self):
+    def file_path(self) -> Path | None:
         return self.__file_path
 
     @file_path.setter
-    def file_path(self, value):
-        self.__file_path = value
+    def file_path(self, value: str | Path) -> None:
+        self.__file_path = Path(value)
