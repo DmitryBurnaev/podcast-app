@@ -46,6 +46,8 @@ class StringEnumMixin:
 
 
 class SourceType(StringEnumMixin, enum.StrEnum):
+    """Episode source type enumeration"""
+
     __enum_name__ = "source_type"
 
     YOUTUBE = "YOUTUBE"
