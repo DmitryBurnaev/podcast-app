@@ -27,18 +27,18 @@ WATCH_URL_MAX_LENGTH = 128
 
 class EpisodeData(TypedDict):
     podcast_id: int
-    owner_id: int
+    owner_id: NotRequired[int | None]
     cookie_id: NotRequired[int | None]
     audio: NotRequired[File]
     image: NotRequired[File]
-    image_id: NotRequired[int]
-    audio_id: NotRequired[int]
+    image_id: NotRequired[int | None]
+    audio_id: NotRequired[int | None]
     source_id: str
     source_type: SourceType
     watch_url: str | None
     title: str
-    description: str
-    author: str
+    description: str | None
+    author: str | None
     length: int
     chapters: list[dict] | None
 
@@ -173,7 +173,6 @@ class EpisodeCreator:
                 image=same_episode.image,
                 audio=same_episode.audio,
                 podcast_id=self.podcast_id,
-                owner_id=self.user_id,
             )
 
         else:
@@ -200,14 +199,19 @@ class EpisodeCreator:
     ) -> tuple[File, File]:
         file_repository = FileRepository(self.db_session)
         if same_episode is not None:
+            if same_episode.image_id is None or same_episode.audio_id is None:
+                raise RuntimeError("Unable to create copy of episode: missing image/audio in copy")
+
             image_file = await file_repository.copy(
-                owner_id=self.user_id, file_id=same_episode.image_id
+                owner_id=self.user_id,
+                file_id=same_episode.image_id,
             )
             audio_file = await file_repository.copy(
                 file_id=same_episode.audio_id,
                 owner_id=self.user_id,
                 available=False,
             )
+
         elif source_info:
             image_file = await file_repository.create(
                 type=FileType.IMAGE,
@@ -224,6 +228,7 @@ class EpisodeCreator:
                 source_url=source_info.watch_url,
                 access_token=uuid.uuid4().hex,
             )
+
         else:
             raise SourceFetchError(
                 f"Creating new files failed: same_episode or source_info required | source_id: "

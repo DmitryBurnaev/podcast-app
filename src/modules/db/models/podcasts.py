@@ -16,6 +16,7 @@ from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
+from src.constants import SourceType
 from src.modules.services.encryption import SensitiveData
 from src.exceptions import BaseApplicationError
 from src.modules.db.models.media import File
@@ -59,16 +60,6 @@ class EpisodeStatus(StringEnumMixin, enum.StrEnum):
     @classmethod
     def members(cls) -> list[str]:
         return [status for status in cls.__members__ if not status.startswith("DL_")]
-
-
-class SourceType(StringEnumMixin, enum.StrEnum):
-    """Episode source type enumeration"""
-
-    __enum_name__ = "source_type"
-
-    YOUTUBE = "YOUTUBE"
-    YANDEX = "YANDEX"
-    UPLOAD = "UPLOAD"
 
 
 class Podcast(BaseModel):
