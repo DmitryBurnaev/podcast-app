@@ -16,6 +16,9 @@ from litestar.contrib.jinja import JinjaTemplateEngine
 from litestar.di import Provide
 from litestar.static_files import StaticFilesConfig
 from litestar.template import TemplateConfig
+
+# from litestar.middleware.session.memory_backend import MemoryBackendConfig
+from litestar.security.session_auth import SessionAuth
 from redis import Redis
 
 from src.exceptions import AppSettingsError, StartupError, StorageConfigurationError
@@ -23,6 +26,7 @@ from src.modules.db import close_database, initialize_database
 from src.modules.services.redis import check_redis_connection
 from src.modules.services.storage import validate_s3_settings
 from src.modules.views.base import BaseController
+from src.modules.views.users import retrieve_user_handler
 from src.settings.app import APP_DIR, AppSettings, get_app_settings
 
 logger = logging.getLogger("app")
@@ -44,6 +48,17 @@ class PodcastApp(Litestar):
 
     def __str__(self) -> str:
         return f"PodcastApp #{id(self)}"
+
+
+# session_auth = SessionAuth[User](
+#     retrieve_user_handler=retrieve_user_handler,
+#     # we must pass a config for a session backend.
+#     # all session backends are supported
+#     session_backend_config=MemoryBackendConfig(),
+#     # exclude any URLs that should not have authentication.
+#     # We exclude the documentation URLs, signup and login.
+#     exclude=["/login", "/signup", "/schema"],
+# )
 
 
 @asynccontextmanager

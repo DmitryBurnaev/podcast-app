@@ -1,7 +1,8 @@
+import uuid
 from datetime import datetime
 from typing import Optional
 
-from pydantic import BaseModel, Field, computed_field
+from pydantic import BaseModel, Field, computed_field, EmailStr, SecretStr
 
 from src.constants import format_file_size
 
@@ -65,3 +66,20 @@ class PodcastStatistics(BaseModel):
     total_size: int = 0
     last_published_at: datetime | None = None
     last_created_at: datetime | None = None
+
+
+class User(BaseModel):
+    id: uuid.UUID
+    name: str
+    email: EmailStr
+
+
+class UserCreatePayload(BaseModel):
+    name: str
+    email: EmailStr
+    password: SecretStr
+
+
+class UserLoginPayload(BaseModel):
+    email: EmailStr
+    password: SecretStr
