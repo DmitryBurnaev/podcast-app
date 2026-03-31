@@ -1,4 +1,5 @@
 import logging
+import secrets
 from datetime import datetime
 
 import sqlalchemy as sa
@@ -15,6 +16,9 @@ from src.utils import utcnow
 # from src.modules.auth.constants import LENGTH_USER_ACCESS_TOKEN
 
 logger = logging.getLogger(__name__)
+
+# Nbytes default for secrets.token_urlsafe; stored token truncated to this length.
+LENGTH_USER_ACCESS_TOKEN = 32
 
 
 class User(BaseModel):
@@ -57,88 +61,140 @@ class User(BaseModel):
     #
 
 
-#
-# class UserInvite(BaseModel):
-#     __tablename__ = "auth_invites"
-#     TOKEN_MAX_LENGTH = 32
-#
-#     id = Column(Integer, primary_key=True)
-#     user_id = Column(ForeignKey("auth_users.id"), unique=True)
-#     email = Column(String(length=128), unique=True)
-#     token = Column(String(length=32), unique=True, nullable=False, index=True)
-#     is_applied = Column(Boolean, default=False, nullable=False)
-#     expired_at = Column(DateTime(timezone=True), nullable=False)
-#     created_at = Column(DateTime(timezone=True), default=utcnow, nullable=False)
-#     owner_id = Column(ForeignKey("auth_users.id"), nullable=False)
-#
-#     def __repr__(self):
-#         return f"<UserInvite #{self.id} {self.email}>"
-#
-#     @classmethod
-#     def generate_token(cls):
-#         return secrets.token_urlsafe()[: cls.TOKEN_MAX_LENGTH]
-#
-#
-# class UserSession(ModelBase, ModelMixin):
-#     __tablename__ = "auth_sessions"
-#
-#     id = Column(Integer, primary_key=True)
-#     public_id = Column(String(length=36), index=True, nullable=False, unique=True)
-#     user_id = Column(ForeignKey("auth_users.id"))
-#     refresh_token = Column(String(length=512))
-#     is_active = Column(Boolean, default=True, nullable=False)
-#     expired_at = Column(DateTime(timezone=True), nullable=False)
-#     created_at = Column(DateTime(timezone=True), default=utcnow, nullable=False)
-#     refreshed_at = Column(DateTime(timezone=True), default=utcnow, nullable=False)
-#
-#     def __repr__(self):
-#         return f"<UserSession #{self.id} {self.user_id}>"
-#
-#
-# class UserIP(ModelBase, ModelMixin):
-#     __tablename__ = "auth_user_ips"
-#     __table_args__ = (
-#         Index(
-#             "ix_auth_user_ips__user_id__hashed_address",
-#             "user_id",
-#             "hashed_address",
-#         ),
-#     )
-#
-#     id = Column(Integer, primary_key=True)
-#     hashed_address = Column(String(length=128), nullable=False)
-#     user_id = Column(ForeignKey("auth_users.id"))
-#     registered_by = Column(String(length=128), index=True, nullable=False, server_default="")
-#     created_at = Column(DateTime(timezone=True), default=utcnow, nullable=False)
-#
-#     class Meta:
-#         order_by = ("-id",)
-#
-#     def __repr__(self):
-#         return f"<UserIP {self.hashed_address} user: {self.user_id}>"
-#
-#
-# class UserAccessToken(ModelBase, ModelMixin):
-#     __tablename__ = "auth_user_access_tokens"
-#
-#     id = Column(Integer, primary_key=True)
-#     user_id = Column(ForeignKey("auth_users.id"), nullable=False)
-#     name = Column(String(length=256), nullable=False)
-#     token = Column(String(length=256), unique=True, nullable=False)
-#     enabled = Column(Boolean, default=True, nullable=False)
-#     expires_in = Column(DateTime(timezone=True), nullable=False)
-#     created_at = Column(DateTime(timezone=True), default=utcnow, nullable=False)
-#
-#     class Meta:
-#         order_by = ("-id",)
-#
-#     def __repr__(self):
-#         return f"<UserAccessToken {self.token} user: {self.user_id}>"
-#
-#     @classmethod
-#     def generate_token(cls, length: int = LENGTH_USER_ACCESS_TOKEN) -> str:
-#         return secrets.token_urlsafe(nbytes=length)[:LENGTH_USER_ACCESS_TOKEN]
-#
-#     @property
-#     def active(self) -> bool:
-#         return self.enabled and self.expires_in >= utcnow()
+class UserInvite(BaseModel):
+    __tablename__ = "auth_invites"
+    TOKEN_MAX_LENGTH = 32
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int | None] = mapped_column(
+        sa.ForeignKey("auth_users.id"),
+        unique=True,
+        nullable=True,
+    )
+    email: Mapped[str | None] = mapped_column(
+        sa.String(length=128),
+        unique=True,
+        nullable=True,
+    )
+    token: Mapped[str] = mapped_column(
+        sa.String(length=32),
+        unique=True,
+        nullable=False,
+        index=True,
+    )
+    is_applied: Mapped[bool] = mapped_column(
+        sa.Boolean,
+        nullable=False,
+        server_default=sa.false(),
+        default=False,
+    )
+    expired_at: Mapped[datetime] = mapped_column(sa.DateTime(timezone=True), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        sa.DateTime(timezone=True),
+        default=utcnow,
+        nullable=False,
+    )
+    owner_id: Mapped[int] = mapped_column(sa.ForeignKey("auth_users.id"), nullable=False)
+
+    @classmethod
+    def generate_token(cls) -> str:
+        return secrets.token_urlsafe()[: cls.TOKEN_MAX_LENGTH]
+
+    def __repr__(self) -> str:
+        return f"<UserInvite #{self.id} {self.email}>"
+
+
+class UserSession(BaseModel):
+    __tablename__ = "auth_sessions"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    public_id: Mapped[str] = mapped_column(
+        sa.String(length=36),
+        index=True,
+        nullable=False,
+        unique=True,
+    )
+    user_id: Mapped[int | None] = mapped_column(sa.ForeignKey("auth_users.id"), nullable=True)
+    refresh_token: Mapped[str | None] = mapped_column(sa.String(length=512), nullable=True)
+    is_active: Mapped[bool] = mapped_column(
+        sa.Boolean,
+        nullable=False,
+        server_default=sa.true(),
+        default=True,
+    )
+    expired_at: Mapped[datetime] = mapped_column(sa.DateTime(timezone=True), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        sa.DateTime(timezone=True),
+        default=utcnow,
+        nullable=False,
+    )
+    refreshed_at: Mapped[datetime] = mapped_column(
+        sa.DateTime(timezone=True),
+        default=utcnow,
+        nullable=False,
+    )
+
+    def __repr__(self) -> str:
+        return f"<UserSession #{self.id} {self.user_id}>"
+
+
+class UserIP(BaseModel):
+    __tablename__ = "auth_user_ips"
+    __table_args__ = (
+        sa.Index(
+            "ix_auth_user_ips__user_id__hashed_address",
+            "user_id",
+            "hashed_address",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    hashed_address: Mapped[str] = mapped_column(sa.String(length=128), nullable=False)
+    user_id: Mapped[int | None] = mapped_column(sa.ForeignKey("auth_users.id"), nullable=True)
+    registered_by: Mapped[str] = mapped_column(
+        sa.String(length=128),
+        index=True,
+        nullable=False,
+        server_default="",
+        default="",
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        sa.DateTime(timezone=True),
+        default=utcnow,
+        nullable=False,
+    )
+
+    def __repr__(self) -> str:
+        return f"<UserIP {self.hashed_address} user: {self.user_id}>"
+
+
+class UserAccessToken(BaseModel):
+    __tablename__ = "auth_user_access_tokens"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(sa.ForeignKey("auth_users.id"), nullable=False)
+    name: Mapped[str] = mapped_column(sa.String(length=256), nullable=False)
+    token: Mapped[str] = mapped_column(sa.String(length=256), unique=True, nullable=False)
+    enabled: Mapped[bool] = mapped_column(
+        sa.Boolean,
+        nullable=False,
+        server_default=sa.true(),
+        default=True,
+    )
+    expires_in: Mapped[datetime] = mapped_column(sa.DateTime(timezone=True), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        sa.DateTime(timezone=True),
+        default=utcnow,
+        nullable=False,
+    )
+
+    @classmethod
+    def generate_token(cls, length: int = LENGTH_USER_ACCESS_TOKEN) -> str:
+        return secrets.token_urlsafe(nbytes=length)[:LENGTH_USER_ACCESS_TOKEN]
+
+    @property
+    def active(self) -> bool:
+        return self.enabled and self.expires_in >= utcnow()
+
+    def __repr__(self) -> str:
+        return f"<UserAccessToken {self.token} user: {self.user_id}>"
