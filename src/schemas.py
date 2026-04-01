@@ -1,4 +1,3 @@
-import uuid
 from datetime import datetime
 from typing import Optional
 
@@ -69,8 +68,9 @@ class PodcastStatistics(BaseModel):
 
 
 class User(BaseModel):
-    id: uuid.UUID
-    name: str
+    """DTO aligned with ORM `auth_users` (see `src.modules.db.models.users.User`)."""
+
+    id: int
     email: EmailStr
 
 

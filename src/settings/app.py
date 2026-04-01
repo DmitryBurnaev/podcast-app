@@ -12,6 +12,7 @@ from src.settings.log import LogSettings
 __all__ = (
     "get_app_settings",
     "AppSettings",
+    "AuthSettings",
     "SMTPSettings",
 )
 
@@ -25,6 +26,22 @@ class FlagsSettings(BaseSettings):
     model_config = SettingsConfigDict(env_prefix="FLAG_")
 
     debug_mode: bool = False
+
+
+class AuthSettings(BaseSettings):
+    """Browser session cookie and UserSession TTL (env prefix AUTH_)."""
+
+    model_config = SettingsConfigDict(env_prefix="AUTH_")
+
+    session_cookie_name: str = "podcast_session_id"
+    session_ttl_seconds: int = Field(
+        default=30 * 24 * 3600,
+        description="UserSession lifetime and cookie max-age in seconds",
+    )
+    cookie_secure: bool | None = Field(
+        default=None,
+        description="Set-Cookie Secure flag; None means not debug -> True, debug -> False",
+    )
 
 
 class SMTPSettings(BaseSettings):
@@ -60,6 +77,7 @@ class AppSettings(BaseSettings):
     # nested settings:
     flags: FlagsSettings = Field(default_factory=FlagsSettings)
     log: LogSettings = Field(default_factory=LogSettings)
+    auth: AuthSettings = Field(default_factory=AuthSettings)
     smtp: SMTPSettings = Field(default_factory=SMTPSettings)
     db: DBSettings = Field(default_factory=DBSettings)
     redis: RedisSettings = Field(default_factory=RedisSettings)
@@ -125,6 +143,12 @@ class AppSettings(BaseSettings):
             return v
 
         return Path(v)
+
+    def auth_cookie_secure_effective(self) -> bool:
+        """Secure cookie: explicit AUTH_COOKIE_SECURE or off in debug for local HTTP."""
+        if self.auth.cookie_secure is not None:
+            return self.auth.cookie_secure
+        return not self.flags.debug_mode
 
     @property
     def template_path(self) -> Path:
