@@ -125,36 +125,40 @@
                         {{ icon_bell() }}
                     </button>
 
-                    <!-- Separator -->
-{#                    <div class="h-6 mr-2 w-px bg-slate-600"></div>#}
+                    <div class="h-6 mr-2 w-px bg-slate-600"></div>
 
-                    <!-- User Profile Dropdown -->
-{#                    <div class="relative" id="user-dropdown">#}
-{#                        <button id="user-dropdown-button"#}
-{#                            class="flex items-center gap-3 text-slate-300 hover:text-white transition">#}
-{#                            <div#}
-{#                                class="w-8 h-8 rounded-full bg-slate-600 border-2 border-slate-500 flex items-center justify-center">#}
-{#                                <span class="text-sm font-medium text-slate-300">{{ user_data.name[0] if user_data and#}
-{#                                    user_data.name else 'U' }}</span>#}
-{#                            </div>#}
-{#                            <span class="text-sm font-medium">{{ user_data.name if user_data and user_data.name else#}
-{#                                'User' }}</span>#}
-{#                            {{ icon_chevron_down() }}#}
-{#                        </button>#}
-{##}
-{#                        <!-- Dropdown Menu -->#}
-{#                        <div id="user-dropdown-menu"#}
-{#                            class="absolute right-0 mt-2 w-48 bg-slate-700 rounded-lg shadow-lg border border-slate-600 z-50 hidden">#}
-{#                            <div class="py-1">#}
-{#                                <a href="/profile"#}
-{#                                    class="block px-4 py-2 text-sm text-slate-300 hover:bg-slate-600 hover:text-white transition">Your#}
-{#                                    profile</a>#}
-{#                                <a href="#"#}
-{#                                    class="block px-4 py-2 text-sm text-slate-300 hover:bg-slate-600 hover:text-white transition">Sign#}
-{#                                    out</a>#}
-{#                            </div>#}
-{#                        </div>#}
-{#                    </div>#}
+                    {% if is_authenticated %}
+                    <div class="relative" id="user-dropdown">
+                        <button id="user-dropdown-button" type="button"
+                            class="flex items-center gap-3 text-slate-300 hover:text-white transition">
+                            <div
+                                class="w-8 h-8 rounded-full bg-slate-600 border-2 border-slate-500 flex items-center justify-center">
+                                <span class="text-sm font-medium text-slate-300">
+                                    {{ user_data.name[0] if user_data.name else 'U' }}</span>
+                            </div>
+                            <span class="text-sm font-medium">{{ user_data.name or 'User' }}</span>
+                            {{ icon_chevron_down() }}
+                        </button>
+                        <div id="user-dropdown-menu"
+                            class="absolute right-0 mt-2 w-48 bg-slate-700 rounded-lg shadow-lg border border-slate-600 z-50 hidden">
+                            <div class="py-1">
+                                <a href="/profile"
+                                    class="block px-4 py-2 text-sm text-slate-300 hover:bg-slate-600 hover:text-white transition">Your
+                                    profile</a>
+                                <form method="post" action="/logout" class="block">
+                                    <button type="submit"
+                                        class="w-full text-left px-4 py-2 text-sm text-slate-300 hover:bg-slate-600 hover:text-white transition">Sign
+                                        out</button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                    {% else %}
+                    <a href="/login"
+                        class="px-3 py-2 rounded-lg text-slate-300 hover:bg-slate-700 hover:text-white transition text-sm font-medium">
+                        Log in
+                    </a>
+                    {% endif %}
                 </div>
             </header>
 

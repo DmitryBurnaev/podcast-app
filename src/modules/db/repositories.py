@@ -1,7 +1,7 @@
 """DB-specific module that provides specific operations on the database."""
 
 import logging
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import (
     Generic,
     TypeVar,
@@ -31,10 +31,10 @@ from sqlalchemy.sql.elements import SQLCoreOperations
 from sqlalchemy.sql.operators import isnot
 from sqlalchemy.sql.roles import ColumnsClauseRole
 
-from src.modules.db.models import BaseModel, User, File
+from src.modules.db.models import BaseModel, User, UserSession, File
 from src.modules.db.models.podcasts import Episode, Podcast, Cookie
 
-__all__ = ("UserRepository",)
+__all__ = ("UserRepository", "UserSessionRepository")
 
 from src.schemas import PodcastStatistics
 
@@ -210,15 +210,47 @@ class UserRepository(BaseRepository[User]):
 
     model = User
 
-    async def get_by_username(self, username: str) -> User | None:
-        """Get user by username"""
-
-        logger.debug("[DB] Getting user by username: %s", username)
-        users = await self.all(username=username)
+    async def get_by_email(self, email: str) -> User | None:
+        """Get user by email (login)."""
+        logger.debug("[DB] Getting user by email: %s", email)
+        users = await self.all(email=email)
         if not users:
             return None
-
         return users[0]
+
+
+class UserSessionRepository(BaseRepository[UserSession]):
+    """Browser session rows (public_id in cookie)."""
+
+    model = UserSession
+
+    async def get_active_with_user(self, public_id: str) -> tuple[UserSession, User] | None:
+        """Return session and user if cookie id is valid and not expired."""
+        now = datetime.now(UTC)
+        stmt = (
+            select(UserSession, User)
+            .join(User, UserSession.user_id == User.id)
+            .where(
+                UserSession.public_id == public_id,
+                UserSession.is_active.is_(True),
+                UserSession.expired_at > now,
+            )
+            .limit(1)
+        )
+        result = await self.session.execute(stmt)
+        row = result.first()
+        if not row:
+            return None
+        return row[0], row[1]
+
+    async def deactivate_by_public_id(self, public_id: str) -> None:
+        """Invalidate session on logout (idempotent)."""
+        stmt = select(UserSession).where(UserSession.public_id == public_id).limit(1)
+        result = await self.session.execute(stmt)
+        row = result.scalar_one_or_none()
+        if row is None:
+            return
+        await self.update(row, is_active=False)
 
 
 class PodcastRepository(BaseRepository[Podcast]):

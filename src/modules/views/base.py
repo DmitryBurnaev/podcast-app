@@ -4,6 +4,7 @@ from typing import Any
 from functools import lru_cache
 
 from litestar import Controller, Litestar
+from litestar.connection import Request
 from litestar.response import Template
 
 from src import constants as const
@@ -18,19 +19,36 @@ class BaseController(Controller):
     default_template_name = "base.html"
     login_template_name = "login.html"
 
-    def get_response_template(self, template_name: str, context: dict[str, Any]) -> Template:
+    def get_response_template(
+        self,
+        template_name: str,
+        context: dict[str, Any],
+        request: Request,
+    ) -> Template:
         template_name = template_name or self.default_template_name
-        return Template(template_name=template_name, context=(self.get_base_context() | context))
+        base = self.get_base_context(request)
+        return Template(template_name=template_name, context=(base | context))
 
     @staticmethod
-    def get_base_context() -> dict[str, Any]:
+    def get_base_context(request: Request) -> dict[str, Any]:
+        current_user = getattr(request.state, "current_user", None)
+        is_authenticated = current_user is not None
+        user_data: dict[str, Any] = {
+            "name": None,
+            "email": None,
+            "avatar": None,
+        }
+        if current_user is not None:
+            user_data = {
+                "name": current_user.display_name,
+                "email": current_user.email,
+                "avatar": None,
+            }
         return {
             "current": "home",
             "navigation": const.NAVIGATION,
-            "user_data": {
-                "name": "Test User",
-                "avatar": None,  # Can be extended with avatar URL later
-            },
+            "is_authenticated": is_authenticated,
+            "user_data": user_data,
             "get_episode_status_color": const.get_episode_status_color,
             "get_episode_status_label": const.get_episode_status_label,
             "format_duration": const.format_duration,

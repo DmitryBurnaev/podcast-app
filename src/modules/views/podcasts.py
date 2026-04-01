@@ -29,6 +29,7 @@ class PodcastsController(BaseController):
                 "current": "podcasts",
                 "title": "Podcasts",
             },
+            request=request,
         )
 
 
@@ -56,6 +57,7 @@ class PodcastsDetailsController(BaseController):
                 "current": "podcasts",
                 "title": cut_string(podcast.name, max_length=32),
             },
+            request=request,
         )
 
 

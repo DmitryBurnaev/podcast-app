@@ -126,6 +126,7 @@ class EpisodesController(BaseController):
                 "current": "episodes",
                 "title": "episodes",
             },
+            request=request,
         )
 
     @staticmethod
@@ -177,6 +178,7 @@ class EpisodeDetailsController(BaseController):
                 "current": "episodes",
                 "title": cut_string(episode.title, max_length=32),
             },
+            request=request,
         )
 
 

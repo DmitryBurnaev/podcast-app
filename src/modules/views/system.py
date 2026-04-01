@@ -1,4 +1,4 @@
-from litestar import get
+from litestar import Request, get
 from litestar.response import Template
 
 from src.modules.views.base import BaseController
@@ -8,7 +8,7 @@ from src.settings.app import AppSettings
 class AboutController(BaseController):
 
     @get("/about")
-    async def get(self, settings: AppSettings) -> Template:
+    async def get(self, request: Request, settings: AppSettings) -> Template:
         return self.get_response_template(
             template_name="about.html",
             context={
@@ -16,4 +16,5 @@ class AboutController(BaseController):
                 "current": "about",
                 "version": settings.app_version,
             },
+            request=request,
         )
