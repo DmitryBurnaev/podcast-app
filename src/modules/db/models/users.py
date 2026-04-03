@@ -27,9 +27,8 @@ class User(BaseModel):
     id: Mapped[int] = mapped_column(primary_key=True)
     email: Mapped[str] = mapped_column(sa.String(128), nullable=True)
     password: Mapped[str] = mapped_column(sa.String(128))
-    is_admin: Mapped[bool] = mapped_column(sa.Boolean, nullable=False, server_default=sa.false())
+    is_active: Mapped[bool] = mapped_column(sa.Boolean, nullable=False, server_default=sa.false())
     is_superuser: Mapped[bool] = mapped_column(sa.Boolean, nullable=False, server_default=sa.true())
-    created_at: Mapped[datetime] = mapped_column(default=utcnow)
 
     def __str__(self) -> str:
         return self.display_name
