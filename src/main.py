@@ -24,7 +24,7 @@ from src.exceptions import AppSettingsError, StartupError, StorageConfigurationE
 from src.modules.db import close_database, initialize_database
 from src.modules.services.redis import check_redis_connection
 from src.modules.services.storage import validate_s3_settings
-from src.modules.auth.load_user import attach_current_user
+from src.modules.auth.before_request import browser_auth_gate
 from src.modules.views.base import BaseController
 from src.settings.app import APP_DIR, AppSettings, get_app_settings
 
@@ -103,7 +103,7 @@ def make_app(settings: AppSettings | None = None) -> PodcastApp:
         route_handlers=[
             *BaseController.get_controllers(),
         ],
-        before_request=attach_current_user,
+        before_request=browser_auth_gate,
         template_config=TemplateConfig(directory=APP_DIR / "templates", engine=JinjaTemplateEngine),
         static_files_config=[
             StaticFilesConfig(path="/static", directories=[str(APP_DIR / "static")])
