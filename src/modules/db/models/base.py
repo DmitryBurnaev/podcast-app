@@ -1,5 +1,4 @@
 from typing import Self
-from datetime import datetime
 
 from sqlalchemy.ext.asyncio import AsyncAttrs
 from sqlalchemy.orm import DeclarativeBase, Mapped

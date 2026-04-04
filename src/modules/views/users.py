@@ -1,13 +1,12 @@
 from litestar import Request, get
 from litestar.response import Template
 
-from src.modules.auth.guards import require_authenticated_user
 from src.modules.views.base import BaseController
 
 
 class ProfileController(BaseController):
 
-    @get("/profile", guards=[require_authenticated_user])
+    @get("/profile")
     async def get(self, request: Request) -> Template:
         user = request.state.current_user
         return self.get_response_template(

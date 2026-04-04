@@ -54,6 +54,15 @@ class User(BaseModel):
     def display_name(self) -> str:
         return self.email
 
+    @property
+    def email_local_part(self) -> str:
+        """Substring before '@' for greeting in UI; full value if there is no '@'."""
+        raw = (self.email or "").strip()
+        if not raw:
+            return ""
+        local, sep, _ = raw.partition("@")
+        return local if sep else raw
+
     # @classmethod
     # async def get_active(cls, db_session: AsyncSession, user_id: int) -> "User":
     #     return await cls.async_get(db_session, id=user_id, is_active=True)

@@ -1,7 +1,7 @@
 import asyncio
 import logging
-from typing import Any
 from functools import lru_cache
+from typing import Any
 
 from litestar import Controller, Litestar
 from litestar.connection import Request
@@ -40,7 +40,7 @@ class BaseController(Controller):
         }
         if current_user is not None:
             user_data = {
-                "name": current_user.display_name,
+                "name": current_user.email_local_part or current_user.display_name,
                 "email": current_user.email,
                 "avatar": None,
             }
