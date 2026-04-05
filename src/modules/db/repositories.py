@@ -454,6 +454,13 @@ class FileRepository(BaseRepository[File]):
 
     model = File
 
+    async def first_by_access_token(self, access_token: str) -> File | None:
+        """Lookup media file by public URL token (/m/{token}/, /r/{token}/)."""
+        statement = select(File).filter_by(access_token=access_token)
+        result = await self.session.execute(statement)
+        row = result.first()
+        return row[0] if row else None
+
     async def copy(self, file_id: int, owner_id: int, available: bool = True) -> File:
         source_file: File = await self.get(file_id)
         logger.debug("Copying file: source %s | owner_id %s", source_file, owner_id)

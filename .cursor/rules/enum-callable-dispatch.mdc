@@ -1,0 +1,44 @@
+---
+description: Dispatch startup/behavior by enum via a dict of callables; single try/except
+globs: ["src/**/*.py"]
+---
+
+# Enum → callable map (single error path)
+
+When `lifespan`, CLI modes, or similar code would repeat the same `try` / `except` for several branches that only differ by **which async (or sync) function runs**, prefer a **mapping** instead of `if/elif` chains.
+
+## Pattern
+
+1. Define a `StrEnum` (or `Enum`) for modes.
+2. Declare a **`dict[Mode, Callable[..., Awaitable[T]]]`** (or sync `Callable[..., T]`) at module level, mapping each mode to the function/coroutine function to run.
+3. In the caller: resolve once, then **one** `try` / `except` around `await fn()` (or `fn()`).
+
+## Do / don’t
+
+- **Do** keep a single place for shared error handling (e.g. wrap failures in `StartupError`).
+- **Do** ensure every enum member has an entry in the dict (missing key → `KeyError` at runtime; acceptable as a loud failure when adding a new mode).
+- **Don’t** duplicate identical `try`/`except` blocks per branch.
+
+## Example (async)
+
+```python
+from collections.abc import Awaitable, Callable
+
+class DbStartMode(StrEnum):
+    INIT = "init"
+    VERIFY = "verify"
+
+_DB_STARTUP_CHECKS: dict[DbStartMode, Callable[[], Awaitable[None]]] = {
+    DbStartMode.INIT: initialize_database,
+    DbStartMode.VERIFY: verify_database_reachable,
+}
+
+# inside lifespan:
+db_startup_check = _DB_STARTUP_CHECKS[db_start_mode]
+try:
+    await db_startup_check()
+except Exception as exc:
+    raise StartupError("Failed to initialize DB connection") from exc
+```
+
+Reference implementation: `src/main.py` (`DbStartMode`, `_DB_STARTUP_CHECKS`, `lifespan`).

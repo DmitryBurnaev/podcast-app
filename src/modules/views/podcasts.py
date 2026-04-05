@@ -20,7 +20,8 @@ class PodcastsController(BaseController):
     async def get(self, request: Request) -> Template:
         async with SASessionUOW() as uow:
             podcast_repository = PodcastRepository(session=uow.session)
-            podcasts = await podcast_repository.all_with_aggregations(owner_id=1)
+            owner_id = request.state.current_user.id
+            podcasts = await podcast_repository.all_with_aggregations(owner_id=owner_id)
 
         return self.get_response_template(
             template_name="podcasts.html",

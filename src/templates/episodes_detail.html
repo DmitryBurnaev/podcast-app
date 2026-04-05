@@ -52,7 +52,7 @@
                         <!-- Player Controls -->
                         <div class="flex flex-col items-center">
                             <!-- Play/Pause Button (centered) -->
-                            <button id="play-button"
+                            <button type="button" id="play-button"
                                     class="w-16 h-16 bg-green-600 hover:bg-green-700 rounded-full flex items-center justify-center transition shadow-lg hover:shadow-green-600/50 mb-4">
                                 {{ icon_play("w-8 h-8 text-white ml-1", id="play-icon") }}
                                 {{ icon_pause("w-8 h-8 text-white hidden", id="pause-icon") }}
@@ -63,12 +63,21 @@
                                 00:00:00
                             </div>
 
-                            <!-- Progress Bar -->
-                            <div class="w-full bg-slate-600 rounded-full h-1.5 cursor-pointer mb-6"
-                                 id="progress-container">
-                                <div class="bg-green-600 h-1.5 rounded-full transition-all"
-                                     id="progress-bar" style="width: 0%"></div>
-                            </div>
+                            <!-- Seek slider (native range for drag + keyboard) -->
+                            <input type="range" id="progress-slider" min="0" max="0" step="any" value="0"
+                                   aria-label="Playback position"
+                                   class="w-full h-2 mb-6 cursor-pointer rounded-full appearance-none bg-slate-600
+                                          accent-green-600
+                                          [&::-webkit-slider-runnable-track]:h-1.5 [&::-webkit-slider-runnable-track]:rounded-full
+                                          [&::-webkit-slider-runnable-track]:bg-slate-600
+                                          [&::-webkit-slider-thumb]:-mt-0.5 [&::-webkit-slider-thumb]:h-3.5
+                                          [&::-webkit-slider-thumb]:w-3.5 [&::-webkit-slider-thumb]:appearance-none
+                                          [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-green-600
+                                          [&::-moz-range-track]:h-1.5 [&::-moz-range-track]:rounded-full
+                                          [&::-moz-range-track]:bg-slate-600
+                                          [&::-moz-range-thumb]:h-3.5 [&::-moz-range-thumb]:w-3.5
+                                          [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border-0
+                                          [&::-moz-range-thumb]:bg-green-600">
 
                             <!-- Duration and Size Info -->
                             <div class="w-full flex items-center justify-center gap-6 text-sm">
@@ -215,7 +224,11 @@
     </div>
 
     <script>
-        // Audio player functionality
+        // Audio player — debug logs (prefix [episode_player])
+        console.info('[episode_player] page_context', {
+            episodeId: {{ episode.id }},
+            hasAudioUrl: {% if audio_url %}true{% else %}false{% endif %},
+        });
         {% if audio_url %}
             (function () {
                 const audio = document.getElementById('episode-audio');
@@ -223,65 +236,148 @@
                 const playIcon = document.getElementById('play-icon');
                 const pauseIcon = document.getElementById('pause-icon');
                 const timeDisplay = document.getElementById('time-display');
-                const progressBar = document.getElementById('progress-bar');
-                const progressContainer = document.getElementById('progress-container');
+                const progressSlider = document.getElementById('progress-slider');
 
-                if (!audio || !playButton) return;
+                console.info('[episode_player] dom', {
+                    audio: !!audio,
+                    playButton: !!playButton,
+                    playIcon: !!playIcon,
+                    pauseIcon: !!pauseIcon,
+                    progressSlider: !!progressSlider,
+                });
 
-                // Format time as HH:MM:SS
+                if (!audio || !playButton) {
+                    console.warn('[episode_player] init aborted: missing audio or play-button element');
+                    return;
+                }
+
+                console.info('[episode_player] audio element', {
+                    srcAttr: audio.getAttribute('src'),
+                    currentSrc: audio.currentSrc || null,
+                    readyState: audio.readyState,
+                    networkState: audio.networkState,
+                    paused: audio.paused,
+                });
+
+                let isDragging = false;
+
                 function formatTime(seconds) {
-                    const h = Math.floor(seconds / 3600);
-                    const m = Math.floor((seconds % 3600) / 60);
-                    const s = Math.floor(seconds % 60);
+                    const safe = Number.isFinite(seconds) ? Math.max(0, seconds) : 0;
+                    const h = Math.floor(safe / 3600);
+                    const m = Math.floor((safe % 3600) / 60);
+                    const s = Math.floor(safe % 60);
                     return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
                 }
 
-                // Update time display and progress
-                function updateProgress() {
-                    if (audio.duration) {
-                        const percent = (audio.currentTime / audio.duration) * 100;
-                        progressBar.style.width = percent + '%';
-                        timeDisplay.textContent = formatTime(audio.currentTime);
+                function setPlayUi(playing) {
+                    if (!playIcon || !pauseIcon) return;
+                    playIcon.classList.toggle('hidden', playing);
+                    pauseIcon.classList.toggle('hidden', !playing);
+                }
+
+                function syncSliderFromAudio() {
+                    if (!progressSlider || isDragging) return;
+                    const d = audio.duration;
+                    if (Number.isFinite(d) && d > 0) {
+                        progressSlider.max = String(d);
+                        progressSlider.value = String(audio.currentTime);
+                    } else {
+                        progressSlider.max = '0';
+                        progressSlider.value = '0';
                     }
                 }
 
-                // Toggle play/pause
+                function updateTimeUi() {
+                    if (timeDisplay) {
+                        timeDisplay.textContent = formatTime(audio.currentTime);
+                    }
+                    syncSliderFromAudio();
+                }
+
                 playButton.addEventListener('click', function () {
+                    console.info('[episode_player] play-button click', {
+                        paused: audio.paused,
+                        readyState: audio.readyState,
+                        currentTime: audio.currentTime,
+                        duration: audio.duration,
+                    });
                     if (audio.paused) {
-                        audio.play();
-                        playIcon.classList.add('hidden');
-                        pauseIcon.classList.remove('hidden');
+                        var playPromise = audio.play();
+                        if (playPromise !== undefined) {
+                            playPromise.then(function () {
+                                console.info('[episode_player] play() fulfilled');
+                            }).catch(function (err) {
+                                console.warn('[episode_player] play() rejected', err);
+                            });
+                        }
                     } else {
+                        console.info('[episode_player] pause()');
                         audio.pause();
-                        playIcon.classList.remove('hidden');
-                        pauseIcon.classList.add('hidden');
                     }
                 });
 
-                // Seek on progress bar click
-                progressContainer.addEventListener('click', function (e) {
-                    if (audio.duration) {
-                        const rect = progressContainer.getBoundingClientRect();
-                        const percent = (e.clientX - rect.left) / rect.width;
-                        audio.currentTime = percent * audio.duration;
-                    }
+                if (progressSlider) {
+                    progressSlider.addEventListener('pointerdown', function () {
+                        isDragging = true;
+                    });
+                    window.addEventListener('pointerup', function () {
+                        if (isDragging) {
+                            isDragging = false;
+                            syncSliderFromAudio();
+                        }
+                    });
+                    window.addEventListener('pointercancel', function () {
+                        isDragging = false;
+                        syncSliderFromAudio();
+                    });
+                    progressSlider.addEventListener('input', function () {
+                        const d = audio.duration;
+                        if (Number.isFinite(d) && d > 0) {
+                            audio.currentTime = parseFloat(progressSlider.value);
+                        }
+                    });
+                }
+
+                audio.addEventListener('play', function () {
+                    console.info('[episode_player] event play');
+                    setPlayUi(true);
                 });
-
-                // Update progress on timeupdate
-                audio.addEventListener('timeupdate', updateProgress);
-
-                // Initialize time display with total duration
+                audio.addEventListener('pause', function () {
+                    console.info('[episode_player] event pause');
+                    setPlayUi(false);
+                });
+                audio.addEventListener('timeupdate', updateTimeUi);
+                audio.addEventListener('loadstart', function () {
+                    console.info('[episode_player] event loadstart');
+                });
                 audio.addEventListener('loadedmetadata', function () {
-                    timeDisplay.textContent = formatTime(0);
+                    console.info('[episode_player] event loadedmetadata', {
+                        duration: audio.duration,
+                        readyState: audio.readyState,
+                    });
+                    updateTimeUi();
+                });
+                audio.addEventListener('canplay', function () {
+                    console.info('[episode_player] event canplay');
+                });
+                audio.addEventListener('error', function () {
+                    var mediaError = audio.error;
+                    console.error('[episode_player] event error', mediaError ? {
+                        code: mediaError.code,
+                        message: mediaError.message,
+                    } : null);
+                });
+                audio.addEventListener('ended', function () {
+                    console.info('[episode_player] event ended');
+                    setPlayUi(false);
+                    audio.currentTime = 0;
+                    updateTimeUi();
                 });
 
-                // Reset play button when audio ends
-                audio.addEventListener('ended', function () {
-                    playIcon.classList.remove('hidden');
-                    pauseIcon.classList.add('hidden');
-                    audio.currentTime = 0;
-                });
+                console.info('[episode_player] init complete, listeners attached');
             })();
+        {% else %}
+            console.info('[episode_player] no audio_url — player block not rendered');
         {% endif %}
 
         // Update Episode

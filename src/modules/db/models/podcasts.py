@@ -18,7 +18,6 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from src.constants import SourceType
 from src.modules.services.encryption import SensitiveData
-from src.exceptions import BaseApplicationError
 from src.modules.db.models.media import File
 from src.modules.db.models import BaseModel
 from src.schemas import PodcastStatistics
@@ -90,22 +89,19 @@ class Podcast(BaseModel):
         return f'<Podcast #{self.id} "{self.name}">'
 
     @property
-    def image_url(self) -> str:
-        return f"/static/images/{random.choice(['default.jpg', 'snake.png', 'podcast-listen-later.jpg'])}"
-
-    @property
-    def image_url_orig(self) -> str:
-        app_settings = get_app_settings()
-        url = self.image.url if self.image else None
-        return url or app_settings.default_podcast_cover
-
-    @property
     def stat(self) -> PodcastStatistics | None:
         return getattr(self, "_stat", None)
 
     @stat.setter
     def stat(self, value: PodcastStatistics):
         setattr(self, "_stat", value)
+
+    @property
+    def rss_url(self) -> str | None:
+        if self.rss_id:
+            return self.rss.url
+
+        return None
 
     # @classmethod
     # async def create_first_podcast(cls, db_session: AsyncSession, user_id: int):
@@ -256,15 +252,10 @@ class Episode(BaseModel):
 
     @property
     def audio_url(self) -> str | None:
-        """Recheck and returns episode's audio url"""
-
-        url = "self.audio.url" if "self.audio" else None
-        if not url and self.status == EpisodeStatus.PUBLISHED:
-            raise BaseApplicationError(
-                "Can't retrieve audio_url for published episode without available audio file"
-            )
-
-        return url
+        """Public URL for episode audio file, if any."""
+        if self.audio is None:
+            return None
+        return self.audio.url
 
     @property
     def list_chapters(self) -> list[EpisodeChapter]:

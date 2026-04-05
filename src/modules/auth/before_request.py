@@ -1,11 +1,16 @@
 """App-level before_request: resolve session user and redirect anonymous users to login."""
 
+import re
+
 from litestar.connection import Request
 from litestar.response import Redirect
 
 from src.modules.auth.load_user import attach_current_user
 
 __all__ = ("browser_auth_gate",)
+
+# Token URLs: capability links; must not return HTML login for <audio src="..."> or RSS clients.
+_MEDIA_TOKEN_PATH = re.compile(r"^/(m|r)/[A-Za-z0-9_-]+/?$")
 
 
 def _is_auth_exempt(request: Request) -> bool:
@@ -16,6 +21,8 @@ def _is_auth_exempt(request: Request) -> bool:
     if path == "/login" and request.method in ("GET", "HEAD", "POST"):
         return True
     if path == "/logout" and request.method == "POST":
+        return True
+    if request.method in ("GET", "HEAD") and _MEDIA_TOKEN_PATH.match(path):
         return True
     return False
 

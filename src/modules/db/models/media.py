@@ -94,17 +94,17 @@ class File(BaseModel):
         }
         return urllib.parse.urljoin(app_settings.service_url, pattern[self.type])
 
-    @property
-    async def presigned_url(self) -> str:
-        """Returns presigned URL for S3 file access"""
-        if self.available and not self.path:
-            raise NotSupportedError(f"Remote file {self} available but has not remote path.")
+    async def fetch_presigned_url(self) -> str:
+        """Time-limited S3 GET URL; ``path`` is the object key (e.g. ``audio/...``)."""
+        if not self.path:
+            raise NotSupportedError(f"File {self} has no S3 key; cannot presign.")
 
-        # TODO: implement StorageS3 integration
-        raise NotImplementedError("Presigned URL generation not implemented")
-        # url = await StorageS3().get_presigned_url(self.path)
-        # logger.debug("Generated URL for %s: %s", self, url)
-        # return url
+        from src.modules.services.storage import StorageS3
+
+        url = await StorageS3().get_presigned_url(self.path)
+        if not url:
+            raise NotSupportedError(f"Presign failed for path {self.path!r}.")
+        return url
 
     @property
     def content_type(self) -> str:

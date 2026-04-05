@@ -8,7 +8,12 @@ from src.modules.db.dependencies import (
 from src.modules.db.models import User
 from src.modules.db.repositories import UserRepository
 from src.modules.db.services import SASessionUOW
-from src.modules.db.session import get_session_factory, initialize_database, close_database
+from src.modules.db.session import (
+    get_session_factory,
+    initialize_database,
+    close_database,
+    verify_database_reachable,
+)
 
 __all__ = (
     # Models
@@ -21,6 +26,7 @@ __all__ = (
     "get_session_factory",
     "initialize_database",
     "close_database",
+    "verify_database_reachable",
     "get_db_session",
     "get_transactional_session",
     "get_uow_with_session",

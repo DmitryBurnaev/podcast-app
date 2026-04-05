@@ -1,6 +1,7 @@
-import os
+import inspect
 import logging
 import mimetypes
+import os
 from pathlib import Path
 from typing import Any, Awaitable, Callable, Optional
 
@@ -203,8 +204,8 @@ class StorageS3:
             return cached_url
 
         async def _presign(s3: Any) -> str:
-            # generate_presigned_url is sync (local signing, no I/O)
-            return s3.generate_presigned_url(
+            # aioboto3 client may return a coroutine; botocore sync client returns str.
+            raw = s3.generate_presigned_url(
                 ClientMethod="get_object",
                 Params={
                     "Bucket": self.settings.s3.bucket_name,
@@ -212,6 +213,9 @@ class StorageS3:
                 },
                 ExpiresIn=self.settings.s3.link_expires_in,
             )
+            if inspect.isawaitable(raw):
+                raw = await raw
+            return raw
 
         _, url = await self._run_with_client(_presign)
         if url:

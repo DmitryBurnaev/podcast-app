@@ -48,8 +48,7 @@ class EpisodesController(BaseController):
         episode_create_schema = await self._validate_create_episode_request(request)
         podcast_id = episode_create_schema.podcast_id
         source_url = episode_create_schema.normalized_source_url
-        # TODO: replace with real user
-        user_id = 1
+        user_id = request.state.current_user.id
 
         logger.info(
             "Creating episode from source_url (podcast_id=%s, source_url=%s)",
@@ -154,10 +153,22 @@ class EpisodeDetailsController(BaseController):
             # Get related podcast
             podcast = episode.podcast
 
-            # Prepare audio URL
-            audio_url = None
-            if episode.audio:
-                audio_url = episode.audio.url if hasattr(episode.audio, "url") else None
+            audio_url = episode.audio_url
+
+            # Debug: episode audio player (enable DEBUG on src.modules.views.episodes for url_len)
+            logger.info(
+                "[episode_player] detail episode_id=%s audio_id=%s has_audio_url=%s",
+                episode.id,
+                episode.audio_id,
+                bool(audio_url),
+            )
+            if logger.isEnabledFor(logging.DEBUG):
+                url_len = len(audio_url) if audio_url else 0
+                logger.debug(
+                    "[episode_player] audio_url length=%s episode_status=%s",
+                    url_len,
+                    episode.status,
+                )
 
             # Prepare source URL (watch_url)
             source_url = episode.watch_url
