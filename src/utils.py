@@ -255,8 +255,9 @@ async def download_content(
     logger.debug("Send request to %s", url)
     result_content = None
     retries += 1
+    settings = get_app_settings()
     while retries := (retries - 1):
-        async with httpx.AsyncClient() as client:
+        async with httpx.AsyncClient(proxy=settings.http_proxy_url) as client:
             try:
                 response = await client.get(url, timeout=600)
             except Exception as exc:

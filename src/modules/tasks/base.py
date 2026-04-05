@@ -5,7 +5,7 @@ import logging
 from rq.job import Job
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.modules.db import SASessionUOW
+from src.modules.db import SASessionUOW, close_database, initialize_database
 from src.modules.services.redis import RedisClient
 from src.modules.utils.processing import TaskContext
 from src.settings.app import AppSettings, get_app_settings
@@ -35,7 +35,17 @@ class RQTask:
 
     def __call__(self, *args, **kwargs) -> TaskResultCode:
         logger.info("==== STARTED task %s ====", self.name)
-        finish_code = asyncio.run(self._perform_and_run(*args, **kwargs))
+
+        # RQ runs each job in asyncio.run(); async engine must bind to that loop, not the
+        # worker's outer lifespan loop (see worker.py DbStartMode.VERIFY).
+        async def _run_with_db() -> TaskResultCode:
+            await initialize_database()
+            try:
+                return await self._perform_and_run(*args, **kwargs)
+            finally:
+                await close_database()
+
+        finish_code = asyncio.run(_run_with_db())
         logger.info("==== SUCCESS task %s | code %s ====", self.name, finish_code)
         return finish_code
 

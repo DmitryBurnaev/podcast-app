@@ -9,7 +9,7 @@ import sentry_sdk
 from sentry_sdk.integrations.rq import RqIntegration
 from sentry_sdk.integrations.logging import LoggingIntegration
 
-from src.main import lifespan
+from src.main import DbStartMode, lifespan
 from src.settings.app import AppSettings, get_app_settings
 
 
@@ -22,10 +22,15 @@ async def run_worker():
         sentry_logging = LoggingIntegration(level=logging.INFO, event_level=logging.ERROR)
         sentry_sdk.init(settings.sentry_dsn, integrations=[RqIntegration(), sentry_logging])
 
-    queues = sys.argv[1:] or ["default"]
+    # Must match PodcastApp.rq_queue (settings.rq_queue_name); CLI args override for multi-queue setups.
+    queue_names = sys.argv[1:] or [settings.rq_queue_name]
 
-    async with lifespan(settings, start_msg_suffix="background workers (RQ)"):
-        Worker(queues, connection=Redis(*settings.redis.connection_tuple)).work()
+    async with lifespan(
+        settings,
+        start_msg_suffix="background workers (RQ)",
+        db_start_mode=DbStartMode.VERIFY,
+    ):
+        Worker(queue_names, connection=Redis(*settings.redis.connection_tuple)).work()
 
 
 if __name__ == "__main__":

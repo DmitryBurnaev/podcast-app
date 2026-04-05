@@ -157,6 +157,7 @@ class DownloadEpisodeTask(RQTask):
 
     async def _download_episode(self, episode: Episode) -> Path:
         """Fetching info from external resource and extract audio from target source"""
+
         source_config: SourceConfig = SOURCE_CFG_MAP[episode.source_type]
         if not source_config.need_downloading:
             if result_path := episode.audio.path:

@@ -151,16 +151,16 @@
                             link</label>
                         <div class="flex items-center gap-2">
                             <input type="text" id="podcast-rss-link"
-                                   value="{{ rss_url or 'No RSS link available' }}"
+                                   value="{{ podcast.rss_url or 'No RSS link available' }}"
                                    readonly class="flex-1 px-3 py-2 border border-slate-600 rounded-lg bg-slate-700 text-slate-400
                                           cursor-not-allowed">
-                            {% if rss_url %}
+                            {% if podcast.rss_url %}
                                 <button type="button" onclick="copyRssLink()"
                                         class="p-2 bg-slate-700 hover:bg-slate-600 text-slate-300 rounded-lg transition"
                                         title="Copy RSS link">
                                     {{ icon_copy() }}
                                 </button>
-                                <a href="{{ rss_url }}" target="_blank"
+                                <a href="{{ podcast.rss_url }}" target="_blank"
                                    class="p-2 bg-slate-700 hover:bg-slate-600 text-slate-300 rounded-lg transition"
                                    title="Open RSS link">
                                     {{ icon_external_link() }}

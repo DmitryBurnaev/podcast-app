@@ -165,6 +165,9 @@ async def download_audio(
         logger.info("YoutubeDL: Using proxy: %s", proxy_url)
         params["proxy"] = proxy_url
 
+    # TODO: re-check it
+    print(params)
+    # raise RuntimeError("Pupupu")
     # noinspection PyTypeChecker
     with yt_dlp.YoutubeDL(params) as ydl:
         ydl.download([source_url])

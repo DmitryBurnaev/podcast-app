@@ -125,3 +125,14 @@ async def initialize_database() -> None:
 async def close_database() -> None:
     """Close database engine and cleanup resources from current context"""
     await _db_connectors.close_connection()
+
+
+async def verify_database_reachable() -> None:
+    """
+    Connect, ping, and dispose the async engine on the current event loop.
+
+    Intended for RQ worker startup: ensures the database is reachable without
+    leaving a global engine bound to this loop (each job uses its own loop).
+    """
+    await initialize_database()
+    await close_database()
