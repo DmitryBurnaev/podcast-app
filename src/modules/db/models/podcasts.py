@@ -1,5 +1,6 @@
 import asyncio
 import enum
+import os
 import logging
 from pathlib import Path
 import random
@@ -302,14 +303,14 @@ class Episode(BaseModel):
 
     @cached_property
     def audio_filename(self) -> str:
-        raise NotImplementedError("Audio filename not implemented")
-        # app_settings = get_app_settings()
-        # filename = self.audio.name if self.audio else ""
-        # if not filename or (self.audio and "tmp" in self.audio.path):
-        #     suffix = md5(f"{self.source_id}-{app_settings.filename_salt}".encode()).hexdigest()
-        #     _, ext = os.path.splitext(filename)
-        #     filename = f"{self.source_id}_{suffix}{ext or '.mp3'}"
-        # return "filename"
+        app_settings = get_app_settings()
+        filename = self.audio.name if self.audio else ""
+        if not filename or (self.audio and "tmp" in self.audio.path):
+            suffix = md5(f"{self.source_id}-{app_settings.filename_salt}".encode()).hexdigest()
+            _, ext = os.path.splitext(filename)
+            filename = f"{self.source_id}_{suffix}{ext or '.mp3'}"
+
+        return "filename"
 
     @property
     def short_description(self) -> str:

@@ -24,7 +24,7 @@ from redis import Redis
 
 from src.exceptions import AppSettingsError, StartupError, StorageConfigurationError
 from src.modules.db import close_database, initialize_database, verify_database_reachable
-from src.modules.services.redis import check_redis_connection
+from src.modules.services.redis import check_redis_connection, close_async_redis_connection
 from src.modules.services.storage import validate_s3_settings
 from src.modules.auth.before_request import browser_auth_gate
 from src.modules.views.base import BaseController
@@ -103,6 +103,11 @@ async def lifespan(
             logger.error("Error during application shutdown: %r", exc)
         else:
             logger.info("Application shutdown completed successfully")
+
+    try:
+        await close_async_redis_connection()
+    except Exception as exc:
+        logger.debug("Async Redis shutdown: %r", exc)
 
     logger.info("=====")
 

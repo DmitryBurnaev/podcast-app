@@ -14,6 +14,7 @@ from typing import (
     NamedTuple,
 )
 
+from mypy.nodes import Statement
 from sqlalchemy import (
     select,
     BinaryExpression,
@@ -24,6 +25,7 @@ from sqlalchemy import (
     func,
     or_,
     Row,
+    and_,
 )
 from sqlalchemy.exc import NoResultFound
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -394,6 +396,120 @@ class EpisodeRepository(BaseRepository[Episode]):
 
         result = await self.session.execute(statement.order_by(Episode.created_at.desc()))
         return [row[0] for row in result.fetchall()]
+
+    def _filter_criteria(self, filter_kwargs):
+        filters = []
+        for filter_name, filter_value in filter_kwargs.items():
+            field_name, _, criteria = filter_name.partition("__")
+            field = getattr(self.model, field_name)
+            if criteria in ("eq", ""):
+                filters.append(field == filter_value)
+            elif criteria == "gt":
+                filters.append(field > filter_value)
+            elif criteria == "lt":
+                filters.append(field < filter_value)
+            elif criteria == "is":
+                filters.append(field.is_(filter_value))
+            elif criteria == "in":
+                filters.append(field.in_(filter_value))
+            elif criteria == "inarr":
+                filters.append(field.contains([filter_value]))
+            elif criteria == "icontains":
+                filters.append(field.ilike(f"%{filter_value}%"))
+            elif criteria == "ne":
+                filters.append(field != filter_value)
+            else:
+                raise NotImplementedError(f"Unexpected criteria: {criteria}")
+
+        return and_(True, *filters)
+
+    async def update_by_filters(self, filters: dict[str, FilterT], value: dict[str, Any]) -> None:
+        """Update the instances by some filters"""
+        logger.info("[DB] Updating instances by filter: %s", filters)
+        statement = update(self.model).filter(self._filter_criteria(filters))
+        result: CursorResult[Any] = cast(
+            CursorResult[Any], await self.session.execute(statement, value)
+        )
+        await self.session.flush()
+        logger.info("[DB] Updated %i instances", result.rowcount)
+
+    #
+    # async def _prepare_filters(self, **filters: FilterT) -> list[Statement]:
+    #     """Get all episodes, but with extended filters' logic."""
+    #     logger.debug("[DB] Getting filters for episodes: %s", filters)
+    #
+    #     def process_suffix(field_name: str, suffix: str, value: Any) -> Any:
+    #         field = getattr(self.model, field_name)
+    #         match suffix:
+    #             case "ne":
+    #                 statement = statement.filter(field != value)
+    #             case "gt":
+    #                 statement = statement.filter(field > value)
+    #             case "lt":
+    #                 statement = statement.filter(field < value)
+    #             case "lte":
+    #                 statement = statement.filter(field <= value)
+    #             case "gte":
+    #                 statement = statement.filter(field >= value)
+    #             case "isnot":
+    #                 statement = statement.filter(isnot(field, value))
+    #             case _:
+    #                 logger.warning(
+    #                     "[DB] Unknown filter suffix '%s' | field: '%s'", suffix, field_name
+    #                 )
+    #                 statement = statement
+    #
+    #         return statement
+    #
+    #     for filter_key, filter_value in filters.items():
+    #         match filter_key:
+    #             case "search":
+    #                 statement = statement.filter(
+    #                     or_(
+    #                         Episode.title.ilike(f"%{filter_value}%"),
+    #                         Episode.description.ilike(f"%{filter_value}%"),
+    #                     )
+    #                 )
+    #
+    #             case "podcast_id":
+    #                 statement = statement.filter(Episode.podcast_id == filter_value)
+    #
+    #             case "statuses":
+    #                 statuses_str = str(filter_value)
+    #                 statuses: list[str] = [st.upper() for st in statuses_str.split(",")]
+    #                 statement = statement.filter(Episode.status.in_(statuses))
+    #
+    #             case "audio__size__gte":
+    #                 if not isinstance(filter_value, int):
+    #                     raise ValueError("Invalid value for 'audio__size__gte'")
+    #
+    #                 statement = statement.filter(File.size >= int(filter_value))
+    #
+    #             case "audio__size__lte":
+    #                 if not isinstance(filter_value, int):
+    #                     raise ValueError("Invalid value for 'audio__size__lte'")
+    #
+    #                 statement = statement.filter(File.size <= int(filter_value))
+    #
+    #             case "podcast__name":
+    #                 statement = statement.join(Podcast, Episode.podcast_id == Podcast.id).filter(
+    #                     Podcast.name.ilike(f"%{filter_value}%")
+    #                 )
+    #
+    #             case _:
+    #                 field_name, _, suffix = filter_key.partition("__")
+    #                 if suffix:
+    #                     statement = process_suffix(
+    #                         statement=statement,
+    #                         field_name=field_name,
+    #                         suffix=suffix,
+    #                         value=filter_value,
+    #                     )
+    #                 else:
+    #                     statement = statement.filter(getattr(Episode, field_name) == filter_value)
+    #
+    #     result = await self.session.execute(statement.order_by(Episode.created_at.desc()))
+    #     return [row[0] for row in result.fetchall()]
 
     async def get_last(
         self,
