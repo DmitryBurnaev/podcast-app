@@ -310,7 +310,7 @@ class Episode(BaseModel):
             _, ext = os.path.splitext(filename)
             filename = f"{self.source_id}_{suffix}{ext or '.mp3'}"
 
-        return "filename"
+        return filename
 
     @property
     def short_description(self) -> str:

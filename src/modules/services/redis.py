@@ -11,6 +11,20 @@ from src.settings.db import get_redis_settings
 logger = logging.getLogger(__name__)
 JSONT = list[Any] | dict[str, Any] | str | None
 
+
+def _sync_redis_connection_dict() -> dict[str, str | int | bool]:
+    """
+    Sync client options for RQ and shared app keys.
+
+    RQ stores binary blobs in job hashes; decode_responses must be False so
+    Job.fetch / HGETALL does not force UTF-8. App JSON get/set decodes UTF-8
+    explicitly in RedisClient.get.
+    """
+    cfg = dict(get_redis_settings().connection_dict)
+    cfg["decode_responses"] = False
+    return cfg
+
+
 # One asyncio client per event loop; must be closed before the loop stops (see
 # close_async_redis_connection) to avoid __del__ touching a dead selector/kqueue.
 # TODO: move to class-based var
@@ -33,15 +47,18 @@ class RedisClient:
         """Blocking client for RQ jobs, boto3 callbacks, and other sync contexts."""
         cls = type(self)
         if cls._sync_redis is None:
-            settings = get_redis_settings()
-            cls._sync_redis = redis.Redis(**settings.connection_dict)
+            cls._sync_redis = redis.Redis(**_sync_redis_connection_dict())
 
         return cls._sync_redis
 
     def get(self, key: str) -> JSONT:
         """Sync JSON get (same encoding as async_get)."""
         raw = self.sync_redis.get(key)
-        return json.loads(raw or "null")
+        if raw is None:
+            return json.loads("null")
+        if isinstance(raw, (bytes, bytearray)):
+            raw = raw.decode("utf-8")
+        return json.loads(raw)
 
     def set(self, key: str, value: JSONT, ttl: int = 120) -> None:
         """Sync JSON set with TTL in seconds (same encoding as async_set)."""

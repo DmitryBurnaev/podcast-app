@@ -31,7 +31,7 @@ class GenerateRSSTask(RQTask):
         self.podcast_repository = PodcastRepository(self.db_session)
         self.file_repository = FileRepository(self.db_session)
 
-        filter_kwargs = {"id__in": [int(pk) for pk in podcast_ids]} if podcast_ids else {}
+        filter_kwargs = {"ids": [int(pk) for pk in podcast_ids]} if podcast_ids else {}
         podcasts = await self.podcast_repository.all(**filter_kwargs)
         results = {}
 
@@ -48,7 +48,7 @@ class GenerateRSSTask(RQTask):
 
         logger.info("START rss generation for %s", podcast)
         local_path = await self._render_rss_to_file(podcast)
-        remote_path = self.storage.upload_file(
+        remote_path = await self.storage.upload_file(
             local_path,
             dst_path=self.settings.s3.bucket_rss_path,
         )
