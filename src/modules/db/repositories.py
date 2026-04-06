@@ -14,7 +14,6 @@ from typing import (
     NamedTuple,
 )
 
-from mypy.nodes import Statement
 from sqlalchemy import (
     select,
     BinaryExpression,
@@ -206,6 +205,32 @@ class BaseRepository(Generic[ModelT]):
 
         return statement
 
+    def _filter_criteria(self, filter_kwargs):
+        filters = []
+        for filter_name, filter_value in filter_kwargs.items():
+            field_name, _, criteria = filter_name.partition("__")
+            field = getattr(self.model, field_name)
+            if criteria in ("eq", ""):
+                filters.append(field == filter_value)
+            elif criteria == "gt":
+                filters.append(field > filter_value)
+            elif criteria == "lt":
+                filters.append(field < filter_value)
+            elif criteria == "is":
+                filters.append(field.is_(filter_value))
+            elif criteria == "in":
+                filters.append(field.in_(filter_value))
+            elif criteria == "inarr":
+                filters.append(field.contains([filter_value]))
+            elif criteria == "icontains":
+                filters.append(field.ilike(f"%{filter_value}%"))
+            elif criteria == "ne":
+                filters.append(field != filter_value)
+            else:
+                raise NotImplementedError(f"Unexpected criteria: {criteria}")
+
+        return and_(True, *filters)
+
 
 class UserRepository(BaseRepository[User]):
     """User's repository."""
@@ -313,6 +338,16 @@ class PodcastRepository(BaseRepository[Podcast]):
 
         return podcasts_with_stats
 
+    async def update_by_filters(self, filters: dict[str, FilterT], value: dict[str, Any]) -> None:
+        """Update the instances by some filters"""
+        logger.info("[DB] Updating instances by filter: %s", filters)
+        statement = update(self.model).filter(self._filter_criteria(filters))
+        result: CursorResult[Any] = cast(
+            CursorResult[Any], await self.session.execute(statement, value)
+        )
+        await self.session.flush()
+        logger.info("[DB] Updated %i instances", result.rowcount)
+
 
 class EpisodeRepository(BaseRepository[Episode]):
     """Podcast's repository."""
@@ -396,32 +431,6 @@ class EpisodeRepository(BaseRepository[Episode]):
 
         result = await self.session.execute(statement.order_by(Episode.created_at.desc()))
         return [row[0] for row in result.fetchall()]
-
-    def _filter_criteria(self, filter_kwargs):
-        filters = []
-        for filter_name, filter_value in filter_kwargs.items():
-            field_name, _, criteria = filter_name.partition("__")
-            field = getattr(self.model, field_name)
-            if criteria in ("eq", ""):
-                filters.append(field == filter_value)
-            elif criteria == "gt":
-                filters.append(field > filter_value)
-            elif criteria == "lt":
-                filters.append(field < filter_value)
-            elif criteria == "is":
-                filters.append(field.is_(filter_value))
-            elif criteria == "in":
-                filters.append(field.in_(filter_value))
-            elif criteria == "inarr":
-                filters.append(field.contains([filter_value]))
-            elif criteria == "icontains":
-                filters.append(field.ilike(f"%{filter_value}%"))
-            elif criteria == "ne":
-                filters.append(field != filter_value)
-            else:
-                raise NotImplementedError(f"Unexpected criteria: {criteria}")
-
-        return and_(True, *filters)
 
     async def update_by_filters(self, filters: dict[str, FilterT], value: dict[str, Any]) -> None:
         """Update the instances by some filters"""

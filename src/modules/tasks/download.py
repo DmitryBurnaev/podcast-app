@@ -225,7 +225,7 @@ class DownloadEpisodeTask(RQTask):
         """Uploading file to the storage (S3)"""
 
         logger.info("=== [%s] UPLOADING === ", episode.source_id)
-        remote_path = processing_utils.upload_episode(tmp_audio_path)
+        remote_path = await processing_utils.upload_episode(tmp_audio_path)
         if not remote_path:
             logger.warning("=== [%s] UPLOADING was broken === ")
             await self._update_episodes(episode, {"status": Episode.Status.ERROR})
