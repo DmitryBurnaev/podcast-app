@@ -6,7 +6,7 @@ from rq.job import Job
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.modules.db import SASessionUOW, close_database, initialize_database
-from src.modules.services.redis import RedisClient
+from src.modules.services.redis import RedisClient, close_async_redis_connection
 from src.modules.utils.processing import TaskContext
 from src.settings.app import AppSettings, get_app_settings
 
@@ -44,6 +44,7 @@ class RQTask:
                 return await self._perform_and_run(*args, **kwargs)
             finally:
                 await close_database()
+                await close_async_redis_connection()
 
         finish_code = asyncio.run(_run_with_db())
         logger.info("==== SUCCESS task %s | code %s ====", self.name, finish_code)

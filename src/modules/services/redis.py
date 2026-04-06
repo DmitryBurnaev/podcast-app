@@ -1,6 +1,7 @@
+import asyncio
 import json
 import logging
-from typing import Iterable, Any
+from typing import Any, ClassVar, Iterable
 
 import redis
 from redis import asyncio as aioredis
@@ -10,13 +11,17 @@ from src.settings.db import get_redis_settings
 logger = logging.getLogger(__name__)
 JSONT = list[Any] | dict[str, Any] | str | None
 
+# One asyncio client per event loop; must be closed before the loop stops (see
+# close_async_redis_connection) to avoid __del__ touching a dead selector/kqueue.
+# TODO: move to class-based var
+_async_redis_for_loop: dict[int, aioredis.Redis] = {}
+
 
 class RedisClient:
     """The class is used to create a redis connection in a single instance."""
 
     __instance = None
-    __sync_redis: redis.Redis = None
-    __async_redis: aioredis.Redis = None
+    _sync_redis: ClassVar[redis.Redis | None] = None
 
     def __new__(cls):
         if cls.__instance is None:
@@ -24,15 +29,39 @@ class RedisClient:
         return cls.__instance
 
     @property
-    def async_redis(self) -> aioredis.Redis:
-        """Async Redis client instance"""
-        settings = get_redis_settings()
-        self.__async_redis = aioredis.Redis(**settings.connection_dict)
-        if not self.__async_redis:
-            logger.error("Failed to create Async Redis client: %s", settings.connection_dict)
-            raise RuntimeError("Failed to create Async Redis client")
+    def sync_redis(self) -> redis.Redis:
+        """Blocking client for RQ jobs, boto3 callbacks, and other sync contexts."""
+        cls = type(self)
+        if cls._sync_redis is None:
+            settings = get_redis_settings()
+            cls._sync_redis = redis.Redis(**settings.connection_dict)
 
-        return self.__async_redis
+        return cls._sync_redis
+
+    def get(self, key: str) -> JSONT:
+        """Sync JSON get (same encoding as async_get)."""
+        raw = self.sync_redis.get(key)
+        return json.loads(raw or "null")
+
+    def set(self, key: str, value: JSONT, ttl: int = 120) -> None:
+        """Sync JSON set with TTL in seconds (same encoding as async_set)."""
+        self.sync_redis.set(key, json.dumps(value), ex=ttl)
+
+    def publish(self, channel: str, message: str) -> None:
+        """Sync pub/sub publish."""
+        self.sync_redis.publish(channel, message)
+
+    @property
+    def async_redis(self) -> aioredis.Redis:
+        """Async Redis client bound to the current running event loop (reused per loop)."""
+        loop = asyncio.get_running_loop()
+        key = id(loop)
+        client = _async_redis_for_loop.get(key)
+        if client is None:
+            settings = get_redis_settings()
+            client = aioredis.Redis(**settings.connection_dict)
+            _async_redis_for_loop[key] = client
+        return client
 
     async def async_set(self, key: str, value: JSONT, ttl: int = 120) -> None:
         logger.debug("AsyncRedis > Setting value by key %s", key)
@@ -93,3 +122,25 @@ async def check_redis_connection() -> None:
         raise RuntimeError("Failed to check Redis connection") from exc
 
     logger.info("Redis connection is alive")
+
+
+async def close_async_redis_connection() -> None:
+    """
+    Close the asyncio Redis client for the current event loop.
+
+    Call from the same loop during shutdown (e.g. app lifespan, end of RQ job asyncio.run)
+    so connections are not garbage-collected after the loop is already closed.
+    """
+    try:
+        loop = asyncio.get_running_loop()
+    except RuntimeError:
+        return
+
+    client = _async_redis_for_loop.pop(id(loop), None)
+    if client is None:
+        return
+
+    try:
+        await client.aclose()
+    except Exception as exc:
+        logger.debug("Async Redis wasn't closed: %r", exc)
