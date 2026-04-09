@@ -1,0 +1,65 @@
+services:
+  app:
+    container_name: podcast-app-app
+    image: ${DOCKER_IMAGE:-podcast-app}
+    build:
+      context: .
+      target: "service"
+    ports:
+      - 127.0.0.1:${APP_PORT}:${APP_PORT}
+    env_file:
+      - .env
+    environment:
+      APP_SERVICE: app
+      DB_HOST: db
+    depends_on:
+      db:
+        condition: service_healthy        
+
+  db:
+    container_name: podcast-app-db
+    image: postgres:17-alpine
+    env_file:
+      - .env
+    environment:
+      POSTGRES_DB: ${DB_NAME}
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      PGDATA: /var/lib/postgresql/data/pgdata
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER}"]
+      interval: 5s
+      timeout: 2s
+      retries: 5
+    volumes:
+      - ${PWD}/.data/postgres:/var/lib/postgresql/data/pgdata
+
+  test:
+    container_name: podcast-app-test
+    image: podcast-app:test
+    env_file:
+      - .env
+    build:
+      context: .
+      target: tests
+      args:
+        DEV_DEPS: true
+    environment:
+      APP_SERVICE: test
+      DB_HOST: db
+    depends_on:
+      db:
+        condition: service_healthy
+
+  lint:
+    container_name: podcast-app-lint
+    image: podcast-app:test
+    env_file:
+      - .env
+    build:
+      context: .
+      target: tests
+      args:
+        DEV_DEPS: true
+    environment:
+      APP_SERVICE: lint
