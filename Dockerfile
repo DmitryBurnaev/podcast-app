@@ -10,7 +10,7 @@ COPY etc/docker-entrypoint .
 FROM python:3.14-alpine AS requirements-layer
 WORKDIR /usr/src
 ARG DEV_DEPS="false"
-ARG UV_VERSION=0.9.13
+ARG UV_VERSION=0.11.6
 
 COPY pyproject.toml .
 COPY uv.lock .
