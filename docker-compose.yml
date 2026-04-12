@@ -1,6 +1,6 @@
 services:
-  app:
-    container_name: podcast-app-app
+  web:
+    container_name: podcast-app-web
     image: ${DOCKER_IMAGE:-podcast-app}
     build:
       context: .
@@ -12,9 +12,34 @@ services:
     environment:
       APP_SERVICE: app
       DB_HOST: db
+      REDIS_HOST: redis
     depends_on:
       db:
-        condition: service_healthy        
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  rq:
+    image: ${DOCKER_IMAGE_NAME:-podcast-service}:${DOCKER_IMAGE_TAG:-latest}
+    container_name: podcast-app-rq
+    build:
+      context: .
+      target: "service"
+    profiles:
+      - service
+    env_file:
+      - .env
+    environment:
+      APP_SERVICE: rq
+      APP_VERSION: ${DOCKER_IMAGE_TAG:-latest}
+      REDIS_HOST: redis
+    networks:
+      - internal-subnet
+    depends_on:
+      redis:
+        condition: service_healthy
+      web:
+        condition: service_started
 
   db:
     container_name: podcast-app-db
@@ -34,6 +59,21 @@ services:
     volumes:
       - ${PWD}/.data/postgres:/var/lib/postgresql/data/pgdata
 
+  redis:
+    container_name: podcast-app-redis
+    image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "yes"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 2s
+      retries: 5
+    volumes:
+      - ${PWD}/.data/redis:/data
+    networks:
+      - default
+      - internal-subnet
+
   test:
     container_name: podcast-app-test
     image: podcast-app:test
@@ -47,8 +87,11 @@ services:
     environment:
       APP_SERVICE: test
       DB_HOST: db
+      REDIS_HOST: redis
     depends_on:
       db:
+        condition: service_healthy
+      redis:
         condition: service_healthy
 
   lint:
@@ -63,3 +106,6 @@ services:
         DEV_DEPS: true
     environment:
       APP_SERVICE: lint
+
+networks:
+  internal-subnet:
