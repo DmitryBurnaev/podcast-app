@@ -16,8 +16,8 @@ class BaseApplicationError(Exception):
     details: str | dict | None = None
     log_level: int = logging.ERROR
     log_message: str = "Application error"
-    status_code: int = HTTPStatus.INTERNAL_SERVER_ERROR
-    response_status: ResponseStatus = ResponseStatus.INTERNAL_ERROR
+    default_status_code: int = HTTPStatus.INTERNAL_SERVER_ERROR
+    default_response_status: ResponseStatus = ResponseStatus.INTERNAL_ERROR
 
     def __init__(
         self,
@@ -28,8 +28,8 @@ class BaseApplicationError(Exception):
     ):
         self.message = message or self.message
         self.details = details or self.details
-        self.status_code = status_code or self.status_code
-        self.response_status = response_status or self.response_status
+        self.status_code = status_code or self.default_status_code
+        self.response_status = response_status or self.default_response_status
 
     def __str__(self) -> str:
         return f"{self.message} ({self.details})"

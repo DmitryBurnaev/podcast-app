@@ -114,15 +114,8 @@ async def lifespan(
 
 def make_app(settings: AppSettings | None = None) -> PodcastApp:
     """Forming Application instance with required settings and dependencies"""
-
-    if settings is None:
-        try:
-            settings = get_app_settings()
-        except AppSettingsError as exc:
-            logger.error("Unable to get settings from environment: %r", exc)
-            sys.exit(1)
-
-    logging.config.dictConfig(settings.log.dict_config_any)
+    app_settings: AppSettings = settings or get_app_settings()
+    logging.config.dictConfig(app_settings.log.dict_config_any)
     logging.captureWarnings(capture=True)
 
     logger.info("Setting up application...")
@@ -135,12 +128,12 @@ def make_app(settings: AppSettings | None = None) -> PodcastApp:
         static_files_config=[
             StaticFilesConfig(path="/static", directories=[str(APP_DIR / "static")])
         ],
-        lifespan=[lambda _: lifespan(settings)],
-        debug=settings.flags.debug_mode,
+        lifespan=[lambda _: lifespan(app_settings)],
+        debug=app_settings.flags.debug_mode,
         dependencies={
             "settings": Provide(get_app_settings, sync_to_thread=False),
         },
-        settings=settings,
+        settings=app_settings,
     )
 
     # logger.info("Setting up routes...")
