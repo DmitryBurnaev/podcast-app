@@ -1,0 +1,26 @@
+#!/bin/sh
+set -e
+
+export WORKING_DIR=/opt/podcast-app/
+
+echo "=== reading $(pwd)/.version file ==="
+export $(cat .version | grep -v ^# | xargs)
+
+echo "=== pulling image '${DOCKER_IMAGE}' ==="
+docker pull ${DOCKER_IMAGE}
+
+echo "=== restarting service ==="
+sudo systemctl restart podcast-app.service
+
+echo "=== clearing ==="
+echo y | docker image prune -a
+
+echo "=== check status ==="
+echo "sleeping a while ... "
+sleep 5
+sudo systemctl show -p ActiveState --value podcast-app
+
+echo "=== show containers ==="
+sleep 15
+docker ps --format "table {{.ID}}\t{{.Image}}\t{{.Names}}\t{{.Status}}\t|" | grep podcast-app
+echo "==="

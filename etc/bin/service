@@ -1,0 +1,157 @@
+#!/bin/bash
+
+SERVICE_NAME="podcast-app"
+
+# Function to show service logs with parameters
+show_service_logs() {
+    local tail_lines="50"
+    local since=""
+    local until=""
+    local grep_pattern=""
+    local follow=""
+    local args=()
+    
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --tail)
+                tail_lines="$2"
+                args+=("-n" "$tail_lines")
+                shift 2
+                ;;
+            --since)
+                args+=("--since" "$2")
+                shift 2
+                ;;
+            --until)
+                args+=("--until" "$2")
+                shift 2
+                ;;
+            --grep)
+                grep_pattern="$2"
+                shift 2
+                ;;
+            --follow)
+                args+=("-f")
+                shift 1
+                ;;
+            *)
+                echo "Unknown parameter: $1"
+                return 1
+                ;;
+        esac
+    done
+
+    # Add common arguments
+    args+=("-u" "$SERVICE_NAME" "--no-pager")
+
+    if [ -n "$grep_pattern" ]; then
+        sudo journalctl "${args[@]}" | grep "$grep_pattern"
+    else
+        sudo journalctl "${args[@]}"
+    fi
+}
+
+# Function to show service logs
+show_logs() {
+    echo "Recent service logs:"
+    sudo journalctl -u $SERVICE_NAME -n 50 --no-pager
+}
+
+# Function to follow logs
+follow_logs() {
+    echo "Following service logs (Ctrl+C to stop):"
+    sudo journalctl -u $SERVICE_NAME -f
+}
+
+# Function to check service health
+check_health() {
+    echo "Checking service health..."
+    
+    # Check service status
+    if sudo systemctl is-active --quiet $SERVICE_NAME; then
+        echo "✓ Service is running"
+    else
+        echo "✗ Service is not running"
+        return 1
+    fi
+    
+    # Check systemd service errors
+    local service_errors=$(sudo journalctl -u $SERVICE_NAME -p err -n 1 --no-pager)
+    if [ -z "$service_errors" ]; then
+        echo "✓ No recent errors in logs"
+    else
+        echo "✗ Recent errors found in logs:"
+        echo "$service_errors"
+    fi
+}
+
+case "$1" in
+    start)
+        sudo systemctl start $SERVICE_NAME
+        if [ "$2" = "--logs" ]; then
+            follow_logs
+        else
+            show_logs
+        fi
+        ;;
+    stop)
+        sudo systemctl stop $SERVICE_NAME
+        sudo systemctl status $SERVICE_NAME
+        ;;
+    restart)
+        sudo systemctl restart $SERVICE_NAME
+        if [ "$2" = "--logs" ]; then
+            follow_logs
+        else
+            show_logs
+        fi
+        ;;
+    status)
+        sudo systemctl status $SERVICE_NAME
+        if [ "$2" = "--logs" ]; then
+            follow_logs
+        else
+            show_logs
+        fi
+        ;;
+    logs)
+        shift # remove 'logs' from arguments
+        if [ $# -eq 0 ]; then
+            show_logs
+        else
+            show_service_logs "$@"
+        fi
+        ;;
+    health)
+        check_health
+        ;;
+    *)
+        echo "Usage: $0 COMMAND [OPTIONS]"
+        echo ""
+        echo "Commands:"
+        echo "  start [--logs]    Start service (optionally follow logs)"
+        echo "  stop              Stop service"
+        echo "  restart [--logs]  Restart service (optionally follow logs)"
+        echo "  status [--logs]   Show service status (optionally follow logs)"
+        echo "  logs [OPTIONS]    Show service logs"
+        echo "  health            Check service health"
+        echo ""
+        echo "Log options:"
+        echo "  --tail N          Show last N lines"
+        echo "  --since VALUE     Show logs since (e.g., '1 hour ago', '2024-03-20')"
+        echo "  --until VALUE     Show logs until timestamp"
+        echo "  --grep PATTERN    Filter logs by pattern"
+        echo "  --follow          Follow logs in real-time (like tail -f)"
+        echo ""
+        echo "Examples:"
+        echo "  $0 logs --tail 100"
+        echo "  $0 logs --since '1 hour ago'"
+        echo "  $0 logs --until '2024-03-20 15:00:00'"
+        echo "  $0 logs --grep error"
+        echo "  $0 logs --follow"
+        echo "  $0 logs --tail 100 --follow"
+        exit 1
+        ;;
+esac
+
+exit 0 
