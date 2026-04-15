@@ -9,6 +9,8 @@ services:
       - 127.0.0.1:${APP_PORT}:${APP_PORT}
     env_file:
       - .env
+    profiles:
+      - service
     environment:
       APP_SERVICE: app
       DB_HOST: db
@@ -46,6 +48,9 @@ services:
     image: postgres:17-alpine
     env_file:
       - .env
+    profiles:
+      - service
+      - test
     environment:
       POSTGRES_DB: ${DB_NAME}
       POSTGRES_USER: ${DB_USER}
@@ -63,6 +68,9 @@ services:
     container_name: podcast-app-redis
     image: redis:7-alpine
     command: ["redis-server", "--appendonly", "yes"]
+    profiles:
+      - service
+      - test
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
@@ -77,6 +85,8 @@ services:
   test:
     container_name: podcast-app-test
     image: podcast-app:test
+    profiles:
+      - test
     env_file:
       - .env
     build:
@@ -97,6 +107,8 @@ services:
   lint:
     container_name: podcast-app-lint
     image: podcast-app:test
+    profiles:
+      - test
     env_file:
       - .env
     build:

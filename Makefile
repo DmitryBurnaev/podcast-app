@@ -43,7 +43,7 @@ run-worker: .env ## Run app
 .PHONY: run
 run-in-docker: .env ## Run app
 	@echo Run project in container...
-	docker compose up app --build
+	docker compose --profile service up --build
 
 .PHONY: test
 test: .env ## Run tests with coverage report

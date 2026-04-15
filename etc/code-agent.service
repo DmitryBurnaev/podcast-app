@@ -1,0 +1,18 @@
+# copy this file to /etc/systemd/system/podcast-app.service
+
+[Unit]
+Description=Code Agent Service
+Requires=docker.service
+After=docker.service
+
+[Service]
+User=podcast-app-srv
+Group=podcast-app-srv
+ExecStart=/opt/podcast-app/bin/start
+ExecStop=/opt/podcast-app/bin/stop
+Restart=on-failure
+RestartSec=20
+TimeoutStopSec=180
+
+[Install]
+WantedBy=multi-user.target
