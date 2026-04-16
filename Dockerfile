@@ -22,14 +22,18 @@ RUN pip install uv==${UV_VERSION} && \
       uv export --format requirements-txt --frozen --no-dev --output-file requirements.txt; \
     fi
 
+RUN ls -lah /usr/src/requirements.txt
+RUN cat /usr/src/requirements.txt
+
 
 FROM python:3.14-alpine AS base
 ARG PIP_DEFAULT_TIMEOUT=300
-ARG PIP_VERSION=25.3
+ARG PIP_VERSION=26
 WORKDIR /app
 
 COPY --from=requirements-layer /usr/src/requirements.txt .
 
+RUN cat /app/requirements.txt
 RUN pip install --upgrade pip==${PIP_VERSION} && \
     pip install --timeout "${PIP_DEFAULT_TIMEOUT}" --no-cache-dir --require-hashes -r requirements.txt
 
