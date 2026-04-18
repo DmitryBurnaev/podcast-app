@@ -12,7 +12,8 @@ services:
     profiles:
       - service
     environment:
-      APP_SERVICE: app
+      APP_SERVICE: web
+      APP_VERSION: ${DOCKER_IMAGE_TAG:-latest}
       DB_HOST: db
       REDIS_HOST: redis
     depends_on:
@@ -20,10 +21,25 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+    healthcheck:
+      # TCP check avoids compose-time ${APP_PORT} mismatch and urllib respecting HTTP(S)_PROXY on localhost.
+#      test: ["CMD", "python -с", "import  import os,socket;s=socket.socket();s.connect(('127.0.0.1', int(os.environ['APP_PORT']))"]
+      test: ["CMD", "python -с", "import os,socket;s=socket.socket();s.connect(('127.0.0.1', int(os.environ['APP_PORT']))"]
+#      test:
+#        - CMD
+#        - python
+#        - "-c"
+#        - >-
+#          import os,socket;s=socket.socket();s.connect(("127.0.0.1",
+#          int(os.environ["APP_PORT"])))
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
 
-  rq:
+  background:
     image: ${DOCKER_IMAGE_NAME:-podcast-service}:${DOCKER_IMAGE_TAG:-latest}
-    container_name: podcast-app-rq
+    container_name: podcast-app-background
     build:
       context: .
       target: "service"
@@ -32,16 +48,17 @@ services:
     env_file:
       - .env
     environment:
-      APP_SERVICE: rq
+      APP_SERVICE: background
       APP_VERSION: ${DOCKER_IMAGE_TAG:-latest}
+      DB_HOST: db
       REDIS_HOST: redis
-    networks:
-      - internal-subnet
     depends_on:
+      db:
+        condition: service_healthy
       redis:
         condition: service_healthy
       web:
-        condition: service_started
+        condition: service_healthy
 
   db:
     container_name: podcast-app-db
@@ -78,9 +95,6 @@ services:
       retries: 5
     volumes:
       - ${PWD}/.data/redis:/data
-    networks:
-      - default
-      - internal-subnet
 
   test:
     container_name: podcast-app-test

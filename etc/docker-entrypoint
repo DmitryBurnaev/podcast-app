@@ -3,7 +3,7 @@
 set -e
 
 # Define required environment variables as a space-separated string for POSIX sh compatibility
-required_env_vars="DB_USER DB_PASSWORD DB_NAME APP_SECRET_KEY VENDOR_ENCRYPTION_KEY ADMIN_PASSWORD"
+required_env_vars="DB_USER DB_PASSWORD DB_NAME APP_SECRET_KEY"
 
 print_caption() {
   echo ""
@@ -36,11 +36,15 @@ run_service() {
   done
 
   case "${APP_SERVICE}" in
-    app)
+    web)
       print_caption "Start DB migrations"
       alembic upgrade head
-      print_caption "Start app"
+      print_caption "Start web application"
       uvicorn --factory src.main:make_app --host 0.0.0.0 --port ${APP_PORT} --loop uvloop --proxy-headers --forwarded-allow-ips="*"
+      ;;
+    background)
+      print_caption "Start background workers"
+      python -m src.worker
       ;;
     test)
       print_caption "Lint check"

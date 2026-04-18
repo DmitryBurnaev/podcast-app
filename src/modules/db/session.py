@@ -43,7 +43,7 @@ class AsyncDBConnectors:
                 extra_kwargs["max_overflow"] = self.settings.pool_max_size - (
                     self.settings.pool_min_size or 5
                 )
-
+            print(self.settings.database_dsn)
             engine = create_async_engine(self.settings.database_dsn, **extra_kwargs)
             session_factory = async_sessionmaker(
                 bind=engine,

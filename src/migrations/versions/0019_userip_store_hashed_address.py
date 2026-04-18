@@ -11,7 +11,7 @@ import sqlalchemy as sa
 from sqlalchemy import text
 from sqlalchemy.engine import Connection
 
-from common.utils import hash_string
+from src.utils import hash_string
 
 # revision identifiers, used by Alembic.
 revision = "0019"
