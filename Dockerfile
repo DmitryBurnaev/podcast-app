@@ -10,16 +10,16 @@ COPY etc/docker-entrypoint .
 FROM python:3.14-alpine AS requirements-layer
 WORKDIR /usr/src
 ARG DEV_DEPS="false"
-ARG UV_VERSION=0.11.6
+ARG UV_VERSION=0.11.7
 
 COPY pyproject.toml .
 COPY uv.lock .
 
 RUN pip install uv==${UV_VERSION} && \
 	  if [ "${DEV_DEPS}" = "true" ]; then \
-      uv export --format requirements-txt --frozen --output-file requirements.txt; \
+      uv export --format requirements-txt --frozen --no-editable --no-emit-project --output-file requirements.txt; \
     else \
-      uv export --format requirements-txt --frozen --no-dev --output-file requirements.txt; \
+      uv export --format requirements-txt --frozen --no-dev --no-editable --no-emit-project --output-file requirements.txt; \
     fi
 
 RUN ls -lah /usr/src/requirements.txt
@@ -37,8 +37,8 @@ RUN cat /app/requirements.txt
 RUN pip install --upgrade pip==${PIP_VERSION} && \
     pip install --timeout "${PIP_DEFAULT_TIMEOUT}" --no-cache-dir --require-hashes -r requirements.txt
 
-RUN addgroup -S podcast-app -g 1007 && \
-    adduser -S -G podcast-app -u 1007 -H podcast-app
+RUN addgroup -S podcast-app -g 1008 && \
+    adduser -S -G podcast-app -u 1008 -H podcast-app
 
 USER podcast-app
 

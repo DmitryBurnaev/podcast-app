@@ -16,8 +16,8 @@ import sqlalchemy as sa
 from sqlalchemy import table, column, select
 from sqlalchemy.engine import Connection
 
-from common.enums import EpisodeStatus, FileType
-from modules.media.models import File  # only for `generate_token` method
+from src.constants import FileType, EpisodeStatus
+from src.modules.db.models import File
 
 
 revision = "0010"
@@ -102,7 +102,7 @@ def _fill_media(conn: Connection, _table, items: list[dict]):
 
     op.bulk_insert(files, files_data)
 
-    _file_data = defaultdict(dict)
+    _file_data: defaultdict[str, dict] = defaultdict(dict)
     for row in conn.execute(select(files)):
         item = row._mapping  # noqa
         access_token = item["access_token"]
