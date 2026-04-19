@@ -22,18 +22,9 @@ services:
       redis:
         condition: service_healthy
     healthcheck:
-      # TCP check avoids compose-time ${APP_PORT} mismatch and urllib respecting HTTP(S)_PROXY on localhost.
-#      test: ["CMD", "python -с", "import  import os,socket;s=socket.socket();s.connect(('127.0.0.1', int(os.environ['APP_PORT']))"]
-      test: ["CMD", "python -с", "import os,socket;s=socket.socket();s.connect(('127.0.0.1', int(os.environ['APP_PORT']))"]
-#      test:
-#        - CMD
-#        - python
-#        - "-c"
-#        - >-
-#          import os,socket;s=socket.socket();s.connect(("127.0.0.1",
-#          int(os.environ["APP_PORT"])))
-      interval: 10s
-      timeout: 5s
+      test: ["CMD-SHELL", 'python -c "import os,socket; s=socket.socket(); s.connect((''127.0.0.1'', int(os.environ[''APP_PORT''])))"']
+      interval: 5s
+      timeout: 2s
       retries: 5
       start_period: 60s
 
