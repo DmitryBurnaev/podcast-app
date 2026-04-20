@@ -1,6 +1,5 @@
 import logging
 import logging.config
-import sys
 from collections.abc import Awaitable, Callable
 from contextlib import asynccontextmanager
 from enum import StrEnum
@@ -22,7 +21,7 @@ from litestar.template import TemplateConfig
 # from litestar.middleware.session.memory_backend import MemoryBackendConfig
 from redis import Redis
 
-from src.exceptions import AppSettingsError, StartupError, StorageConfigurationError
+from src.exceptions import StartupError, StorageConfigurationError
 from src.modules.db import close_database, initialize_database, verify_database_reachable
 from src.modules.services.redis import check_redis_connection, close_async_redis_connection
 from src.modules.services.storage import validate_s3_settings
