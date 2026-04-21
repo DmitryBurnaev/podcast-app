@@ -13,7 +13,7 @@ from src.main import DbStartMode, lifespan
 from src.settings.app import AppSettings, get_app_settings
 
 
-async def run_worker():
+async def run_worker() -> None:
     """Runs RQ worker for consuming background tasks (like downloading providers tracks)"""
     settings: AppSettings = get_app_settings()
     logging.config.dictConfig(dict(settings.log.dict_config))
