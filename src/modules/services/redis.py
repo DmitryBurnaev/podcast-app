@@ -45,19 +45,57 @@ class RedisClient:
     @property
     def sync_redis(self) -> redis.Redis:
         """Blocking client for RQ jobs, boto3 callbacks, and other sync contexts."""
-        cls = type(self)
-        if cls._sync_redis is None:
-            cls._sync_redis = redis.Redis(**_sync_redis_connection_dict())
+        cls = self.__class__
+        sync_redis: redis.Redis
+        if cls._sync_redis is not None:
+            sync_redis = cls._sync_redis
+        else:
+            redis_settings = get_redis_settings()
+            sync_redis = redis.Redis(
+                host=redis_settings.host,
+                port=redis_settings.port,
+                db=redis_settings.db,
+                max_connections=redis_settings.max_connections,
+                decode_responses=False,
+            )
+            cls._sync_redis = sync_redis
 
-        return cls._sync_redis
+        return sync_redis
+
+    @property
+    def async_redis(self) -> aioredis.Redis:
+        """Async Redis client bound to the current running event loop (reused per loop)."""
+        loop = asyncio.get_running_loop()
+        key = id(loop)
+        client = _async_redis_for_loop.get(key)
+        if client is None:
+            redis_settings = get_redis_settings()
+            client = aioredis.Redis(
+                host=redis_settings.host,
+                port=redis_settings.port,
+                db=redis_settings.db,
+                max_connections=redis_settings.max_connections,
+                decode_responses=redis_settings.decode_responses,
+            )
+            _async_redis_for_loop[key] = client
+
+        return client
 
     def get(self, key: str) -> JSONT:
         """Sync JSON get (same encoding as async_get)."""
         raw = self.sync_redis.get(key)
+        if not isinstance(raw, (str, bytes, bytearray)):
+            raise TypeError(
+                f"Unexpected response from redis client: expected str, bytes, or bytearray "
+                f"got {type(raw)} instead"
+            )
+
         if raw is None:
             return json.loads("null")
+
         if isinstance(raw, (bytes, bytearray)):
             raw = raw.decode("utf-8")
+
         return json.loads(raw)
 
     def set(self, key: str, value: JSONT, ttl: int = 120) -> None:
@@ -67,18 +105,6 @@ class RedisClient:
     def publish(self, channel: str, message: str) -> None:
         """Sync pub/sub publish."""
         self.sync_redis.publish(channel, message)
-
-    @property
-    def async_redis(self) -> aioredis.Redis:
-        """Async Redis client bound to the current running event loop (reused per loop)."""
-        loop = asyncio.get_running_loop()
-        key = id(loop)
-        client = _async_redis_for_loop.get(key)
-        if client is None:
-            settings = get_redis_settings()
-            client = aioredis.Redis(**settings.connection_dict)
-            _async_redis_for_loop[key] = client
-        return client
 
     async def async_set(self, key: str, value: JSONT, ttl: int = 120) -> None:
         logger.debug("AsyncRedis > Setting value by key %s", key)
@@ -111,7 +137,6 @@ class RedisClient:
 
         """
         stored_items = [json.loads(item) for item in await self.async_redis.mget(keys) if item]
-        # stored_items = (json.loads(item) for item in await self.async_redis.mget(keys) if item)
         try:
             logger.debug("Try to extract redis data: %s", list(stored_items))
             result = {
@@ -133,7 +158,7 @@ class RedisClient:
 async def check_redis_connection() -> None:
     """Check if Redis connection is alive"""
     try:
-        await RedisClient().async_redis.ping()
+        await RedisClient().async_redis.ping()  # type: ignore[misc]
     except redis.exceptions.ConnectionError as exc:
         logger.error("Failed to check Redis connection: %r", exc)
         raise RuntimeError("Failed to check Redis connection") from exc
