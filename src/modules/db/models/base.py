@@ -1,11 +1,21 @@
 from typing import Self
+from datetime import datetime
 
+import sqlalchemy as sa
 from sqlalchemy.ext.asyncio import AsyncAttrs
-from sqlalchemy.orm import DeclarativeBase, Mapped
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
+
+from src.utils import utcnow
 
 
 class BaseModel(AsyncAttrs, DeclarativeBase):
     id: Mapped[int]
+    created_at: Mapped[datetime] = mapped_column(
+        sa.DateTime(timezone=True),
+        default=utcnow,
+        server_default=sa.text("now()"),
+        nullable=False,
+    )
 
     def to_dict(self, excluded_fields: list[str] | None = None) -> dict:
         excluded_fields = excluded_fields or []
