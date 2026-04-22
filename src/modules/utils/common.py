@@ -2,6 +2,7 @@ import asyncio
 import re
 import logging
 import dataclasses
+from collections.abc import Mapping
 from pathlib import Path
 from typing import (
     NamedTuple,
@@ -9,6 +10,8 @@ from typing import (
     Callable,
     Any,
     NotRequired,
+    TYPE_CHECKING,
+    cast,
 )
 
 import yt_dlp
@@ -21,6 +24,9 @@ from src.modules.db.models.podcasts import EpisodeChapter
 from src.modules.utils.processing import episode_process_hook
 from src.settings.app import get_app_settings
 
+if TYPE_CHECKING:
+    from yt_dlp import _Params
+
 logger = logging.getLogger(__name__)
 
 
@@ -28,9 +34,9 @@ class YTDLParamsT(TypedDict):
     format: NotRequired[str]
     outtmpl: NotRequired[str]
     logger: NotRequired[logging.Logger]
-    progress_hooks: NotRequired[list[Callable[[dict[str, Any]], None]]]
+    progress_hooks: NotRequired[list[Callable[[Mapping[str, Any]], None]]]
     noprogress: NotRequired[bool]
-    cookiefile: NotRequired[str | Path | None]
+    cookiefile: NotRequired[str | None]
     noplaylist: NotRequired[bool]
     proxy: NotRequired[str]
 
@@ -108,7 +114,7 @@ def extract_source_info(source_url: str | None = None, playlist: bool = False) -
 
     for _, source_cfg in SOURCE_CFG_MAP.items():
         regexp = source_cfg.regexp if not playlist else source_cfg.regexp_playlist
-        if match := (re.match(regexp, source_url) if source_cfg.regexp else None):
+        if match := (re.match(regexp, source_url) if regexp else None):
             if source_id := match.groupdict().get("source_id"):
                 return SourceInfo(id=source_id, url=source_url, type=source_cfg.type)
 
@@ -121,18 +127,37 @@ def extract_source_info(source_url: str | None = None, playlist: bool = False) -
     raise InvalidRequestError(f"Requested domain is not supported now {source_url}")
 
 
-def download_process_hook(event: dict[str, int | str]) -> None:
+def download_process_hook(event: Mapping[str, Any]) -> None:
     """
     Allows handling processes of downloading episode's file.
     It is called by `yt_dlp.YoutubeDL`
     """
-    total_bytes = event.get("total_bytes") or event.get("total_bytes_estimate", 0)
+    total_bytes = _int_from_event(event, "total_bytes") or _int_from_event(
+        event, "total_bytes_estimate"
+    )
+    downloaded_bytes = _int_from_event(event, "downloaded_bytes") or total_bytes
+    filename = event.get("filename")
+    if not isinstance(filename, str):
+        logger.warning("Couldn't process download progress without filename: %s", event)
+        return
+
     episode_process_hook(
         status=EpisodeStatus.DL_EPISODE_DOWNLOADING,
-        filename=event["filename"],
+        filename=filename,
         total_bytes=total_bytes,
-        processed_bytes=event.get("downloaded_bytes", total_bytes),
+        processed_bytes=downloaded_bytes,
     )
+
+
+def _int_from_event(event: Mapping[str, Any], key: str) -> int:
+    value = event.get(key, 0)
+    if isinstance(value, int):
+        return value
+    if isinstance(value, float):
+        return int(value)
+    if isinstance(value, str) and value.isdecimal():
+        return int(value)
+    return 0
 
 
 async def download_audio(
@@ -158,18 +183,14 @@ async def download_audio(
         "logger": logging.getLogger("yt_dlp.YoutubeDL"),
         "progress_hooks": [download_process_hook],
         "noprogress": True,
-        "cookiefile": cookie_path,
+        "cookiefile": str(cookie_path) if cookie_path else None,
     }
 
     if proxy_url:
         logger.info("YoutubeDL: Using proxy: %s", proxy_url)
         params["proxy"] = proxy_url
 
-    # TODO: re-check it
-    print(params)
-    # raise RuntimeError("Pupupu")
-    # noinspection PyTypeChecker
-    with yt_dlp.YoutubeDL(params) as ydl:
+    with yt_dlp.YoutubeDL(cast("_Params", params)) as ydl:
         ydl.download([source_url])
 
     return result_path
@@ -194,19 +215,24 @@ async def get_source_media_info(source_info: SourceInfo) -> tuple[str, SourceMed
     params: YTDLParamsT = {
         "logger": logger,
         "noplaylist": True,
-        "cookiefile": source_info.cookie_path,
+        "cookiefile": str(source_info.cookie_path) if source_info.cookie_path else None,
     }
     if source_info.proxy_url:
         params["proxy"] = source_info.proxy_url
         logger.info("YoutubeDL: Using proxy: %s", source_info.proxy_url)
 
+    if source_info.url is None:
+        return "Source URL is not specified", None
+
     try:
-        # noinspection PyTypeChecker
-        with yt_dlp.YoutubeDL(params) as ydl:
-            source_details: SourceDetails = await asyncio.to_thread(
-                ydl.extract_info,
-                source_info.url,
-                download=False,
+        with yt_dlp.YoutubeDL(cast("_Params", params)) as ydl:
+            source_details = cast(
+                SourceDetails,
+                await asyncio.to_thread(
+                    ydl.extract_info,
+                    source_info.url,
+                    download=False,
+                ),
             )
 
     except YoutubeDLError as exc:
