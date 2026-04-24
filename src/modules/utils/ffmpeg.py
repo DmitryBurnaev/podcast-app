@@ -5,11 +5,11 @@ import logging
 import hashlib
 import tempfile
 import subprocess
+from collections.abc import Buffer
 from pathlib import Path
 from typing import NamedTuple, TYPE_CHECKING
 from contextlib import suppress
 from multiprocessing import Process
-
 from src.constants import EpisodeStatus
 from src.exceptions import UserCancellationError, FFMPegPreparationError, FFMPegParseError
 from src.modules.utils import common as common_utils
@@ -94,11 +94,8 @@ def ffmpeg_preparation(
         with suppress(IOError):
             os.remove(tmp_path)
 
-        err_details = f"FFMPEG failed with errors: {exc}"
-        if stdout := getattr(exc, "stdout", ""):
-            err_details += f"\n{str(stdout, encoding='utf-8')}"
-
         watcher_process.terminate()
+        err_details = _get_error_details_from_exc(exc)
         raise FFMPegPreparationError(err_details) from exc
 
     watcher_process.terminate()
@@ -143,10 +140,7 @@ def execute_ffmpeg(command: list[str]) -> str:
             timeout=settings.ffmpeg_timeout,
         )
     except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as exc:
-        err_details = f"FFMPEG failed with errors: {exc}"
-        if stdout := getattr(exc, "stdout", ""):
-            err_details += f"\n{str(stdout, encoding='utf-8')}"
-
+        err_details = _get_error_details_from_exc(exc)
         raise FFMPegPreparationError(err_details) from exc
 
     return completed_proc.stdout.decode()
@@ -381,3 +375,16 @@ def _human_time_to_sec(time_str: str) -> int:
         res_time += round(float(time_item), 0) * pow(60, index)
 
     return int(res_time)
+
+
+def _get_error_details_from_exc(exc: Exception) -> str:
+    """
+    Just extracts stdout lines from given exception (if exists)
+    """
+
+    err_details = f"FFMPEG failed with errors: {exc}"
+    stdout: Buffer | None = getattr(exc, "stdout", None)
+    if stdout is not None:
+        err_details += f"\n{str(stdout, encoding='utf-8')}"
+
+    return err_details
