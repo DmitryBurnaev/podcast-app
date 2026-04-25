@@ -30,12 +30,8 @@ class GenerateRSSTask(RQTask):
         """Run process for generation and upload RSS to the cloud (S3)"""
 
         self.storage = StorageS3()
-        if not self.db_session:
-            raise RuntimeError("No database session available")
-        db_session = self.db_session
-
-        self.podcast_repository = PodcastRepository(db_session)
-        self.file_repository = FileRepository(db_session)
+        self.podcast_repository = PodcastRepository(self.db_session)
+        self.file_repository = FileRepository(self.db_session)
 
         filter_kwargs = {"ids": [int(pk) for pk in podcast_ids]} if podcast_ids else {}
         podcasts = await self.podcast_repository.all(**filter_kwargs)
@@ -88,11 +84,7 @@ class GenerateRSSTask(RQTask):
         """Generate rss for Podcast and Episodes marked as "published" """
 
         logger.info("Podcast #%i: RSS generation has been started", podcast.id)
-        if not self.db_session:
-            raise RuntimeError("No database session available")
-        db_session = self.db_session
-
-        episode_repository = EpisodeRepository(db_session)
+        episode_repository = EpisodeRepository(self.db_session)
         episodes = await episode_repository.all(
             podcast_id=podcast.id,
             status=EpisodeStatus.PUBLISHED,

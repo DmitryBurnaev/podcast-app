@@ -10,6 +10,7 @@ from litestar.status_codes import HTTP_201_CREATED
 from pydantic import ValidationError
 
 from src.constants import EpisodeStatus
+from src.modules.auth.load_user import get_current_user
 from src.modules import tasks
 from src.modules.db import SASessionUOW
 from src.modules.db.models import File as MediaFile
@@ -48,7 +49,8 @@ class EpisodesController(BaseController):
         episode_create_schema = await self._validate_create_episode_request(request)
         podcast_id = episode_create_schema.podcast_id
         source_url = episode_create_schema.normalized_source_url
-        user_id = request.state.current_user.id
+        current_user = get_current_user(request)
+        user_id = current_user.id
 
         logger.info(
             "Creating episode from source_url (podcast_id=%s, source_url=%s)",

@@ -5,7 +5,7 @@ import re
 from litestar.connection import Request
 from litestar.response import Redirect
 
-from src.modules.auth.load_user import attach_current_user
+from src.modules.auth.load_user import attach_current_user, get_current_user_or_none
 
 __all__ = ("browser_auth_gate",)
 
@@ -37,6 +37,6 @@ async def browser_auth_gate(request: Request) -> Redirect | None:
     await attach_current_user(request)
     if _is_auth_exempt(request):
         return None
-    if getattr(request.state, "current_user", None):
+    if get_current_user_or_none(request) is not None:
         return None
     return Redirect(path="/login")

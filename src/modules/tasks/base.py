@@ -25,8 +25,8 @@ class RQTask:
     """Base class for RQ tasks implementation."""
 
     def __init__(self, db_session: AsyncSession | None = None):
-        self.db_session: AsyncSession | None = db_session
-        self.task_context: TaskContext | None = None
+        self._db_session: AsyncSession | None = db_session
+        self._task_context: TaskContext | None = None
         self.settings: AppSettings = get_app_settings()
 
     async def run(self, *args, **kwargs):
@@ -66,13 +66,33 @@ class RQTask:
                 await self.db_session.commit()
 
         except Exception as exc:
-            if self.db_session:
-                await self.db_session.rollback()
+            if self._db_session is not None:
+                await self._db_session.rollback()
 
             result = TaskResultCode.ERROR
             logger.exception("Couldn't perform task %s | error %r", self.name, exc)
 
         return result
+
+    @property
+    def db_session(self) -> AsyncSession:
+        if self._db_session is None:
+            raise RuntimeError("No database session available")
+        return self._db_session
+
+    @db_session.setter
+    def db_session(self, value: AsyncSession | None) -> None:
+        self._db_session = value
+
+    @property
+    def task_context(self) -> TaskContext:
+        if self._task_context is None:
+            raise RuntimeError("No task context available")
+        return self._task_context
+
+    @task_context.setter
+    def task_context(self, value: TaskContext | None) -> None:
+        self._task_context = value
 
     @property
     def name(self):

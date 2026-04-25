@@ -8,6 +8,7 @@ from litestar.connection import Request
 from litestar.response import Template
 
 from src import constants as const
+from src.modules.auth.load_user import get_current_user_or_none
 from src.modules.tasks.base import RQTask
 
 __all__ = ("BaseController",)
@@ -35,7 +36,7 @@ class BaseController(Controller):
 
     @staticmethod
     def get_base_context(request: Request) -> dict[str, Any]:
-        current_user = getattr(request.state, "current_user", None)
+        current_user = get_current_user_or_none(request)
         is_authenticated = current_user is not None
         user_data: dict[str, Any] = {
             "name": None,
