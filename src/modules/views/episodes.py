@@ -1,7 +1,7 @@
 import logging
 import mimetypes
 from pathlib import Path
-from typing import ClassVar
+from typing import ClassVar, cast
 
 from litestar import get, post, Request
 from litestar.response import File, Template
@@ -17,7 +17,7 @@ from src.modules.db.repositories import EpisodeRepository, PodcastRepository
 from src.modules.schemas import EpisodeCreateSchema
 from src.modules.services.cover import CoverService
 from src.modules.services.episodes import EpisodeCreator
-from src.modules.views.base import BaseController
+from src.modules.views.base import BaseController, TaskQueueApp
 from src.settings.app import get_app_settings
 from src.utils import cut_string
 
@@ -80,9 +80,11 @@ class EpisodesController(BaseController):
                 await episode_repository.update(episode, status=EpisodeStatus.DOWNLOADING)
 
         if podcast.download_automatically:
-            await self._run_task(request.app, tasks.DownloadEpisodeTask, episode_id=episode.id)
+            app = cast(TaskQueueApp, request.app)
+            await self._run_task(app, tasks.DownloadEpisodeTask, episode_id=episode.id)
 
-        await self._run_task(request.app, tasks.DownloadEpisodeImageTask, episode_id=episode.id)
+        app = cast(TaskQueueApp, request.app)
+        await self._run_task(app, tasks.DownloadEpisodeImageTask, episode_id=episode.id)
 
         if logger.isEnabledFor(logging.DEBUG):
             logger.debug("Episode created: #%s | url: %r", episode.id, source_url)

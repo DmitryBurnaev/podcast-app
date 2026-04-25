@@ -8,7 +8,7 @@ from src.constants import EpisodeStatus
 from src.exceptions import UserCancellationError, DownloadingInterrupted
 from src.modules.db import SASessionUOW
 from src.modules.db.models import Episode
-from src.modules.db.repositories import EpisodeRepository, FileRepository
+from src.modules.db.repositories import EpisodeRepository, FileRepository, FilterT
 from src.modules.db.utils import cookie_file_ctx
 from src.modules.services.redis import RedisClient
 from src.modules.services.storage import StorageS3
@@ -45,6 +45,7 @@ class DownloadEpisodeTask(RQTask):
     storage: StorageS3
     tmp_audio_path: Path
     episode_repository: EpisodeRepository
+    file_repository: FileRepository
 
     # pylint: disable=arguments-differ
     async def run(self, episode_id: int) -> TaskResultCode:
@@ -52,8 +53,10 @@ class DownloadEpisodeTask(RQTask):
         self.task_context = self.task_context or self._prepare_task_context(episode_id)
         if not self.db_session:
             raise RuntimeError("No database session available")
+        db_session = self.db_session
 
-        self.episode_repository = EpisodeRepository(self.db_session)
+        self.episode_repository = EpisodeRepository(db_session)
+        self.file_repository = FileRepository(db_session)
 
         try:
             code = await self.perform_run(int(episode_id))
@@ -89,7 +92,7 @@ class DownloadEpisodeTask(RQTask):
 
         :raise: DownloadingInterrupted (if downloading is broken or unnecessary)
         """
-        episode: Episode = await EpisodeRepository(self.db_session).get(episode_id)
+        episode = await self.episode_repository.get(episode_id)
         logger.info(
             "=== [%s] START downloading process URL: %s ===",
             episode.source_id,
@@ -120,6 +123,9 @@ class DownloadEpisodeTask(RQTask):
         return TaskResultCode.SUCCESS
 
     async def _save_job_id(self, episode: Episode) -> None:
+        if self.task_context is None:
+            raise RuntimeError("No task context available")
+
         logger.info(
             "Saving taskID by episodes' filename: %s | jobID: %s",
             episode.audio_filename,
@@ -160,17 +166,27 @@ class DownloadEpisodeTask(RQTask):
 
         source_config: SourceConfig = SOURCE_CFG_MAP[episode.source_type]
         if not source_config.need_downloading:
-            if result_path := episode.audio.path:
-                return Path(result_path)
+            if existing_path := episode.audio.path:
+                return Path(existing_path)
 
             raise DownloadingInterrupted(
                 code=TaskResultCode.ERROR,
                 message="Episode [source: UPLOAD] does not contain audio with predefined path",
             )
 
-        async with cookie_file_ctx(self.db_session, cookie_id=episode.cookie_id) as cookie:
+        if not self.db_session:
+            raise RuntimeError("No database session available")
+        db_session = self.db_session
+
+        if not episode.watch_url:
+            raise DownloadingInterrupted(
+                code=TaskResultCode.ERROR,
+                message="Episode does not contain source URL for downloading",
+            )
+
+        async with cookie_file_ctx(db_session, cookie_id=episode.cookie_id) as cookie:
             try:
-                result_path = await common_utils.download_audio(
+                downloaded_path = await common_utils.download_audio(
                     episode.watch_url,
                     filename=episode.audio_filename,
                     cookie_path=(cookie.file_path if cookie else None),
@@ -188,7 +204,7 @@ class DownloadEpisodeTask(RQTask):
                 raise DownloadingInterrupted(code=TaskResultCode.ERROR) from exc
 
         logger.info("=== [%s] DOWNLOADING was done ===", episode.source_id)
-        return result_path
+        return downloaded_path
 
     async def _remove_unfinished(self, episode: Episode) -> None:
         """Finding unfinished downloading and remove file from the storage (S3)"""
@@ -253,7 +269,7 @@ class DownloadEpisodeTask(RQTask):
     async def _update_episodes(self, episode: Episode, update_data: dict) -> None:
         """Updating data for episodes (filtered by source_id and source_type)"""
 
-        filter_kwargs = {
+        filter_kwargs: dict[str, FilterT] = {
             "source_id": episode.source_id,
             "source_type": episode.source_type,
             "status__ne": Episode.Status.ARCHIVED,
@@ -266,8 +282,7 @@ class DownloadEpisodeTask(RQTask):
 
         source_url = episode.audio.source_url
         logger.debug("Files update: source_url: %s | data: %s", source_url, update_data)
-        file_repository: FileRepository = FileRepository(self.db_session)
-        await file_repository.update_by_filters(
+        await self.file_repository.update_by_filters(
             filters={"source_url": source_url},
             value=update_data,
         )
@@ -296,7 +311,7 @@ class UploadedEpisodeTask(DownloadEpisodeTask):
             episode.source_id,
             episode.audio.path,
         )
-        remote_size = self.storage.get_file_size(dst_path=episode.audio.path)
+        remote_size = await self.storage.get_file_size(dst_path=episode.audio.path)
         if episode.status == EpisodeStatus.PUBLISHED and remote_size == episode.audio.size:
             raise DownloadingInterrupted(
                 code=TaskResultCode.SKIP,
@@ -319,14 +334,15 @@ class UploadedEpisodeTask(DownloadEpisodeTask):
             status=EpisodeStatus.PUBLISHED,
             published_at=episode.created_at,
         )
-        file_repository: FileRepository = FileRepository(self.db_session)
-        await file_repository.update(
+        await self.file_repository.update(
             episode.audio,
             path=remote_path,
             size=remote_size,
             available=True,
         )
         await self._update_all_rss(episode.source_id)
+        if self.db_session is None:
+            raise RuntimeError("No database session available")
         await self.db_session.flush()
         logger.info("=== [%s] DOWNLOADING total finished ===", episode.source_id)
         return TaskResultCode.SUCCESS

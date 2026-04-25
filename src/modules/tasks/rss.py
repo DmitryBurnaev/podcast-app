@@ -8,7 +8,12 @@ from src.constants import FileType, EpisodeStatus
 from src.modules.services.storage import StorageS3
 from src.modules.utils.processing import get_file_size
 from src.modules.tasks.base import RQTask, TaskResultCode
-from src.modules.db.repositories import PodcastRepository, FileRepository, EpisodeRepository
+from src.modules.db.repositories import (
+    PodcastRepository,
+    FileRepository,
+    EpisodeRepository,
+    CreateT,
+)
 
 __all__ = ["GenerateRSSTask"]
 logger = logging.getLogger(__name__)
@@ -27,9 +32,10 @@ class GenerateRSSTask(RQTask):
         self.storage = StorageS3()
         if not self.db_session:
             raise RuntimeError("No database session available")
+        db_session = self.db_session
 
-        self.podcast_repository = PodcastRepository(self.db_session)
-        self.file_repository = FileRepository(self.db_session)
+        self.podcast_repository = PodcastRepository(db_session)
+        self.file_repository = FileRepository(db_session)
 
         filter_kwargs = {"ids": [int(pk) for pk in podcast_ids]} if podcast_ids else {}
         podcasts = await self.podcast_repository.all(**filter_kwargs)
@@ -56,7 +62,7 @@ class GenerateRSSTask(RQTask):
             logger.error("Couldn't upload RSS file to storage. SKIP")
             return {podcast.id: TaskResultCode.ERROR}
 
-        rss_data = {
+        rss_data: dict[str, CreateT] = {
             "path": remote_path,
             "size": get_file_size(local_path),
             "available": True,
@@ -64,12 +70,15 @@ class GenerateRSSTask(RQTask):
         if podcast.rss_id:
             await self.file_repository.update_by_ids([podcast.rss_id], value=rss_data)
         else:
-            rss_file_data = rss_data | {
-                "file_type": FileType.RSS,
+            rss_file_data: dict[str, CreateT] = rss_data | {
+                "type": FileType.RSS,
                 "owner_id": podcast.owner_id,
             }
             rss_file: File = await self.file_repository.create(**rss_file_data)
-            await self.podcast_repository.update_by_filters(filters={"rss_id": rss_file.id})
+            await self.podcast_repository.update_by_filters(
+                filters={"id": podcast.id},
+                value={"rss_id": rss_file.id},
+            )
 
         logger.info("Podcast #%i: RSS file uploaded, podcast record updated", podcast.id)
         logger.info("FINISH generation for %s | PATH: %s", podcast, remote_path)
@@ -79,7 +88,11 @@ class GenerateRSSTask(RQTask):
         """Generate rss for Podcast and Episodes marked as "published" """
 
         logger.info("Podcast #%i: RSS generation has been started", podcast.id)
-        episode_repository: EpisodeRepository = EpisodeRepository(self.db_session)
+        if not self.db_session:
+            raise RuntimeError("No database session available")
+        db_session = self.db_session
+
+        episode_repository = EpisodeRepository(db_session)
         episodes = await episode_repository.all(
             podcast_id=podcast.id,
             status=EpisodeStatus.PUBLISHED,

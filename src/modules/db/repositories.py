@@ -154,8 +154,8 @@ class BaseRepository(Generic[ModelT]):
 
     async def update(self, instance: ModelT, **value: UpdateT) -> None:
         """Just updates the instance with provided update_value."""
-        for key, value in value.items():
-            setattr(instance, key, value)
+        for key, field_value in value.items():
+            setattr(instance, key, field_value)
 
         self.session.add(instance)
 
