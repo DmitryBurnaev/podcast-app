@@ -7,7 +7,7 @@ from litestar import Request, get, post
 from litestar.datastructures import Cookie
 from litestar.response import Redirect, Template
 
-from settings.app import get_app_settings
+from src.settings.app import get_app_settings
 from src.modules.db.repositories import UserRepository, UserSessionRepository
 from src.modules.db.services import SASessionUOW
 from src.modules.views.base import BaseController
@@ -77,7 +77,7 @@ class AuthController(BaseController):
 
     @post("/logout")
     async def logout(self, request: Request) -> Redirect:
-        settings = request.app.settings
+        settings = get_app_settings()
         public_id = request.cookies.get(settings.auth.session_cookie_name)
         if public_id:
             async with SASessionUOW() as uow:

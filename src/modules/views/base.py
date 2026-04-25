@@ -1,7 +1,7 @@
 import asyncio
 import logging
 from functools import lru_cache
-from typing import Any, TYPE_CHECKING
+from typing import Any, Protocol
 
 from litestar import Controller
 from litestar.connection import Request
@@ -10,12 +10,12 @@ from litestar.response import Template
 from src import constants as const
 from src.modules.tasks.base import RQTask
 
-if TYPE_CHECKING:
-    from src.main import PodcastApp
-
-
 __all__ = ("BaseController",)
 logger = logging.getLogger(__name__)
+
+
+class TaskQueueApp(Protocol):
+    rq_queue: Any
 
 
 class BaseController(Controller):
@@ -67,7 +67,7 @@ class BaseController(Controller):
 
     @classmethod
     async def _run_task(
-        cls, app: "PodcastApp", task_class: type[RQTask], *args: Any, **kwargs: Any
+        cls, app: TaskQueueApp, task_class: type[RQTask], *args: Any, **kwargs: Any
     ) -> None:
         """Run a task asynchronously."""
         logger.info("RUN task %s", task_class)

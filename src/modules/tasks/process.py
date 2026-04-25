@@ -26,9 +26,10 @@ class BaseEpisodePostProcessTask(RQTask):
         self.storage = StorageS3()
         if not self.db_session:
             raise RuntimeError("No database session available")
+        db_session = self.db_session
 
-        self.episode_repository = EpisodeRepository(self.db_session)
-        self.file_repository = FileRepository(self.db_session)
+        self.episode_repository = EpisodeRepository(db_session)
+        self.file_repository = FileRepository(db_session)
 
         try:
             code = await self.perform_run(episode_id)
@@ -87,6 +88,8 @@ class DownloadEpisodeImageTask(BaseEpisodePostProcessTask):
             tmp_path = await download_content(episode.image.source_url, file_ext="jpg")
         except NotFoundError:
             return None
+        if tmp_path is None:
+            return None
 
         ffmpeg.ffmpeg_preparation(src_path=tmp_path, ffmpeg_params=["-vf", "scale=600:-1"])
         return tmp_path
@@ -112,7 +115,7 @@ class ApplyMetadataEpisodeTask(BaseEpisodePostProcessTask):
 
     async def perform_run(self, episode_id: int) -> TaskResultCode:
         # getting episode from DB
-        episode: Episode = await self.episode_repository.first(episode_id)
+        episode = await self.episode_repository.first(episode_id)
         if not episode:
             logger.error("EpisodeMetaData %s: unable to find episode", episode_id)
             return TaskResultCode.ERROR
