@@ -50,13 +50,11 @@ class DownloadEpisodeTask(RQTask):
     # pylint: disable=arguments-differ
     async def run(self, episode_id: int) -> TaskResultCode:
         self.storage = StorageS3()
-        self.task_context = self.task_context or self._prepare_task_context(episode_id)
-        if not self.db_session:
-            raise RuntimeError("No database session available")
-        db_session = self.db_session
+        if self._task_context is None:
+            self.task_context = self._prepare_task_context(episode_id)
 
-        self.episode_repository = EpisodeRepository(db_session)
-        self.file_repository = FileRepository(db_session)
+        self.episode_repository = EpisodeRepository(self.db_session)
+        self.file_repository = FileRepository(self.db_session)
 
         try:
             code = await self.perform_run(int(episode_id))
@@ -123,9 +121,6 @@ class DownloadEpisodeTask(RQTask):
         return TaskResultCode.SUCCESS
 
     async def _save_job_id(self, episode: Episode) -> None:
-        if self.task_context is None:
-            raise RuntimeError("No task context available")
-
         logger.info(
             "Saving taskID by episodes' filename: %s | jobID: %s",
             episode.audio_filename,
@@ -174,17 +169,13 @@ class DownloadEpisodeTask(RQTask):
                 message="Episode [source: UPLOAD] does not contain audio with predefined path",
             )
 
-        if not self.db_session:
-            raise RuntimeError("No database session available")
-        db_session = self.db_session
-
         if not episode.watch_url:
             raise DownloadingInterrupted(
                 code=TaskResultCode.ERROR,
                 message="Episode does not contain source URL for downloading",
             )
 
-        async with cookie_file_ctx(db_session, cookie_id=episode.cookie_id) as cookie:
+        async with cookie_file_ctx(self.db_session, cookie_id=episode.cookie_id) as cookie:
             try:
                 downloaded_path = await common_utils.download_audio(
                     episode.watch_url,
@@ -341,8 +332,6 @@ class UploadedEpisodeTask(DownloadEpisodeTask):
             available=True,
         )
         await self._update_all_rss(episode.source_id)
-        if self.db_session is None:
-            raise RuntimeError("No database session available")
         await self.db_session.flush()
         logger.info("=== [%s] DOWNLOADING total finished ===", episode.source_id)
         return TaskResultCode.SUCCESS

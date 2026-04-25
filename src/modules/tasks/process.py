@@ -24,12 +24,8 @@ class BaseEpisodePostProcessTask(RQTask):
     # pylint: disable=arguments-differ
     async def run(self, episode_id: int) -> TaskResultCode:
         self.storage = StorageS3()
-        if not self.db_session:
-            raise RuntimeError("No database session available")
-        db_session = self.db_session
-
-        self.episode_repository = EpisodeRepository(db_session)
-        self.file_repository = FileRepository(db_session)
+        self.episode_repository = EpisodeRepository(self.db_session)
+        self.file_repository = FileRepository(self.db_session)
 
         try:
             code = await self.perform_run(episode_id)

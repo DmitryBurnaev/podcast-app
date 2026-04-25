@@ -4,6 +4,7 @@ import logging
 from typing import TYPE_CHECKING
 from litestar.connection import Request
 
+from src.modules.db.models.users import User
 from src.modules.db.repositories import UserSessionRepository
 from src.modules.db.services import SASessionUOW
 
@@ -11,6 +12,22 @@ if TYPE_CHECKING:
     from src.main import PodcastApp
 
 logger = logging.getLogger(__name__)
+
+
+def get_current_user_or_none(request: Request) -> User | None:
+    """Return typed current user from request state, if available."""
+    current_user = getattr(request.state, "current_user", None)
+    if isinstance(current_user, User):
+        return current_user
+    return None
+
+
+def get_current_user(request: Request) -> User:
+    """Return typed current user from request state or fail fast."""
+    current_user = get_current_user_or_none(request)
+    if current_user is None:
+        raise RuntimeError("Current user is not available in request state")
+    return current_user
 
 
 async def attach_current_user(request: Request) -> None:

@@ -7,6 +7,7 @@ from litestar import Request, get, post
 from litestar.datastructures import Cookie
 from litestar.response import Redirect, Template
 
+from src.modules.auth.load_user import get_current_user_or_none
 from src.settings.app import get_app_settings
 from src.modules.db.repositories import UserRepository, UserSessionRepository
 from src.modules.db.services import SASessionUOW
@@ -18,7 +19,7 @@ class AuthController(BaseController):
 
     @get("/login")
     async def login_page(self, request: Request) -> Template | Redirect:
-        if getattr(request.state, "current_user", None):
+        if get_current_user_or_none(request) is not None:
             return Redirect(path="/")
         err = request.query_params.get("error")
         return self.get_response_template(

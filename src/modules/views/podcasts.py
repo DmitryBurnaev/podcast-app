@@ -6,6 +6,7 @@ from litestar import get, Request
 from litestar.response import File, Template
 from litestar.exceptions import NotFoundException
 
+from src.modules.auth.load_user import get_current_user
 from src.modules.db import SASessionUOW
 from src.modules.db.models import File as MediaFile
 from src.modules.db.repositories import EpisodeRepository, PodcastRepository
@@ -18,9 +19,10 @@ from src.utils import cut_string
 class PodcastsController(BaseController):
     @get("/podcasts/")
     async def get(self, request: Request) -> Template:
+        current_user = get_current_user(request)
         async with SASessionUOW() as uow:
             podcast_repository = PodcastRepository(session=uow.session)
-            owner_id = request.state.current_user.id
+            owner_id = current_user.id
             podcasts = await podcast_repository.all_with_aggregations(owner_id=owner_id)
 
         return self.get_response_template(
