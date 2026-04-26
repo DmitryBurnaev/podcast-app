@@ -48,8 +48,12 @@ class TaskContext:
         return None
 
 
-def delete_file(filepath: str | Path) -> None:
+def delete_file(filepath: str | Path | None) -> None:
     """Delete local file"""
+
+    if filepath is None:
+        logger.info("Skip deleting file with null path")
+        return
 
     try:
         os.remove(filepath)

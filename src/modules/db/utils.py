@@ -54,5 +54,5 @@ async def cookie_file_ctx(
         else:
             yield None
     finally:
-        if cookie and cookie.file_path is not None:
+        if cookie:
             processing_utils.delete_file(cookie.file_path)
