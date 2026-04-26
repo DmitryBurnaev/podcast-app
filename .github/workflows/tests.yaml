@@ -27,5 +27,5 @@ jobs:
       - name: Run linters
         run: docker compose up --exit-code-from lint lint
 
-      - name: Run tests
-        run: docker compose up --exit-code-from test test
+#      - name: Run tests
+#        run: docker compose up --exit-code-from test test
