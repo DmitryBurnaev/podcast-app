@@ -17,13 +17,17 @@ def _is_auth_exempt(request: Request) -> bool:
     """Routes that must work without a session (and CORS preflight)."""
     if request.method == "OPTIONS":
         return True
+
     path = request.url.path.rstrip("/") or "/"
     if path == "/login" and request.method in ("GET", "HEAD", "POST"):
         return True
+
     if path == "/logout" and request.method == "POST":
         return True
+
     if request.method in ("GET", "HEAD") and _MEDIA_TOKEN_PATH.match(path):
         return True
+
     return False
 
 
@@ -37,6 +41,8 @@ async def browser_auth_gate(request: Request) -> Redirect | None:
     await attach_current_user(request)
     if _is_auth_exempt(request):
         return None
+
     if get_current_user_or_none(request) is not None:
         return None
+
     return Redirect(path="/login")

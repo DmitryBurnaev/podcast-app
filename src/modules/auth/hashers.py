@@ -40,9 +40,9 @@ class PBKDF2PasswordHasher:
 
     def encode(self, password: str, salt: str | None = None) -> str:
         """Encoding password using random salt + pbkdf2_sha256"""
-        salt = salt or get_salt()
-        self._validate_input(password, salt)
-        hash_ = self._pbkdf2(password, salt)
+        password_salt: str = salt or get_salt()
+        self._validate_input(password, password_salt)
+        hash_ = self._pbkdf2(password, password_salt)
         hash_value = base64.b64encode(hash_).decode("ascii").strip()
         return f"{self.algorithm}${self.iterations}${salt}${hash_value}"
 
@@ -76,7 +76,7 @@ class PBKDF2PasswordHasher:
         return hashlib.pbkdf2_hmac(digest().name, b_password, b_salt, iterations)
 
     @staticmethod
-    def _validate_input(password: str, salt: str) -> None:
+    def _validate_input(password: str, salt: str | None) -> None:
         """Validate the given password and salt."""
         if not password:
             raise ValueError("Password is required")

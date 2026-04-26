@@ -1,7 +1,7 @@
 # copy this file to /etc/systemd/system/podcast-app.service
 
 [Unit]
-Description=Code Agent Service
+Description=PodcastApp Service
 Requires=docker.service
 After=docker.service
 
