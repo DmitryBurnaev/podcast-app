@@ -63,7 +63,7 @@ run_service() {
       export RUFF_CACHE_DIR=/tmp/.ruff
       ruff check .
       print_caption "Mypy check"
-      mypy .
+      mypy . --show-traceback
       ;;
     *)
       echo "APP_SERVICE environment variable is unexpected or was not provided (APP_SERVICE='${APP_SERVICE}')" >&2

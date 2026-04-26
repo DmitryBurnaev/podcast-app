@@ -35,7 +35,7 @@ dev = [
     # format and linting
     "black>=26.1,<27.0",
     "ruff>=0.15,<0.16",
-    "mypy>=0.20,<1.21",
+    "mypy>=0.19,<1.20",
     # pycharm requires
     "setuptools<83.0",
     "pip<27",
