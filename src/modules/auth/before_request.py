@@ -3,7 +3,7 @@
 import re
 
 from litestar.connection import Request
-from litestar.response import Redirect
+from litestar.response import Redirect, Response
 
 from src.modules.auth.load_user import attach_current_user, get_current_user_or_none
 
@@ -31,7 +31,7 @@ def _is_auth_exempt(request: Request) -> bool:
     return False
 
 
-async def browser_auth_gate(request: Request) -> Redirect | None:
+async def browser_auth_gate(request: Request) -> Redirect | Response | None:
     """
     Load ``request.state.current_user`` then require a session for all other browser routes.
 
@@ -44,5 +44,12 @@ async def browser_auth_gate(request: Request) -> Redirect | None:
 
     if get_current_user_or_none(request) is not None:
         return None
+
+    if request.url.path.startswith("/api/"):
+        return Response(
+            content={"error": "Unauthorized"},
+            media_type="application/json",
+            status_code=401,
+        )
 
     return Redirect(path="/login")
