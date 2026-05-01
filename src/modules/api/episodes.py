@@ -25,7 +25,7 @@ def episode_to_response(episode: Episode) -> EpisodeResponse:
     )
 
 
-class PodcastApiController(BaseApiController):
+class EpisodeApiController(BaseApiController):
     path = "/api/episodes"
     tags = ["Episodes"]
 
