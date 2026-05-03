@@ -4,6 +4,7 @@ from litestar import Request, get
 from litestar.exceptions import NotFoundException
 from pydantic import BaseModel
 
+from modules.dto.podcasts import PodcastListDTO
 from src.modules.api.base import BaseApiController
 from src.modules.auth.load_user import get_current_user
 from src.modules.db.models.podcasts import Podcast
@@ -40,8 +41,8 @@ class PodcastApiController(BaseApiController):
     path = "/api/podcasts"
     tags = ["Podcasts"]
 
-    @get("/")
-    async def list_podcasts(self, request: Request) -> list[PodcastResponse]:
+    @get("/", return_dto=PodcastListDTO)
+    async def get_list(self, request: Request) -> list[PodcastResponse]:
         current_user = get_current_user(request)
         async with SASessionUOW() as uow:
             podcast_repository = PodcastRepository(session=uow.session)

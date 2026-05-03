@@ -1,6 +1,8 @@
 from datetime import datetime
 
+from litestar.plugins.pydantic import PydanticDTO
 from pydantic import BaseModel
+from litestar.dto import DTOConfig
 
 
 class Podcast(BaseModel):
@@ -30,3 +32,14 @@ class EpisodeInList(BaseModel):
 
 class EpisodeDetails(EpisodeInList):
     podcast: Podcast
+
+
+class PodcastListDTO(PydanticDTO[Podcast]): ...
+
+
+class PodcastCreateDTO(PydanticDTO[Podcast]):
+    config = DTOConfig(include={"name", "description"})
+
+
+class PodcastUpdateDTO(PydanticDTO[Podcast]):
+    config = DTOConfig(include={"name", "description", "download_automatically"})
