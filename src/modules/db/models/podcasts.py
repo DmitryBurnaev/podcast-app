@@ -104,6 +104,16 @@ class Podcast(BaseModel):
 
         return None
 
+    @property
+    def image_url(self) -> str | None:
+        app_settings = get_app_settings()
+        url = self.image.url if self.image else None
+        if not url and app_settings.default_podcast_cover:
+            base_url = app_settings.service_url.removesuffix("/")
+            url = f"{base_url}/{app_settings.default_podcast_cover}"
+
+        return url
+
     # @classmethod
     # async def create_first_podcast(cls, db_session: AsyncSession, user_id: int):
     #     # TODO: move to repository
@@ -122,17 +132,15 @@ class Podcast(BaseModel):
     def generate_publish_id(cls) -> str:
         return md5(uuid.uuid4().hex.encode()).hexdigest()[::2]
 
-    def generate_image_name(self) -> str:
-        return f"{self.publish_id}_{uuid.uuid4().hex}.png"
-
-    @property
-    def icon(self) -> str:
-        """If 1st letter has emoji code, return it, otherwise return the first letter"""
-        first_letter = self.name.strip()[0]
-        if is_basic_emoji(first_letter):
-            return first_letter
-
-        return "🎧"
+    #
+    # @property
+    # def icon(self) -> str:
+    #     """If 1st letter has emoji code, return it, otherwise return the first letter"""
+    #     first_letter = self.name.strip()[0]
+    #     if is_basic_emoji(first_letter):
+    #         return first_letter
+    #
+    #     return "🎧"
 
 
 @dataclass
@@ -231,6 +239,7 @@ class Episode(BaseModel):
     @classmethod
     async def get_in_progress(cls, db_session: AsyncSession, user_id: int):
         """Return downloading episodes"""
+        # TODO: move to repository
         from sqlalchemy import select
 
         statement = (
@@ -242,14 +251,15 @@ class Episode(BaseModel):
         return list(result.scalars().all())
 
     @property
-    def image_url(self) -> str:
+    def image_url(self) -> str | None:
         """Provides saved or the default one of episode's cover image"""
-        # app_settings = get_app_settings()
-        images = ["default.jpg", "snake.png", "podcast-listen-later.jpg"]
-        image_name = random.choice(images)
-        return f"/static/images/{image_name}"
-        # url = self.image.url if self.image else None
-        # return url or app_settings.default_episode_cover
+        app_settings = get_app_settings()
+        url = self.image.url if self.image else None
+        if not url and app_settings.default_episode_cover:
+            base_url = app_settings.service_url.removesuffix("/")
+            url = f"{base_url}/{app_settings.default_episode_cover}"
+
+        return url
 
     @property
     def audio_url(self) -> str | None:
@@ -332,6 +342,7 @@ class Episode(BaseModel):
 
     async def delete(self, db_session: AsyncSession, db_flush: bool = True):
         """Removing files associated with requested episode"""
+        # TODO: move to repository
         raise NotImplementedError("Episode deletion not implemented")
         # app_settings = get_app_settings()
         #

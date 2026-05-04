@@ -1,10 +1,10 @@
 from datetime import datetime
+from typing import Generic, TypeVar
 
 from litestar import Request, get
 from litestar.exceptions import NotFoundException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
-from modules.dto.podcasts import PodcastListDTO
 from src.modules.api.base import BaseApiController
 from src.modules.auth.load_user import get_current_user
 from src.modules.db.models.podcasts import Podcast
@@ -37,25 +37,60 @@ def podcast_to_response(podcast: Podcast) -> PodcastResponse:
     )
 
 
+ResponseModelT = TypeVar("ResponseModelT", bound=BaseModel)
+
+
+class LimitOffsetPagination(Generic[ResponseModelT]):
+    """
+    Limit and offset pagination for API responses.
+    """
+
+    offset: int = Field(default=0, description="Offset of the first item to return")
+    items: list[ResponseModelT] = Field(
+        default_factory=list, description="List of items for requested limit and offset"
+    )
+    total: int = Field(default=0, description="Total number of items in the database")
+
+
+class ListItemsPaginationRequest(BaseModel):
+    offset: int = Field(default=0, description="Offset of the first item to return")
+    limit: int = Field(default=10, description="Number of items to return")
+    sort_by: str = Field(default="id", description="Field to sort by")
+
+
 class PodcastApiController(BaseApiController):
     path = "/api/podcasts"
     tags = ["Podcasts"]
 
-    @get("/", return_dto=PodcastListDTO)
-    async def get_list(self, request: Request) -> list[PodcastResponse]:
+    @get("/", return_dto=LimitOffsetPagination[PodcastResponse], dto=ListItemsPaginationRequest)
+    async def get_list(
+        self,
+        request: Request,
+        request_data: ListItemsPaginationRequest,
+    ) -> LimitOffsetPagination[PodcastResponse]:
         current_user = get_current_user(request)
         async with SASessionUOW() as uow:
             podcast_repository = PodcastRepository(session=uow.session)
-            podcasts = await podcast_repository.all_with_aggregations(owner_id=current_user.id)
+            podcasts, total = await podcast_repository.all_with_aggregations(
+                limit=request_data.limit,
+                offset=request_data.offset,
+                sort_by=request_data.sort_by,
+                owner_id=current_user.id,
+            )
 
-        return [podcast_to_response(podcast) for podcast in sorted(podcasts, key=lambda p: p.id)]
+        return LimitOffsetPagination(
+            items=[
+                podcast_to_response(podcast) for podcast in sorted(podcasts, key=lambda p: p.id)
+            ],
+            total=total,
+        )
 
     @get("/{podcast_id:int}/")
     async def get_podcast(self, podcast_id: int, request: Request) -> PodcastResponse:
         current_user = get_current_user(request)
         async with SASessionUOW() as uow:
             podcast_repository = PodcastRepository(session=uow.session)
-            podcasts = await podcast_repository.all_with_aggregations(
+            podcasts, _ = await podcast_repository.all_with_aggregations(
                 ids=[podcast_id],
                 owner_id=current_user.id,
             )

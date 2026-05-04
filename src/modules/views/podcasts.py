@@ -23,7 +23,7 @@ class PodcastsController(BaseController):
         async with SASessionUOW() as uow:
             podcast_repository = PodcastRepository(session=uow.session)
             owner_id = current_user.id
-            podcasts = await podcast_repository.all_with_aggregations(owner_id=owner_id)
+            podcasts, _ = await podcast_repository.all_with_aggregations(owner_id=owner_id)
 
         return self.get_response_template(
             template_name="podcasts.html",
