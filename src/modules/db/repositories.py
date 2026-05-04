@@ -3,6 +3,7 @@
 import logging
 from datetime import UTC, datetime
 from typing import (
+    Callable,
     Generic,
     TypeVar,
     Any,
@@ -25,6 +26,7 @@ from sqlalchemy import (
     or_,
     Row,
     and_,
+    ColumnElement,
 )
 from sqlalchemy.exc import NoResultFound
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -76,17 +78,18 @@ class BaseRepository(Generic[ModelT]):
     def __init__(self, session: AsyncSession) -> None:
         self.session: AsyncSession = session
 
-    async def get(self, instance_id: int) -> ModelT:
+    async def get(self, instance_id: int, **filters: FilterT) -> ModelT:
         """Selects instance by provided ID"""
-        instance: ModelT | None = await self.first(instance_id)
+        # TODO: research and encapsulate checking on owner
+        instance: ModelT | None = await self.first(**(filters | {"id": instance_id}))
         if not instance:
             raise NoResultFound
 
         return instance
 
-    async def first(self, instance_id: int) -> ModelT | None:
+    async def first(self, **filters: FilterT) -> ModelT | None:
         """Selects instance by provided ID"""
-        statement = select(self.model).filter_by(id=instance_id)
+        statement = self._prepare_statement(filters=filters)
         result = await self.session.execute(statement)
         row: Sequence[ModelT] | None = result.fetchone()
         if not row:
@@ -101,7 +104,7 @@ class BaseRepository(Generic[ModelT]):
         return [row[0] for row in result.fetchall()]
 
     async def all_paginated(
-        self, offset: int = 0, limit: int = 10, **filters: FilterT
+        self, offset: int = 0, limit: int = 10, sort_by: str = "-created_at", **filters: FilterT
     ) -> tuple[list[ModelT], int]:
         """Get paginated objects with optional filters.
 
@@ -121,20 +124,16 @@ class BaseRepository(Generic[ModelT]):
         if (ids := count_filters.pop("ids", None)) and isinstance(ids, list):
             count_filters_stmts.append(self.model.id.in_(ids))
 
-        # Get total count
-        count_statement = select(func.count(self.model.id)).filter_by(**count_filters)
-        if count_filters_stmts:
-            count_statement = count_statement.filter(*count_filters_stmts)
-
-        total = await self.session.scalar(count_statement) or 0
-
         # Get paginated releases
         statement = self._prepare_statement(filters=filters)
+        oder_by = self._sort_criteria(sort_by)
         objects = await self.session.scalars(
-            statement.order_by(self.model.created_at.desc()).offset(offset).limit(limit)
+            statement.order_by(oder_by).offset(offset).limit(limit)
         )
-
-        return list(objects.all()), total
+        total: int = await self.get_total_count(**filters)
+        instances: list[ModelT] = list(objects.all())
+        logger.debug("[DB] Found %i instances, total: %i", len(instances), total)
+        return instances, total
 
     async def create(self, **value: CreateT) -> ModelT:
         """Creates new instance"""
@@ -189,6 +188,12 @@ class BaseRepository(Generic[ModelT]):
         await self.session.flush()
         logger.info("[DB] Updated %i instances", result.rowcount)
 
+    async def get_total_count(self, **filters: FilterT) -> int:
+        """Get total count of instances by filters."""
+        logger.debug("[DB] Getting total count of %s: %s", self.model.__name__, filters)
+        statement = self._prepare_statement(filters=filters, entities=[func.count(self.model.id)])
+        return await self.session.scalar(statement) or 0
+
     def _prepare_statement(
         self,
         filters: dict[str, FilterT],
@@ -205,8 +210,8 @@ class BaseRepository(Generic[ModelT]):
 
         return statement
 
-    def _filter_criteria(self, filter_kwargs):
-        filters = []
+    def _filter_criteria(self, filter_kwargs) -> ColumnElement[bool]:
+        filters: list[BinaryExpression[bool]] = []
         for filter_name, filter_value in filter_kwargs.items():
             field_name, _, criteria = filter_name.partition("__")
             field = getattr(self.model, field_name)
@@ -230,6 +235,10 @@ class BaseRepository(Generic[ModelT]):
                 raise NotImplementedError(f"Unexpected criteria: {criteria}")
 
         return and_(True, *filters)
+
+    def _sort_criteria(self, sort_by: str) -> Callable[[], BinaryExpression[bool]]:
+        field = getattr(self.model, sort_by)
+        return field.desc() if sort_by.startswith("-") else field.asc()
 
 
 class UserRepository(BaseRepository[User]):
@@ -272,12 +281,11 @@ class UserSessionRepository(BaseRepository[UserSession]):
 
     async def deactivate_by_public_id(self, public_id: str) -> None:
         """Invalidate session on logout (idempotent)."""
-        stmt = select(UserSession).where(UserSession.public_id == public_id).limit(1)
-        result = await self.session.execute(stmt)
-        row = result.scalar_one_or_none()
-        if row is None:
+        user_session = await self.first(public_id=public_id)
+        if user_session is None:
             return
-        await self.update(row, is_active=False)
+
+        await self.update(user_session, is_active=False)
 
 
 class PodcastRepository(BaseRepository[Podcast]):
@@ -285,7 +293,13 @@ class PodcastRepository(BaseRepository[Podcast]):
 
     model = Podcast
 
-    async def all_with_aggregations(self, **filters: FilterT) -> list[Podcast]:
+    async def all_with_aggregations(
+        self,
+        offset: int = 0,
+        limit: int = 10,
+        sort_by: str = "id",
+        **filters: FilterT,
+    ) -> tuple[list[Podcast], int]:
         """Get podcasts with aggregated episode statistics (count, duration, size, dates).
 
         Adds dynamic attributes to Podcast objects:
@@ -311,6 +325,8 @@ class PodcastRepository(BaseRepository[Podcast]):
             .outerjoin(Episode, Podcast.id == Episode.podcast_id)
             .outerjoin(File, Episode.audio_id == File.id)
             .group_by(Podcast.id)
+            .offset(offset)
+            .limit(limit)
         )
 
         # Apply filters similar to _prepare_statement logic
@@ -321,6 +337,9 @@ class PodcastRepository(BaseRepository[Podcast]):
         statement = statement.filter_by(**filters_dict)
         if filters_stmts:
             statement = statement.filter(*filters_stmts)
+
+        order_by = self._sort_criteria(sort_by)
+        statement = statement.order_by(order_by)
 
         result = await self.session.execute(statement)
         rows = result.all()
@@ -336,7 +355,13 @@ class PodcastRepository(BaseRepository[Podcast]):
             )
             podcasts_with_stats.append(podcast)
 
-        return podcasts_with_stats
+        total = await self.get_total_count(**filters)
+        logger.debug(
+            "[DB] Found %i podcasts with aggregations, total: %i",
+            len(podcasts_with_stats),
+            total,
+        )
+        return podcasts_with_stats, total
 
     async def update_by_filters(self, filters: dict[str, FilterT], value: dict[str, Any]) -> None:
         """Update the instances by some filters"""
