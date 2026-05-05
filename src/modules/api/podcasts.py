@@ -3,8 +3,9 @@ from typing import Generic, TypeVar
 
 from litestar import Request, get
 from litestar.exceptions import NotFoundException
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 
+from schemas import PodcastStatistics
 from src.modules.api.base import BaseApiController
 from src.modules.auth.load_user import get_current_user
 from src.modules.db.models.podcasts import Podcast
@@ -13,6 +14,8 @@ from src.modules.db.services import SASessionUOW
 
 
 class PodcastResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     name: str
     description: str | None
@@ -20,7 +23,7 @@ class PodcastResponse(BaseModel):
     image_url: str | None = None
     rss_url: str | None = None
     download_automatically: bool
-    episodes_count: int = 0
+    stat: PodcastStatistics | None
 
 
 def podcast_to_response(podcast: Podcast) -> PodcastResponse:
@@ -78,10 +81,9 @@ class PodcastApiController(BaseApiController):
                 owner_id=current_user.id,
             )
 
-        return LimitOffsetPagination(
-            items=[
-                podcast_to_response(podcast) for podcast in sorted(podcasts, key=lambda p: p.id)
-            ],
+        return LimitOffsetPagination[PodcastResponse](
+            items=[PodcastResponse.model_validate(podcast) for podcast in podcasts],
+            offset=request_data.offset,
             total=total,
         )
 
