@@ -1,89 +1,38 @@
-from datetime import datetime
-from typing import Generic, TypeVar
-
 from litestar import Request, get
 from litestar.exceptions import NotFoundException
-from pydantic import BaseModel, Field, ConfigDict
 
-from schemas import PodcastStatistics
+from src.schemas import PodcastResponse, LimitOffsetPagination
 from src.modules.api.base import BaseApiController
 from src.modules.auth.load_user import get_current_user
-from src.modules.db.models.podcasts import Podcast
 from src.modules.db.repositories import PodcastRepository
 from src.modules.db.services import SASessionUOW
-
-
-class PodcastResponse(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
-    id: int
-    name: str
-    description: str | None
-    created_at: datetime
-    image_url: str | None = None
-    rss_url: str | None = None
-    download_automatically: bool
-    stat: PodcastStatistics | None
-
-
-def podcast_to_response(podcast: Podcast) -> PodcastResponse:
-    stat = podcast.stat
-    return PodcastResponse(
-        id=podcast.id,
-        name=podcast.name,
-        description=podcast.description,
-        created_at=podcast.created_at,
-        image_url=podcast.image.url if podcast.image else None,
-        rss_url=podcast.rss_url,
-        download_automatically=podcast.download_automatically,
-        episodes_count=stat.episodes_count if stat else 0,
-    )
-
-
-ResponseModelT = TypeVar("ResponseModelT", bound=BaseModel)
-
-
-class LimitOffsetPagination(Generic[ResponseModelT]):
-    """
-    Limit and offset pagination for API responses.
-    """
-
-    offset: int = Field(default=0, description="Offset of the first item to return")
-    items: list[ResponseModelT] = Field(
-        default_factory=list, description="List of items for requested limit and offset"
-    )
-    total: int = Field(default=0, description="Total number of items in the database")
-
-
-class ListItemsPaginationRequest(BaseModel):
-    offset: int = Field(default=0, description="Offset of the first item to return")
-    limit: int = Field(default=10, description="Number of items to return")
-    sort_by: str = Field(default="id", description="Field to sort by")
 
 
 class PodcastApiController(BaseApiController):
     path = "/api/podcasts"
     tags = ["Podcasts"]
 
-    @get("/", return_dto=LimitOffsetPagination[PodcastResponse], dto=ListItemsPaginationRequest)
+    @get("/")
     async def get_list(
         self,
         request: Request,
-        request_data: ListItemsPaginationRequest,
+        limit: int = 10,
+        offset: int = 0,
+        sort_by: str = "id",
     ) -> LimitOffsetPagination[PodcastResponse]:
         current_user = get_current_user(request)
         async with SASessionUOW() as uow:
             podcast_repository = PodcastRepository(session=uow.session)
             podcasts, total = await podcast_repository.all_with_aggregations(
-                limit=request_data.limit,
-                offset=request_data.offset,
-                sort_by=request_data.sort_by,
+                limit=limit,
+                offset=offset,
+                sort_by=sort_by,
                 owner_id=current_user.id,
             )
 
         return LimitOffsetPagination[PodcastResponse](
             items=[PodcastResponse.model_validate(podcast) for podcast in podcasts],
-            offset=request_data.offset,
+            offset=offset,
             total=total,
         )
 
@@ -92,6 +41,7 @@ class PodcastApiController(BaseApiController):
         current_user = get_current_user(request)
         async with SASessionUOW() as uow:
             podcast_repository = PodcastRepository(session=uow.session)
+            # TODO: implement stats calc for `get_first` method
             podcasts, _ = await podcast_repository.all_with_aggregations(
                 ids=[podcast_id],
                 owner_id=current_user.id,
@@ -100,4 +50,4 @@ class PodcastApiController(BaseApiController):
         if not podcasts:
             raise NotFoundException(f"Podcast with id {podcast_id} not found")
 
-        return podcast_to_response(podcasts[0])
+        return PodcastResponse.model_validate(podcasts[0])

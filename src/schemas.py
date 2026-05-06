@@ -1,7 +1,7 @@
 from datetime import datetime
-from typing import Optional
+from typing import Optional, Generic, TypeVar
 
-from pydantic import BaseModel, Field, computed_field, EmailStr, SecretStr
+from pydantic import BaseModel, Field, computed_field, EmailStr, SecretStr, ConfigDict
 
 from src.constants import format_file_size
 
@@ -60,6 +60,8 @@ class AppStatistics(BaseModel):
 class PodcastStatistics(BaseModel):
     """Per-podcast statistics for podcast detail page."""
 
+    model_config = ConfigDict(from_attributes=True)
+
     episodes_count: int = 0
     total_duration: int = 0
     total_size: int = 0
@@ -83,3 +85,31 @@ class UserCreatePayload(BaseModel):
 class UserLoginPayload(BaseModel):
     email: EmailStr
     password: SecretStr
+
+
+ResponseModelT = TypeVar("ResponseModelT", bound=BaseModel)
+
+
+class LimitOffsetPagination(BaseModel, Generic[ResponseModelT]):
+    """
+    Limit and offset pagination for API responses.
+    """
+
+    offset: int = Field(default=0, description="Offset of the first item to return")
+    items: list[ResponseModelT] = Field(
+        default_factory=list, description="List of items for requested limit and offset"
+    )
+    total: int = Field(default=0, description="Total number of items in the database")
+
+
+class PodcastResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    name: str
+    description: str | None
+    created_at: datetime
+    image_url: str | None = None
+    rss_url: str | None = None
+    download_automatically: bool
+    stat: PodcastStatistics
