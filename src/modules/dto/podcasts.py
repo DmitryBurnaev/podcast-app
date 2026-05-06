@@ -1,11 +1,13 @@
 from datetime import datetime
 
 from litestar.plugins.pydantic import PydanticDTO
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from litestar.dto import DTOConfig
 
 
 class Podcast(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     name: str
     description: str
@@ -17,6 +19,8 @@ class Podcast(BaseModel):
 
 
 class EpisodeInList(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     title: str
     source_id: str
