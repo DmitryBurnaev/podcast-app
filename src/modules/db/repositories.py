@@ -49,6 +49,9 @@ type FilterT = int | str | list[int] | None
 type UpdateT = int | str | datetime | None
 type CreateT = int | str | datetime | list[dict] | None
 type PodcastOrderT = Literal["id", "name", "created_at", "updated_at", "-created_at", "-updated_at"]
+type EpisodeOrderT = Literal[
+    "id", "title", "created_at", "updated_at", "-created_at", "-updated_at"
+]
 
 
 class VendorsFilter(TypedDict):
