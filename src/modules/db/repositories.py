@@ -48,6 +48,7 @@ RT = TypeVar("RT")
 type FilterT = int | str | list[int] | None
 type UpdateT = int | str | datetime | None
 type CreateT = int | str | datetime | list[dict] | None
+type PodcastOrderT = Literal["id", "name", "created_at", "updated_at", "-created_at", "-updated_at"]
 
 
 class VendorsFilter(TypedDict):
@@ -104,13 +105,18 @@ class BaseRepository(Generic[ModelT]):
         return [row[0] for row in result.fetchall()]
 
     async def all_paginated(
-        self, offset: int = 0, limit: int = 10, sort_by: str = "-created_at", **filters: FilterT
+        self,
+        offset: int = 0,
+        limit: int = 10,
+        order_by: PodcastOrderT = "-created_at",
+        **filters: FilterT,
     ) -> tuple[list[ModelT], int]:
         """Get paginated objects with optional filters.
 
         Args:
             offset: Number of items to skip
             limit: Maximum number of items to return
+            order_by: PodcastOrderT
             **filters: Optional filters to apply
 
         Returns:
@@ -126,9 +132,9 @@ class BaseRepository(Generic[ModelT]):
 
         # Get paginated releases
         statement = self._prepare_statement(filters=filters)
-        oder_by = self._sort_criteria(sort_by)
+        oder_by_criteria = self._sort_criteria(order_by)
         objects = await self.session.scalars(
-            statement.order_by(oder_by).offset(offset).limit(limit)
+            statement.order_by(oder_by_criteria).offset(offset).limit(limit)
         )
         total: int = await self.get_total_count(**filters)
         instances: list[ModelT] = list(objects.all())
@@ -237,7 +243,8 @@ class BaseRepository(Generic[ModelT]):
         return and_(True, *filters)
 
     def _sort_criteria(self, sort_by: str) -> Callable[[], BinaryExpression[bool]]:
-        field = getattr(self.model, sort_by)
+        field_name: str = sort_by.removeprefix("-")
+        field = getattr(self.model, field_name)
         return field.desc() if sort_by.startswith("-") else field.asc()
 
 
@@ -297,7 +304,7 @@ class PodcastRepository(BaseRepository[Podcast]):
         self,
         offset: int = 0,
         limit: int = 10,
-        sort_by: str = "id",
+        order_by: PodcastOrderT = "id",
         **filters: FilterT,
     ) -> tuple[list[Podcast], int]:
         """Get podcasts with aggregated episode statistics (count, duration, size, dates).
@@ -338,8 +345,7 @@ class PodcastRepository(BaseRepository[Podcast]):
         if filters_stmts:
             statement = statement.filter(*filters_stmts)
 
-        order_by = self._sort_criteria(sort_by)
-        statement = statement.order_by(order_by)
+        statement = statement.order_by(self._sort_criteria(order_by))
 
         result = await self.session.execute(statement)
         rows = result.all()

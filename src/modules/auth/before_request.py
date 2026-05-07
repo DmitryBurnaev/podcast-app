@@ -5,6 +5,7 @@ import re
 from litestar.connection import Request
 from litestar.response import Redirect, Response
 
+from settings.app import AppSettings, get_app_settings
 from src.modules.auth.load_user import attach_current_user, get_current_user_or_none
 
 __all__ = ("browser_auth_gate",)
@@ -46,6 +47,10 @@ async def browser_auth_gate(request: Request) -> Redirect | Response | None:
         return None
 
     if request.url.path.startswith("/api/"):
+        settings = get_app_settings()
+        if settings.flags.api_debug_mode:
+            return None
+
         return Response(
             content={"error": "Unauthorized"},
             media_type="application/json",

@@ -1,11 +1,15 @@
-from litestar import Request, get
+import logging
+from litestar import get
 from litestar.exceptions import NotFoundException
 
+from modules.db.repositories import PodcastOrderT
+from src.modules.db import User
 from src.schemas import PodcastResponse, LimitOffsetPagination
 from src.modules.api.base import BaseApiController
-from src.modules.auth.load_user import get_current_user
 from src.modules.db.repositories import PodcastRepository
 from src.modules.db.services import SASessionUOW
+
+logger = logging.getLogger(__name__)
 
 
 class PodcastApiController(BaseApiController):
@@ -15,21 +19,39 @@ class PodcastApiController(BaseApiController):
     @get("/")
     async def get_list(
         self,
-        request: Request,
+        current_user: User,
         limit: int = 10,
         offset: int = 0,
-        sort_by: str = "id",
+        order_by: PodcastOrderT = "-created_at",
     ) -> LimitOffsetPagination[PodcastResponse]:
-        current_user = get_current_user(request)
+        """
+        Get paginated list of podcasts (for current user) with pagination
+
+        Args:
+            current_user: Current user
+            limit: Limit of podcasts to return
+            offset: Offset of podcasts to return
+            order_by: Order by field
+
+        Returns:
+            Paginated list of podcasts
+        """
+        logger.info("[API] Getting paginated list of podcasts | user #%i", current_user.id)
         async with SASessionUOW() as uow:
             podcast_repository = PodcastRepository(session=uow.session)
             podcasts, total = await podcast_repository.all_with_aggregations(
                 limit=limit,
                 offset=offset,
-                sort_by=sort_by,
+                order_by=order_by,
                 owner_id=current_user.id,
             )
 
+        logger.info(
+            "[API] Returned podasts list | user #%i | found %i podcasts, total: %i",
+            current_user.id,
+            len(podcasts),
+            total,
+        )
         return LimitOffsetPagination[PodcastResponse](
             items=[PodcastResponse.model_validate(podcast) for podcast in podcasts],
             offset=offset,
@@ -37,8 +59,17 @@ class PodcastApiController(BaseApiController):
         )
 
     @get("/{podcast_id:int}/")
-    async def get_podcast(self, podcast_id: int, request: Request) -> PodcastResponse:
-        current_user = get_current_user(request)
+    async def get_details(self, podcast_id: int, current_user: User) -> PodcastResponse:
+        """
+        Get details of a podcast
+
+        Args:
+            podcast_id: ID of the podcast
+            current_user: Current user
+
+        Returns:
+            Details of the podcast
+        """
         async with SASessionUOW() as uow:
             podcast_repository = PodcastRepository(session=uow.session)
             # TODO: implement stats calc for `get_first` method
@@ -50,4 +81,9 @@ class PodcastApiController(BaseApiController):
         if not podcasts:
             raise NotFoundException(f"Podcast with id {podcast_id} not found")
 
+        logger.info(
+            "[API] Requested podcast details for user #%i | podcast #%i",
+            current_user.id,
+            podcast_id,
+        )
         return PodcastResponse.model_validate(podcasts[0])
