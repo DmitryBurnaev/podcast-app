@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Optional, Generic, TypeVar
+from typing import Optional, Generic, TypeVar, TypedDict
 
 from pydantic import BaseModel, Field, computed_field, EmailStr, SecretStr, ConfigDict
 

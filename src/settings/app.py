@@ -26,6 +26,7 @@ class FlagsSettings(BaseSettings):
     model_config = SettingsConfigDict(env_prefix="FLAG_")
 
     debug_mode: bool = False
+    api_debug_mode: bool = False
 
 
 class AuthSettings(BaseSettings):

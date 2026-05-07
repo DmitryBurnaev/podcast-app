@@ -21,6 +21,7 @@ from litestar.template import TemplateConfig
 # from litestar.middleware.session.memory_backend import MemoryBackendConfig
 from redis import Redis
 
+from modules.auth.load_user import get_current_user
 from src.exceptions import StartupError, StorageConfigurationError
 from src.modules.db import close_database, initialize_database, verify_database_reachable
 from src.modules.services.redis import check_redis_connection, close_async_redis_connection
@@ -133,6 +134,7 @@ def make_app(settings: AppSettings | None = None) -> PodcastApp:
         debug=app_settings.flags.debug_mode,
         dependencies={
             "settings": Provide(get_app_settings, sync_to_thread=False),
+            "current_user": Provide(get_current_user, sync_to_thread=False),
         },
         settings=app_settings,
     )

@@ -27,6 +27,7 @@ def get_current_user(request: Request) -> User:
     current_user = get_current_user_or_none(request)
     if current_user is None:
         raise RuntimeError("Current user is not available in request state")
+
     return current_user
 
 
