@@ -48,6 +48,9 @@ RT = TypeVar("RT")
 type FilterT = int | str | list[int] | None
 type UpdateT = int | str | datetime | None
 type CreateT = int | str | datetime | list[dict] | None
+type BaseOrderT = Literal[
+    "id", "name", "title", "created_at", "updated_at", "-created_at", "-updated_at"
+]
 type PodcastOrderT = Literal["id", "name", "created_at", "updated_at", "-created_at", "-updated_at"]
 type EpisodeOrderT = Literal[
     "id", "title", "created_at", "updated_at", "-created_at", "-updated_at"
@@ -111,7 +114,7 @@ class BaseRepository(Generic[ModelT]):
         self,
         offset: int = 0,
         limit: int = 10,
-        order_by: PodcastOrderT = "-created_at",
+        order_by: BaseOrderT = "-created_at",
         **filters: FilterT,
     ) -> tuple[list[ModelT], int]:
         """Get paginated objects with optional filters.
