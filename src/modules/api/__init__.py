@@ -1,6 +1,8 @@
+from src.schemas import EpisodeResponse, PodcastResponse
+
 from .base import BaseApiController
-from .episodes import EpisodeApiController, EpisodeResponse
-from .podcasts import PodcastApiController, PodcastResponse
+from .episodes import EpisodeApiController
+from .podcasts import PodcastApiController
 
 __all__ = (
     "BaseApiController",

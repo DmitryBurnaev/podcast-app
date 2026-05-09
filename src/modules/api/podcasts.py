@@ -2,8 +2,8 @@ import logging
 from litestar import get
 from litestar.exceptions import NotFoundException
 
-from modules.db.repositories import PodcastOrderT
 from src.modules.db import User
+from src.modules.db.repositories import PodcastOrderT
 from src.schemas import PodcastResponse, LimitOffsetPagination
 from src.modules.api.base import BaseApiController
 from src.modules.db.repositories import PodcastRepository
@@ -47,7 +47,7 @@ class PodcastApiController(BaseApiController):
             )
 
         logger.info(
-            "[API] Returned podasts list | user #%i | found %i podcasts, total: %i",
+            "[API] Returned podcasts list | user #%i | found %i podcasts, total: %i",
             current_user.id,
             len(podcasts),
             total,
@@ -72,13 +72,12 @@ class PodcastApiController(BaseApiController):
         """
         async with SASessionUOW() as uow:
             podcast_repository = PodcastRepository(session=uow.session)
-            # TODO: implement stats calc for `get_first` method
-            podcasts, _ = await podcast_repository.all_with_aggregations(
+            podcast = await podcast_repository.get_first_with_aggregations(
                 ids=[podcast_id],
                 owner_id=current_user.id,
             )
 
-        if not podcasts:
+        if not podcast:
             raise NotFoundException(f"Podcast with id {podcast_id} not found")
 
         logger.info(
@@ -86,4 +85,4 @@ class PodcastApiController(BaseApiController):
             current_user.id,
             podcast_id,
         )
-        return PodcastResponse.model_validate(podcasts[0])
+        return PodcastResponse.model_validate(podcast)
