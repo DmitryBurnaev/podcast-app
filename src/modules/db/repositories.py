@@ -156,7 +156,7 @@ class BaseRepository(Generic[ModelT]):
 
     async def get_or_create(self, id_: int, value: dict[str, Any]) -> ModelT:
         """Tries to find an instance by ID and create if it wasn't found"""
-        instance = await self.first(id_)
+        instance = await self.first(id=id_)
         if instance is None:
             await self.create(**(value | {"id": id_}))
             instance = await self.get(id_)
@@ -375,6 +375,17 @@ class PodcastRepository(BaseRepository[Podcast]):
         )
         return podcasts_with_stats, total
 
+    async def get_first_with_aggregations(self, **filters: FilterT) -> Podcast | None:
+        logger.info("[DB] Getting 1st instance by filter: %s", filters)
+        instances, _ = await self.all_with_aggregations(limit=1, order_by="id", **filters)
+        if not instances:
+            return None
+
+        if len(instances) > 1:
+            logger.warning("[DB] Found %i instances (expected 1) with aggregations", len(instances))
+
+        return instances[0]
+
     async def update_by_filters(self, filters: dict[str, FilterT], value: dict[str, Any]) -> None:
         """Update the instances by some filters"""
         logger.info("[DB] Updating instances by filter: %s", filters)
@@ -410,7 +421,10 @@ class EpisodeRepository(BaseRepository[Episode]):
                 case "gte":
                     statement = statement.filter(field >= value)
                 case "isnot":
-                    statement = statement.filter(isnot(field, value))
+                    if not isinstance(value, bool):
+                        raise TypeError("Filter statement can take only boolean values")
+
+                    statement = statement.filter(isnot(field, value))  # noqa
                 case _:
                     logger.warning(
                         "[DB] Unknown filter suffix '%s' | field: '%s'", suffix, field_name

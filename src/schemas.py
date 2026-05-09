@@ -113,3 +113,11 @@ class PodcastResponse(BaseModel):
     rss_url: str | None = None
     download_automatically: bool
     stat: PodcastStatistics
+
+
+class EpisodeResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    title: str
+    created_at: datetime
