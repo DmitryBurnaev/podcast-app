@@ -1,13 +1,13 @@
 from src.schemas import EpisodeResponse, PodcastResponse
 
 from .base import BaseApiController
-from .episodes import EpisodeApiController
-from .podcasts import PodcastApiController
+from .episodes import EpisodeAPIController
+from .podcasts import PodcastAPIController
 
 __all__ = (
     "BaseApiController",
-    "PodcastApiController",
+    "PodcastAPIController",
     "PodcastResponse",
-    "EpisodeApiController",
+    "EpisodeAPIController",
     "EpisodeResponse",
 )

@@ -12,7 +12,7 @@ from src.modules.db.services import SASessionUOW
 logger = logging.getLogger(__name__)
 
 
-class PodcastApiController(BaseApiController):
+class PodcastAPIController(BaseApiController):
     path = "/api/podcasts"
     tags = ["Podcasts"]
 
