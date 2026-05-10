@@ -5,7 +5,7 @@ import re
 from litestar.connection import Request
 from litestar.response import Redirect, Response
 
-from settings.app import AppSettings, get_app_settings
+from settings.app import get_app_settings
 from src.modules.auth.load_user import attach_current_user, get_current_user_or_none
 
 __all__ = ("browser_auth_gate",)

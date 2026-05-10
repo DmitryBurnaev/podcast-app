@@ -21,8 +21,8 @@ from litestar.template import TemplateConfig
 # from litestar.middleware.session.memory_backend import MemoryBackendConfig
 from redis import Redis
 
-from modules.auth.load_user import get_current_user
 from src.exceptions import StartupError, StorageConfigurationError
+from src.modules.auth.load_user import get_current_user
 from src.modules.db import close_database, initialize_database, verify_database_reachable
 from src.modules.services.redis import check_redis_connection, close_async_redis_connection
 from src.modules.services.storage import validate_s3_settings

@@ -3,7 +3,6 @@ import enum
 import os
 import logging
 from pathlib import Path
-import random
 import uuid
 from hashlib import md5
 from types import MappingProxyType
@@ -23,7 +22,7 @@ from src.modules.db.models.media import File
 from src.modules.db.models import BaseModel
 from src.schemas import PodcastStatistics
 from src.settings.app import get_app_settings
-from src.utils import utcnow, cut_string, is_basic_emoji
+from src.utils import utcnow, cut_string
 
 logger = logging.getLogger(__name__)
 
