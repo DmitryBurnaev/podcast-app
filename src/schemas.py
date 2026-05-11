@@ -115,9 +115,110 @@ class PodcastResponse(BaseModel):
     stat: PodcastStatistics
 
 
+class PodcastCreateRequest(BaseModel):
+    name: str = Field(min_length=1, max_length=256)
+    description: str = ""
+    download_automatically: bool = False
+
+
+class PodcastUpdateRequest(BaseModel):
+    name: str | None = Field(default=None, min_length=1, max_length=256)
+    description: str | None = None
+    download_automatically: bool | None = None
+
+
+class PodcastTaskResponse(BaseModel):
+    job_id: str
+
+
+class UploadedImageData(BaseModel):
+    name: str | None = None
+    path: str
+    hash: str
+    size: int
+    preview_url: str | None = None
+
+
+class UploadedAudioData(BaseModel):
+    name: str
+    path: str
+    size: int
+    meta: dict
+    hash: str
+    cover: UploadedImageData | None = None
+
+
+class CookieResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    source_type: str
+    created_at: datetime
+
+
+class PlaylistEntryResponse(BaseModel):
+    id: str
+    title: str
+    description: str
+    thumbnail_url: str
+    url: str
+
+
+class PlaylistResponse(BaseModel):
+    id: str
+    title: str
+    entries: list[PlaylistEntryResponse]
+
+
+class ProgressEpisodeResponse(BaseModel):
+    id: int
+    title: str
+    image_url: str | None = None
+    status: str
+
+
+class ProgressPodcastResponse(BaseModel):
+    id: int
+    name: str
+    image_url: str | None = None
+
+
+class ProgressItemResponse(BaseModel):
+    status: str
+    completed: float
+    current_file_size: int
+    total_file_size: int
+    episode: ProgressEpisodeResponse
+    podcast: ProgressPodcastResponse | None = None
+
+
 class EpisodeResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
+    podcast_id: int
     title: str
+    description: str | None = None
+    author: str | None = None
+    length: int = 0
+    chapters: list[dict] | None = None
+    status: str
+    source_id: str
+    source_type: str
+    watch_url: str | None = None
+    image_url: str | None = None
+    audio_url: str | None = None
+    created_at: datetime
+    published_at: datetime | None = None
+
+
+class UploadedEpisodeResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    hash: str
+    path: str
+    size: int
+    available: bool
+    source_url: str
     created_at: datetime

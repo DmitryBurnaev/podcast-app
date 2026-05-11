@@ -15,19 +15,27 @@ import uvicorn
 from litestar import Litestar
 from litestar.contrib.jinja import JinjaTemplateEngine
 from litestar.di import Provide
+from litestar.exceptions import HTTPException, ValidationException
 from litestar.static_files import StaticFilesConfig
 from litestar.template import TemplateConfig
 
 # from litestar.middleware.session.memory_backend import MemoryBackendConfig
 from redis import Redis
 
-from src.exceptions import StartupError, StorageConfigurationError
+from src.exceptions import BaseApplicationError, StartupError, StorageConfigurationError
 from src.modules.auth.load_user import get_current_user
 from src.modules.db import close_database, initialize_database, verify_database_reachable
 from src.modules.services.redis import check_redis_connection, close_async_redis_connection
 from src.modules.services.storage import validate_s3_settings
 from src.modules.auth.before_request import browser_auth_gate
 from src.modules.api import BaseApiController
+from src.modules.api.errors import (
+    APIError,
+    api_error_handler,
+    app_error_handler,
+    http_error_handler,
+    validation_error_handler,
+)
 from src.modules.views.base import BaseController
 from src.settings.app import APP_DIR, AppSettings, get_app_settings
 
@@ -132,6 +140,12 @@ def make_app(settings: AppSettings | None = None) -> PodcastApp:
         ],
         lifespan=[lambda _: lifespan(app_settings)],
         debug=app_settings.flags.debug_mode,
+        exception_handlers={
+            APIError: api_error_handler,
+            BaseApplicationError: app_error_handler,
+            ValidationException: validation_error_handler,
+            HTTPException: http_error_handler,
+        },
         dependencies={
             "settings": Provide(get_app_settings, sync_to_thread=False),
             "current_user": Provide(get_current_user, sync_to_thread=False),

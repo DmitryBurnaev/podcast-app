@@ -1,215 +1,271 @@
 import dataclasses
-import uuid
-import random
-import hashlib
 import datetime
 import logging
-from typing import NamedTuple
+from enum import StrEnum
+from typing import Any, NamedTuple
+from uuid import uuid4
 
 import jwt
-from litestar import Request
-from litestar.exceptions import HTTPException
+from jwt import ExpiredSignatureError, InvalidTokenError
+from litestar.connection import Request
 
-from src.modules.db import SASessionUOW
-from src.settings.app import AppSettings
-from src.utils import cut_string
-
-__all__ = (
-    "make_api_token",
-    "hash_token",
-    "verify_api_token",
+from src.modules.api.errors import (
+    AuthInvalidError,
+    AuthMissingError,
+    RefreshExpiredError,
+    SessionInactiveError,
+    TokenExpiredError,
 )
+from src.modules.db.models.users import LENGTH_USER_ACCESS_TOKEN, User, UserAccessToken, UserSession
+from src.modules.db.repositories import UserRepository, UserSessionRepository, BaseRepository
+from src.modules.db.services import SASessionUOW
+from src.settings.app import AppSettings, get_app_settings
+from src.utils import hash_string, utcnow
+
 logger = logging.getLogger(__name__)
 
-type JWT_PAYLOAD_RAW_T = dict[str, str | int | datetime.datetime]
+
+class AuthTokenType(StrEnum):
+    ACCESS = "ACCESS"
+    REFRESH = "REFRESH"
+    RESET_PASSWORD = "RESET_PASSWORD"
+    USER_ACCESS = "USER_ACCESS"
 
 
-class GeneratedToken(NamedTuple):
-    value: str
-    hashed_value: str
+class TokenCollection(NamedTuple):
+    refresh_token: str
+    refresh_token_expired_at: datetime.datetime
+    access_token: str
+    access_token_expired_at: datetime.datetime
+
+
+class AuthenticatedRequest(NamedTuple):
+    user: User
+    session_id: str | None
+    payload: dict[str, Any]
+
+
+class RefreshAuthentication(NamedTuple):
+    user: User
+    session: UserSession
+    payload: dict[str, Any]
+    refresh_token: str
 
 
 @dataclasses.dataclass
-class JWTPayload:
-    sub: str
+class TokenPayload:
+    user_id: int
+    session_id: str | None = None
+    token_type: AuthTokenType = AuthTokenType.ACCESS
     exp: datetime.datetime | None = None
 
-    def as_dict(self) -> JWT_PAYLOAD_RAW_T:
-        return dataclasses.asdict(self)
+    def as_dict(self) -> dict[str, Any]:
+        data = dataclasses.asdict(self)
+        data["token_type"] = str(self.token_type)
+        return data
 
 
-def jwt_encode(
-    payload: JWTPayload,
-    settings: AppSettings,
-    expires_at: datetime.datetime | None = None,
-) -> str:
-    """
-    Generates signed JWT token with specified expiration datetime.
-    """
-    payload.exp = expires_at or datetime.datetime.max
-    encrypted_token = jwt.encode(
-        payload.as_dict(),
-        key=settings.app_secret_key.get_secret_value(),
-        algorithm=settings.jwt_algorithm,
-    )
-    return encrypted_token
+def _jwt_key(settings: AppSettings) -> str:
+    return settings.app_secret_key.get_secret_value()
 
 
-def jwt_decode(jwt_token: str, settings: AppSettings) -> JWTPayload:
-    """
-    Returns decoded JWT payload.
-    """
-    payload: JWT_PAYLOAD_RAW_T = jwt.decode(
-        jwt_token,
-        settings.app_secret_key.get_secret_value(),
-        algorithms=[settings.jwt_algorithm],
-    )
-    exp = payload["exp"]
-    if not isinstance(exp, (int, float)):
-        raise ValueError(f"Unsupported expiration time detected: {exp!r}")
+def encode_jwt(
+    payload: TokenPayload,
+    settings: AppSettings | None = None,
+    expires_in: int | None = None,
+) -> tuple[str, datetime.datetime]:
+    settings = settings or get_app_settings()
+    if expires_in is None:
+        expires_in = (
+            settings.jwt_refresh_expires_in
+            if payload.token_type == AuthTokenType.REFRESH
+            else settings.jwt_expires_in
+        )
 
-    return JWTPayload(
-        sub=str(payload["sub"]),
-        exp=datetime.datetime.fromtimestamp(exp, tz=datetime.timezone.utc),
-    )
-
-
-def make_api_token(
-    expires_at: datetime.datetime | None,
-    settings: AppSettings,
-) -> GeneratedToken:
-    """
-    Generates token, and it hashed value (requires for storage).
-    Token is a custom formatted JWT token (without header part).
-
-    Removing header allows simplifying token usage by client.
-    For verification, we can use just payload part and signature part.
-
-    Parameters:
-        expires_at: datetime.datetime - expiration time of the token
-        settings: Current settings
-
-    Returns:
-        TokenInfo - tuple of token and its hashed value
-    """
-    expires_at = expires_at or datetime.datetime.max
-    # just random id, that will be hashed to retrieve from DB in an auth process
-    token_identifier = f"{random.randint(100, 999):0>3}{uuid.uuid4().hex[-6:]}"
-    encrypted_token = jwt_encode(
-        payload=JWTPayload(sub=token_identifier, exp=expires_at),
-        expires_at=expires_at,
-        settings=settings,
-    )
-    _, payload_part, signature_part = encrypted_token.split(".")
-    sign_len_prefix = f"{len(signature_part):0>3}"
-    logger.debug(
-        "[auth] Generated token: id: '%s' | len_prefix: '%s' | payload: '%s' | signature: '%s'",
-        token_identifier,
-        sign_len_prefix,
-        payload_part,
-        signature_part,
-    )
-    result_value = f"{payload_part}{signature_part}{sign_len_prefix}"
-
-    return GeneratedToken(value=result_value, hashed_value=hash_token(token_identifier))
+    expired_at = utcnow() + datetime.timedelta(seconds=expires_in)
+    payload.exp = expired_at
+    token = jwt.encode(payload.as_dict(), _jwt_key(settings), algorithm=settings.jwt_algorithm)
+    return token, expired_at
 
 
-def decode_api_token(token: str, settings: AppSettings) -> JWTPayload:
-    """
-    Decodes custom formatted JWT token (without header part).
-
-    Note: token doesn't contain header part + it has a prefix with the length of the signature part.
-    Example of generated token:
-        daszAuxGG7vnhek8EPXT3Blbsign123456789g049
-    Where:
-        049 - length of the signature part (at the end of string)
-        daszAuxuGG7vnhek8EPXT3Blbsignature - payload part
-        sign123456789g - signature part
-
-    Parameters:
-        token: str - token to decode
-        settings: AppSettings - settings instance
-
-    Returns:
-        PayloadTokenInfo - payload of the token
-    """
-    logger.debug("[auth] Decoding token: '%s'", token)
-    just_for_header_token = jwt_encode(payload=JWTPayload(sub="example"), settings=settings)
-    header_part, _, _ = just_for_header_token.split(".")
-    token, sign_len_prefix = token[:-3], token[-3:]  # last 3 symbols contain len of signature
-    if not sign_len_prefix.isnumeric():
-        logger.error("[auth] Unexpected sign len prefix detected: '%s'", sign_len_prefix)
-        raise HTTPException(status_code=401, detail="Invalid token signature")
-
-    signature_length = int(sign_len_prefix)
-    payload_part, signature_part = token[:-signature_length], token[-signature_length:]
-
-    checking_token = f"{header_part}.{payload_part}.{signature_part}"
-    logger.debug("[auth] JWT decoding token: %s", checking_token)
-
+def decode_jwt(
+    token: str,
+    *,
+    expected_type: AuthTokenType,
+    settings: AppSettings | None = None,
+) -> dict[str, Any]:
+    settings = settings or get_app_settings()
     try:
-        payload = jwt_decode(checking_token, settings=settings)
-    except jwt.ExpiredSignatureError:
-        raise HTTPException(status_code=401, detail="Token expired")
-    except jwt.InvalidTokenError:
-        raise HTTPException(status_code=401, detail="Invalid token")
+        payload = jwt.decode(token, _jwt_key(settings), algorithms=[settings.jwt_algorithm])
+    except ExpiredSignatureError as exc:
+        if expected_type == AuthTokenType.REFRESH:
+            raise RefreshExpiredError() from exc
+        raise TokenExpiredError() from exc
+    except InvalidTokenError as exc:
+        raise AuthInvalidError(details=str(exc)) from exc
 
-    logger.debug("[auth] Got payload: %s", payload)
+    token_type = str(payload.get("token_type", "")).upper()
+    if token_type != expected_type.value:
+        raise AuthInvalidError(
+            details=f"Expected {expected_type.value} token, got {token_type or 'unknown'}."
+        )
+
     return payload
 
 
-def hash_token(token: str) -> str:
-    """
-    Hashes token and returns hashed value.
+def issue_token_pair(
+    user_id: int,
+    session_id: str,
+    settings: AppSettings | None = None,
+) -> TokenCollection:
+    settings = settings or get_app_settings()
+    access_token, access_exp = encode_jwt(
+        TokenPayload(
+            user_id=user_id,
+            session_id=session_id,
+            token_type=AuthTokenType.ACCESS,
+        ),
+        settings=settings,
+    )
+    refresh_token, refresh_exp = encode_jwt(
+        TokenPayload(
+            user_id=user_id,
+            session_id=session_id,
+            token_type=AuthTokenType.REFRESH,
+        ),
+        settings=settings,
+    )
+    return TokenCollection(
+        refresh_token=refresh_token,
+        refresh_token_expired_at=refresh_exp,
+        access_token=access_token,
+        access_token_expired_at=access_exp,
+    )
 
-    Parameters:
-        token: str - token to hash
 
-    Returns:
-        str - hashed value of the token (SHA-512)
-    """
-    return hashlib.sha512(token.encode()).hexdigest()
+async def create_user_session(user: User, settings: AppSettings | None = None) -> TokenCollection:
+    settings = settings or get_app_settings()
+    session_id = str(uuid4())
+    tokens = issue_token_pair(user_id=user.id, session_id=session_id, settings=settings)
+    async with SASessionUOW() as uow:
+        session_repo = UserSessionRepository(uow.session)
+        await session_repo.create(
+            public_id=session_id,
+            user_id=user.id,
+            refresh_token=tokens.refresh_token,
+            is_active=True,
+            expired_at=tokens.refresh_token_expired_at,
+            created_at=utcnow(),
+            refreshed_at=utcnow(),
+        )
+        uow.mark_for_commit()
+
+    return tokens
 
 
-async def verify_api_token(
-    request: Request,
-    settings: AppSettings,
-    auth_token: str | None,
-) -> str:
-    """
-    Dependency for authentication by API token (placed in the header 'Authorization').
-    Skip verification for OPTIONS methods.
-    """
+def extract_bearer_token(request: Request) -> str:
+    auth_header = request.headers.get("Authorization") or request.headers.get("authorization")
+    if not auth_header:
+        raise AuthMissingError()
 
-    if request.method == "OPTIONS":
-        return ""
+    parts = auth_header.split()
+    if len(parts) != 2 or parts[0] != "Bearer":
+        raise AuthInvalidError(details="Authorization header must be 'Bearer <token>'.")
 
-    auth_token = (auth_token or "").replace("Bearer", "").strip()
-    if not auth_token:
-        raise HTTPException(status_code=401, detail="Not authenticated")
+    return parts[1]
 
-    logger.info("[auth] Authentication: input auth token: '%s'", cut_string(auth_token, 15))
 
-    decoded_payload = decode_api_token(auth_token, settings=settings)
-    raw_token_identity = decoded_payload.sub
-    if not raw_token_identity:
-        raise HTTPException(status_code=401, detail="Not authenticated: token has no identity")
+async def authenticate_bearer_request(request: Request) -> AuthenticatedRequest:
+    token = extract_bearer_token(request)
+    async with SASessionUOW() as uow:
+        if _seems_like_user_access_token(token):
+            return await _authenticate_user_access_token(uow, token)
 
-    # hashed_token = hash_token(raw_token_identity)
+        payload = decode_jwt(token, expected_type=AuthTokenType.ACCESS)
+        user_id = int(payload.get("user_id") or 0)
+        session_id = payload.get("session_id")
+        if not user_id or not session_id:
+            raise AuthInvalidError(details="Token payload misses user_id or session_id.")
 
-    async with SASessionUOW() as _:
-        raise RuntimeError("Not implemented")
+        session_repo = UserSessionRepository(uow.session)
+        pair = await session_repo.get_active_with_user(str(session_id))
+        if pair is None:
+            raise SessionInactiveError()
 
-    # logger.info("[auth] Verification: token extracted '%s'", token)
-    # if not token:
-    #     raise HTTPException(status_code=401, detail="Not authenticated: unknown token")
-    #
-    # if not token.is_active:
-    #     raise HTTPException(status_code=401, detail="Not authenticated: inactive token")
-    #
-    # if not token.user.is_active:
-    #     raise HTTPException(status_code=401, detail="Not authenticated: user is not active")
-    #
-    # logger.info("[auth] Verified token for %(user)s", {"user": token.user})
-    #
-    # return auth_token
+        user_session, user = pair
+        if user_session.user_id != user_id or not user.is_active:
+            raise AuthInvalidError()
+
+        return AuthenticatedRequest(user=user, session_id=str(session_id), payload=payload)
+
+
+async def authenticate_refresh_token(refresh_token: str) -> RefreshAuthentication:
+    payload = decode_jwt(refresh_token, expected_type=AuthTokenType.REFRESH)
+    user_id = int(payload.get("user_id") or 0)
+    session_id = payload.get("session_id")
+    if not user_id or not session_id:
+        raise AuthInvalidError(details="Refresh token payload misses user_id or session_id.")
+
+    async with SASessionUOW() as uow:
+        session_repo = UserSessionRepository(uow.session)
+        pair = await session_repo.get_active_with_user(str(session_id))
+        if pair is None:
+            raise SessionInactiveError()
+
+        user_session, user = pair
+        if user_session.user_id != user_id or not user.is_active:
+            raise AuthInvalidError()
+
+        if user_session.refresh_token != refresh_token:
+            raise AuthInvalidError(details="Refresh token does not match the session.")
+
+        return RefreshAuthentication(
+            user=user,
+            session=user_session,
+            payload=payload,
+            refresh_token=refresh_token,
+        )
+
+
+async def refresh_user_session(refresh_token: str) -> TokenCollection:
+    auth = await authenticate_refresh_token(refresh_token)
+    tokens = issue_token_pair(user_id=auth.user.id, session_id=auth.session.public_id)
+    async with SASessionUOW() as uow:
+        session_repo = UserSessionRepository(uow.session)
+        user_session = await session_repo.get(auth.session.id)
+        await session_repo.update(
+            user_session,
+            refresh_token=tokens.refresh_token,
+            expired_at=tokens.refresh_token_expired_at,
+            refreshed_at=utcnow(),
+            is_active=True,
+        )
+        uow.mark_for_commit()
+
+    return tokens
+
+
+async def _authenticate_user_access_token(
+    uow: SASessionUOW,
+    token: str,
+) -> AuthenticatedRequest:
+    token_repo: BaseRepository[UserAccessToken] = BaseRepository(uow.session)
+    token_repo.model = UserAccessToken
+    access_token = await token_repo.first(token=hash_string(token))
+    if access_token is None or not access_token.active:
+        raise AuthInvalidError(details="Provided access token is unknown, disabled, or expired.")
+
+    user_repo = UserRepository(uow.session)
+    user = await user_repo.first(id=access_token.user_id, is_active=True)
+    if user is None:
+        raise AuthInvalidError(details="Access token owner is inactive or missing.")
+
+    return AuthenticatedRequest(
+        user=user,
+        session_id=None,
+        payload={"user_id": user.id, "token_type": AuthTokenType.USER_ACCESS.value},
+    )
+
+
+def _seems_like_user_access_token(token: str) -> bool:
+    return len(token) == LENGTH_USER_ACCESS_TOKEN and "." not in token
