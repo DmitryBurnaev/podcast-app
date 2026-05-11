@@ -28,8 +28,12 @@ class BaseApplicationError(Exception):
     ):
         self.message = message or self.message
         self.details = details or self.details
-        self.status_code = status_code or self.default_status_code
-        self.response_status = response_status or self.default_response_status
+        self.status_code = status_code or getattr(self, "status_code", self.default_status_code)
+        self.response_status = response_status or getattr(
+            self,
+            "response_status",
+            self.default_response_status,
+        )
 
     def __str__(self) -> str:
         return f"{self.message} ({self.details})"

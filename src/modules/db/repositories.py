@@ -1,6 +1,7 @@
 """DB-specific module that provides specific operations on the database."""
 
 import logging
+from pathlib import Path
 from datetime import UTC, datetime
 from typing import (
     Callable,
@@ -47,7 +48,7 @@ P = ParamSpec("P")
 RT = TypeVar("RT")
 type FilterT = int | str | list[int] | None
 type UpdateT = int | str | datetime | None
-type CreateT = int | str | datetime | list[dict] | None
+type CreateT = int | str | bool | datetime | dict[str, Any] | list[dict] | None
 type BaseOrderT = Literal[
     "id", "name", "title", "created_at", "updated_at", "-created_at", "-updated_at"
 ]
@@ -94,8 +95,10 @@ class BaseRepository(Generic[ModelT]):
 
         return instance
 
-    async def first(self, **filters: FilterT) -> ModelT | None:
+    async def first(self, *ids: int, **filters: FilterT) -> ModelT | None:
         """Selects instance by provided ID"""
+        if ids:
+            filters["id"] = ids[0]
         statement = self._prepare_statement(filters=filters)
         result = await self.session.execute(statement)
         row: Sequence[ModelT] | None = result.fetchone()
@@ -377,7 +380,11 @@ class PodcastRepository(BaseRepository[Podcast]):
 
     async def get_first_with_aggregations(self, **filters: FilterT) -> Podcast | None:
         logger.info("[DB] Getting 1st instance by filter: %s", filters)
-        instances, _ = await self.all_with_aggregations(limit=1, order_by="id", **filters)
+        instances, _ = await self.all_with_aggregations(
+            limit=1,
+            order_by="id",
+            **cast(Any, filters),
+        )
         if not instances:
             return None
 
@@ -401,6 +408,34 @@ class EpisodeRepository(BaseRepository[Episode]):
     """Podcast's repository."""
 
     model = Episode
+
+    async def safe_delete(self, episode: Episode) -> None:
+        """Delete an episode row and unreferenced linked file rows without touching S3."""
+        if episode.status in Episode.PROGRESS_STATUSES:
+            raise ValueError("Episode in progress cannot be deleted")
+
+        file_ids = [file_id for file_id in (episode.audio_id, episode.image_id) if file_id]
+        await self.session.delete(episode)
+        await self.session.flush()
+
+        for file_id in file_ids:
+            is_used = await self.session.scalar(
+                select(func.count(Episode.id)).filter(
+                    or_(Episode.audio_id == file_id, Episode.image_id == file_id)
+                )
+            )
+            if is_used:
+                continue
+
+            file = await self.session.get(File, file_id)
+            if file is None:
+                continue
+
+            path = Path(file.path)
+            if path.is_absolute() and path.exists() and path.is_file():
+                path.unlink(missing_ok=True)
+
+            await self.session.delete(file)
 
     async def all(self, **filters: FilterT) -> list[Episode]:
         """Get all episodes, but with extended filters' logic."""
@@ -427,7 +462,9 @@ class EpisodeRepository(BaseRepository[Episode]):
                     statement = statement.filter(isnot(field, value))  # noqa
                 case _:
                     logger.warning(
-                        "[DB] Unknown filter suffix '%s' | field: '%s'", suffix, field_name
+                        "[DB] Unknown filter suffix '%s' | field: '%s'",
+                        suffix,
+                        field_name,
                     )
                     statement = statement
 
