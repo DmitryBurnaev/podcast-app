@@ -28,18 +28,21 @@ class TaskContext:
     _redis_key_pattern = "jobid_for_file__{}"
 
     def task_canceled(self) -> bool:
+        """Return whether the backing RQ job was canceled."""
         job = Job.fetch(self.job_id, connection=RedisClient().sync_redis)
         job_status = job.get_status()
         logger.debug("Check for canceling: jobid: %s | status: %s", job.id, job_status)
         return job_status == "canceled"
 
     def save_to_redis(self, filename: str) -> None:
+        """Persist this task context by source filename in Redis."""
         key = self._redis_key_pattern.format(filename)
         RedisClient().set(key, self.job_id)
 
     @classmethod
     @lru_cache
     def create_from_redis(cls, filename: str) -> Optional["TaskContext"]:
+        """Restore a task context saved for a source filename."""
         key = cls._redis_key_pattern.format(filename)
         job_id = RedisClient().get(key)
         if isinstance(job_id, str) and job_id:

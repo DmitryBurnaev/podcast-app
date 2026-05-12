@@ -1,38 +1,14 @@
 import logging
-from enum import StrEnum
 from typing import Any, cast
 
 from litestar.connection import Request
 from litestar.exceptions import HTTPException, ValidationException
 from litestar.response import Response
-from pydantic import BaseModel
 
 from src.exceptions import BaseApplicationError
+from src.modules.schemas.errors import ErrorCode, ErrorPayload, ErrorResponse
 
 logger = logging.getLogger(__name__)
-
-
-class ErrorCode(StrEnum):
-    AUTH_MISSING = "AUTH_MISSING"
-    AUTH_INVALID = "AUTH_INVALID"
-    TOKEN_EXPIRED = "TOKEN_EXPIRED"
-    REFRESH_EXPIRED = "REFRESH_EXPIRED"
-    SESSION_INACTIVE = "SESSION_INACTIVE"
-    FORBIDDEN = "FORBIDDEN"
-    NOT_FOUND = "NOT_FOUND"
-    INVALID_PARAMETERS = "INVALID_PARAMETERS"
-    CONFLICT = "CONFLICT"
-    INTERNAL_ERROR = "INTERNAL_ERROR"
-
-
-class ErrorPayload(BaseModel):
-    code: ErrorCode
-    message: str
-    details: Any = None
-
-
-class ErrorResponse(BaseModel):
-    error: ErrorPayload
 
 
 class APIError(BaseApplicationError):

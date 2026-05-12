@@ -40,7 +40,7 @@ from src.modules.db.models.podcasts import Episode, Podcast, Cookie
 
 __all__ = ("UserRepository", "UserSessionRepository")
 
-from src.schemas import PodcastStatistics
+from src.modules.schemas.statistics import PodcastStatistics
 
 ModelT = TypeVar("ModelT", bound=BaseModel)
 logger = logging.getLogger(__name__)
@@ -379,6 +379,7 @@ class PodcastRepository(BaseRepository[Podcast]):
         return podcasts_with_stats, total
 
     async def get_first_with_aggregations(self, **filters: FilterT) -> Podcast | None:
+        """Return the first podcast with aggregation fields populated."""
         logger.info("[DB] Getting 1st instance by filter: %s", filters)
         instances, _ = await self.all_with_aggregations(
             limit=1,
@@ -442,7 +443,7 @@ class EpisodeRepository(BaseRepository[Episode]):
         logger.debug("[DB] Getting all episodes: %s", filters)
         statement = select(self.model).outerjoin(File, Episode.audio_id == File.id)
 
-        def process_suffix(statement: Select, field_name: str, suffix: str, value: Any) -> Select:
+        def _process_suffix(statement: Select, field_name: str, suffix: str, value: Any) -> Select:
             field = getattr(self.model, field_name)
             match suffix:
                 case "ne":
@@ -508,7 +509,7 @@ class EpisodeRepository(BaseRepository[Episode]):
                 case _:
                     field_name, _, suffix = filter_key.partition("__")
                     if suffix:
-                        statement = process_suffix(
+                        statement = _process_suffix(
                             statement=statement,
                             field_name=field_name,
                             suffix=suffix,
@@ -613,6 +614,7 @@ class EpisodeRepository(BaseRepository[Episode]):
         podcast_id: int,
         field: Literal["created_at", "published_at"],
     ) -> Episode | None:
+        """Return the latest episode for a podcast ordered by a datetime field."""
         order_by = getattr(Episode, field)
         statement = self._prepare_statement(filters={"podcast_id": podcast_id}).order_by(
             order_by.desc()
@@ -675,6 +677,7 @@ class FileRepository(BaseRepository[File]):
         return row[0] if row else None
 
     async def copy(self, file_id: int, owner_id: int, available: bool = True) -> File:
+        """Create a file row copied from an existing file for another owner."""
         source_file: File = await self.get(file_id)
         logger.debug("Copying file: source %s | owner_id %s", source_file, owner_id)
         return await self.create(

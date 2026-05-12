@@ -63,10 +63,12 @@ class File(BaseModel):
 
     @classmethod
     def generate_token(cls) -> str:
+        """Generate a random access token for media URLs."""
         return get_random_hash(TOKEN_LENGTH)
 
     @classmethod
     def token_is_correct(cls, token: str) -> bool:
+        """Return whether a token matches the media access token format."""
         return token.isalnum() and len(token) == TOKEN_LENGTH
 
     @property
@@ -108,12 +110,15 @@ class File(BaseModel):
 
     @property
     def content_type(self) -> str:
+        """Return the HTTP content type inferred from media type and extension."""
         return f"{self.type.lower()}/{self.name.split('.')[-1]}"
 
     @property
     def headers(self) -> dict:
+        """Return HTTP headers for serving this media file."""
         return {"content-length": str(self.size or 0), "content-type": self.content_type}
 
     @property
     def name(self) -> str:
+        """Return the basename of the stored file path."""
         return os.path.basename(self.path)

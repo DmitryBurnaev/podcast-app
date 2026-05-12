@@ -19,6 +19,7 @@ class AuthController(BaseController):
 
     @get("/login")
     async def login_page(self, request: Request) -> Template | Redirect:
+        """Render the login page or redirect authenticated users home."""
         if get_current_user_or_none(request) is not None:
             return Redirect(path="/")
         err = request.query_params.get("error")
@@ -34,6 +35,7 @@ class AuthController(BaseController):
 
     @post("/login")
     async def login_submit(self, request: Request) -> Redirect:
+        """Authenticate form credentials and create a browser session."""
         settings = get_app_settings()
         form = await request.form()
         raw_email = form.get("email")
@@ -78,6 +80,7 @@ class AuthController(BaseController):
 
     @post("/logout")
     async def logout(self, request: Request) -> Redirect:
+        """Deactivate the browser session and clear its cookie."""
         settings = get_app_settings()
         public_id = request.cookies.get(settings.auth.session_cookie_name)
         if public_id:

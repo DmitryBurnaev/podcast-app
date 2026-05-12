@@ -19,6 +19,7 @@ from src.utils import cut_string
 class PodcastsController(BaseController):
     @get("/podcasts/")
     async def get(self, request: Request) -> Template:
+        """Render the podcast list page."""
         current_user = get_current_user(request)
         async with SASessionUOW() as uow:
             podcast_repository = PodcastRepository(session=uow.session)

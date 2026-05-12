@@ -12,7 +12,7 @@ from src.modules.api.errors import InvalidParametersError
 from src.modules.services.storage import StorageS3
 from src.modules.utils import ffmpeg as ffmpeg_utils
 from src.modules.utils.processing import get_file_size, save_uploaded_file
-from src.schemas import UploadedAudioData, UploadedImageData
+from src.modules.schemas.media import UploadedAudioData, UploadedImageData
 from src.settings.app import get_app_settings
 
 
@@ -25,6 +25,7 @@ class MediaUploadAPIController(BaseApiController):
         self,
         data: Annotated[dict[str, UploadFile], Body(media_type=RequestEncodingType.MULTI_PART)],
     ) -> UploadedAudioData:
+        """Upload an audio file and return its stored metadata."""
         uploaded_file = _get_upload(data)
         if not uploaded_file.content_type.startswith("audio/"):
             raise InvalidParametersError(details={"file": "File must be audio."})
@@ -65,6 +66,7 @@ class MediaUploadAPIController(BaseApiController):
         self,
         data: Annotated[dict[str, UploadFile], Body(media_type=RequestEncodingType.MULTI_PART)],
     ) -> UploadedImageData:
+        """Upload an image file and return its stored metadata."""
         uploaded_file = _get_upload(data)
         if not uploaded_file.content_type.startswith("image/"):
             raise InvalidParametersError(details={"file": "File must be image."})

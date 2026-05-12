@@ -1,6 +1,6 @@
 """Statistics service: app-wide and per-podcast stats via Pydantic models."""
 
-from src.schemas import RecentActivity, AppStatistics, PodcastStatistics
+from src.modules.schemas.statistics import AppStatistics, PodcastStatistics, RecentActivity
 from src.modules.db.services import SASessionUOW
 from src.modules.db.repositories import EpisodeRepository, PodcastRepository
 

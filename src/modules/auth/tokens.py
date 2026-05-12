@@ -60,6 +60,7 @@ class TokenPayload:
     exp: datetime.datetime | None = None
 
     def as_dict(self) -> dict[str, Any]:
+        """Return the JWT-serializable payload dictionary."""
         data = dataclasses.asdict(self)
         data["token_type"] = str(self.token_type)
         return data

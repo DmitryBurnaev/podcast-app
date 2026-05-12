@@ -107,18 +107,22 @@ class RedisClient:
         self.sync_redis.publish(channel, message)
 
     async def async_set(self, key: str, value: JSONT, ttl: int = 120) -> None:
+        """Set a JSON value in Redis asynchronously with a TTL."""
         logger.debug("AsyncRedis > Setting value by key %s", key)
         await self.async_redis.set(key, json.dumps(value), ttl)
 
     async def async_get(self, key: str) -> JSONT:
+        """Get and decode a JSON value from Redis asynchronously."""
         logger.debug("AsyncRedis > Getting value by key %s", key)
         return json.loads(await self.async_redis.get(key) or "null")
 
     async def async_publish(self, channel: str, message: str) -> None:
+        """Publish a message to a Redis channel asynchronously."""
         logger.debug("AsyncRedis > Publishing message %s to channel %s ", message, channel)
         await self.async_redis.publish(channel, message)
 
     def async_pubsub(self, **kwargs) -> aioredis.client.PubSub:
+        """Return an async Redis pub/sub object."""
         logger.debug("AsyncRedis > PubSub with kwargs %s", kwargs)
         return self.async_redis.pubsub(**kwargs)
 
@@ -152,6 +156,7 @@ class RedisClient:
 
     @staticmethod
     def get_key_by_filename(filename) -> str:
+        """Return a Redis key stem derived from a filename."""
         return filename.partition(".")[0]
 
 

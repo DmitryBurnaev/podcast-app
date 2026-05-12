@@ -23,6 +23,7 @@ class BaseEpisodePostProcessTask(RQTask):
 
     # pylint: disable=arguments-differ
     async def run(self, episode_id: int) -> TaskResultCode:
+        """Prepare post-processing dependencies and run the episode task."""
         self.storage = StorageS3()
         self.episode_repository = EpisodeRepository(self.db_session)
         self.file_repository = FileRepository(self.db_session)
@@ -36,6 +37,7 @@ class BaseEpisodePostProcessTask(RQTask):
         return code
 
     async def perform_run(self, episode_id: int) -> TaskResultCode:
+        """Run concrete episode post-processing logic."""
         raise NotImplementedError()
 
 
@@ -43,6 +45,7 @@ class DownloadEpisodeImageTask(BaseEpisodePostProcessTask):
     """Allows fetching episodes image (cover), prepare them and upload to S3"""
 
     async def perform_run(self, episode_id: int) -> TaskResultCode:
+        """Download, crop, upload, and persist episode cover images."""
         filter_kwargs = {}
         if episode_id:
             filter_kwargs["id"] = int(episode_id)
@@ -110,6 +113,7 @@ class DownloadEpisodeImageTask(BaseEpisodePostProcessTask):
 class ApplyMetadataEpisodeTask(BaseEpisodePostProcessTask):
 
     async def perform_run(self, episode_id: int) -> TaskResultCode:
+        """Apply chapter metadata to the episode audio file."""
         # getting episode from DB
         episode = await self.episode_repository.first(episode_id)
         if not episode:

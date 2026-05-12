@@ -42,6 +42,7 @@ class StringEnumMixin:
 
     @classmethod
     def members(cls) -> list[str]:
+        """Return enum member names as strings."""
         return [str(status) for status in cls.__members__]
 
 
@@ -75,6 +76,7 @@ class EpisodeStatus(StringEnumMixin, enum.StrEnum):
 
     @classmethod
     def members(cls) -> list[str]:
+        """Return persisted episode statuses without transient download states."""
         return [status for status in cls.__members__ if not status.startswith("DL_")]
 
 

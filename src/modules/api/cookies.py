@@ -13,7 +13,7 @@ from src.modules.db import User
 from src.modules.db.models.podcasts import Cookie
 from src.modules.db.repositories import CookieRepository, EpisodeRepository
 from src.modules.db.services import SASessionUOW
-from src.schemas import CookieResponse
+from src.modules.schemas.cookies import CookieResponse
 from src.utils import utcnow
 
 
@@ -23,6 +23,7 @@ class CookieAPIController(BaseApiController):
 
     @get("/")
     async def get_list(self, current_user: User) -> list[CookieResponse]:
+        """Return the latest cookie for each source type owned by the current user."""
         async with SASessionUOW() as uow:
             cookies = await CookieRepository(uow.session).all(owner_id=current_user.id)
 
@@ -41,6 +42,7 @@ class CookieAPIController(BaseApiController):
         current_user: User,
         data: Annotated[dict[str, object], Body(media_type=RequestEncodingType.MULTI_PART)],
     ) -> CookieResponse:
+        """Create an encrypted cookie file record."""
         source_type, encrypted_data = await _parse_cookie_form(data)
         async with SASessionUOW() as uow:
             cookie = await CookieRepository(uow.session).create(
@@ -56,6 +58,7 @@ class CookieAPIController(BaseApiController):
 
     @get("/{cookie_id:int}/")
     async def get_details(self, cookie_id: int, current_user: User) -> CookieResponse:
+        """Return details for a cookie owned by the current user."""
         async with SASessionUOW() as uow:
             cookie = await CookieRepository(uow.session).first(
                 id=cookie_id,
@@ -73,6 +76,7 @@ class CookieAPIController(BaseApiController):
         current_user: User,
         data: Annotated[dict[str, object], Body(media_type=RequestEncodingType.MULTI_PART)],
     ) -> CookieResponse:
+        """Replace an encrypted cookie file record."""
         source_type, encrypted_data = await _parse_cookie_form(data)
         async with SASessionUOW() as uow:
             cookie_repository = CookieRepository(uow.session)
@@ -91,6 +95,7 @@ class CookieAPIController(BaseApiController):
 
     @delete("/{cookie_id:int}/", status_code=HTTP_204_NO_CONTENT)
     async def delete(self, cookie_id: int, current_user: User) -> None:
+        """Delete a cookie owned by the current user."""
         async with SASessionUOW() as uow:
             cookie_repository = CookieRepository(uow.session)
             cookie = await cookie_repository.first(id=cookie_id, owner_id=current_user.id)
