@@ -155,6 +155,7 @@ class PodcastEpisodeAPIController(EpisodeTaskMixin, BaseApiController):
         current_user: User,
         data: UploadedEpisodeCreateSchema,
     ) -> EpisodeResponse:
+        # TODO: move logic to the service!
         async with SASessionUOW() as uow:
             podcast_repository = PodcastRepository(session=uow.session)
             await self._ensure_owned_podcast(podcast_repository, podcast_id, current_user.id)
@@ -231,6 +232,7 @@ class PodcastEpisodeAPIController(EpisodeTaskMixin, BaseApiController):
                 )
             if episode is None:
                 raise NotFoundException(f"Episode with hash {data.hash} not found")
+
             episode.audio = audio_file
 
         if created:
