@@ -6,7 +6,7 @@ from typing import cast
 from litestar.connection import Request
 from litestar.response import Redirect, Response
 
-from src.settings.app import get_app_settings
+from src.settings.app import AppSettings
 from src.modules.api.errors import APIError, api_error_response
 from src.modules.auth.load_user import attach_current_user, get_current_user_or_none
 from src.modules.auth.tokens import authenticate_bearer_request
@@ -14,7 +14,7 @@ from src.modules.auth.tokens import authenticate_bearer_request
 __all__ = ("browser_auth_gate",)
 
 # Token URLs: capability links; must not return HTML login for <audio src="..."> or RSS clients.
-_MEDIA_TOKEN_PATH = re.compile(r"^/(m|r)/[A-Za-z0-9_-]+/?$")
+_MEDIA_TOKEN_PATH = re.compile(r"^/([mr])/[A-Za-z0-9_-]+/?$")
 _PUBLIC_API_PATHS = {
     "/api/auth/sign-in",
     "/api/auth/sign-up",
@@ -47,7 +47,7 @@ def _is_auth_exempt(request: Request) -> bool:
     return False
 
 
-async def browser_auth_gate(request: Request) -> Redirect | Response | None:
+async def browser_auth_gate(request: Request, settings: AppSettings) -> Redirect | Response | None:
     """
     Load ``request.state.current_user`` then require a session for all other browser routes.
 
@@ -62,12 +62,11 @@ async def browser_auth_gate(request: Request) -> Redirect | Response | None:
         return None
 
     if request.url.path.startswith("/api/"):
-        settings = get_app_settings()
         if settings.flags.api_debug_mode:
             return None
 
         try:
-            authenticated = await authenticate_bearer_request(request)
+            authenticated = await authenticate_bearer_request(request, settings=settings)
         except APIError as exc:
             return api_error_response(
                 code=exc.code,

@@ -63,6 +63,7 @@ class CookieAPIController(BaseApiController):
             )
         if cookie is None:
             raise NotFoundAPIError()
+
         return CookieResponse.model_validate(cookie)
 
     @put("/{cookie_id:int}/")

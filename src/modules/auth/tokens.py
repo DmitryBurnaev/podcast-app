@@ -71,10 +71,9 @@ def _jwt_key(settings: AppSettings) -> str:
 
 def encode_jwt(
     payload: TokenPayload,
-    settings: AppSettings | None = None,
+    settings: AppSettings,
     expires_in: int | None = None,
 ) -> tuple[str, datetime.datetime]:
-    settings = settings or get_app_settings()
     if expires_in is None:
         expires_in = (
             settings.jwt_refresh_expires_in
@@ -82,7 +81,7 @@ def encode_jwt(
             else settings.jwt_expires_in
         )
 
-    expired_at = utcnow() + datetime.timedelta(seconds=expires_in)
+    expired_at = utcnow() + datetime.timedelta(seconds=(expires_in or 0))
     payload.exp = expired_at
     token = jwt.encode(payload.as_dict(), _jwt_key(settings), algorithm=settings.jwt_algorithm)
     return token, expired_at
@@ -92,9 +91,8 @@ def decode_jwt(
     token: str,
     *,
     expected_type: AuthTokenType,
-    settings: AppSettings | None = None,
+    settings: AppSettings,
 ) -> dict[str, Any]:
-    settings = settings or get_app_settings()
     try:
         payload = jwt.decode(token, _jwt_key(settings), algorithms=[settings.jwt_algorithm])
     except ExpiredSignatureError as exc:
@@ -113,11 +111,7 @@ def decode_jwt(
     return payload
 
 
-def issue_token_pair(
-    user_id: int,
-    session_id: str,
-    settings: AppSettings | None = None,
-) -> TokenCollection:
+def issue_token_pair(user_id: int, session_id: str, settings: AppSettings) -> TokenCollection:
     settings = settings or get_app_settings()
     access_token, access_exp = encode_jwt(
         TokenPayload(
@@ -143,8 +137,7 @@ def issue_token_pair(
     )
 
 
-async def create_user_session(user: User, settings: AppSettings | None = None) -> TokenCollection:
-    settings = settings or get_app_settings()
+async def create_user_session(user: User, settings: AppSettings) -> TokenCollection:
     session_id = str(uuid4())
     tokens = issue_token_pair(user_id=user.id, session_id=session_id, settings=settings)
     async with SASessionUOW() as uow:
@@ -175,13 +168,16 @@ def extract_bearer_token(request: Request) -> str:
     return parts[1]
 
 
-async def authenticate_bearer_request(request: Request) -> AuthenticatedRequest:
+async def authenticate_bearer_request(
+    request: Request,
+    settings: AppSettings,
+) -> AuthenticatedRequest:
     token = extract_bearer_token(request)
     async with SASessionUOW() as uow:
         if _seems_like_user_access_token(token):
             return await _authenticate_user_access_token(uow, token)
 
-        payload = decode_jwt(token, expected_type=AuthTokenType.ACCESS)
+        payload = decode_jwt(token, expected_type=AuthTokenType.ACCESS, settings=settings)
         user_id = int(payload.get("user_id") or 0)
         session_id = payload.get("session_id")
         if not user_id or not session_id:
@@ -199,8 +195,10 @@ async def authenticate_bearer_request(request: Request) -> AuthenticatedRequest:
         return AuthenticatedRequest(user=user, session_id=str(session_id), payload=payload)
 
 
-async def authenticate_refresh_token(refresh_token: str) -> RefreshAuthentication:
-    payload = decode_jwt(refresh_token, expected_type=AuthTokenType.REFRESH)
+async def authenticate_refresh_token(
+    refresh_token: str, settings: AppSettings
+) -> RefreshAuthentication:
+    payload = decode_jwt(refresh_token, expected_type=AuthTokenType.REFRESH, settings=settings)
     user_id = int(payload.get("user_id") or 0)
     session_id = payload.get("session_id")
     if not user_id or not session_id:
@@ -227,9 +225,13 @@ async def authenticate_refresh_token(refresh_token: str) -> RefreshAuthenticatio
         )
 
 
-async def refresh_user_session(refresh_token: str) -> TokenCollection:
-    auth = await authenticate_refresh_token(refresh_token)
-    tokens = issue_token_pair(user_id=auth.user.id, session_id=auth.session.public_id)
+async def refresh_user_session(refresh_token: str, settings: AppSettings) -> TokenCollection:
+    auth = await authenticate_refresh_token(refresh_token, settings)
+    tokens = issue_token_pair(
+        user_id=auth.user.id,
+        session_id=auth.session.public_id,
+        settings=settings,
+    )
     async with SASessionUOW() as uow:
         session_repo = UserSessionRepository(uow.session)
         user_session = await session_repo.get(auth.session.id)
