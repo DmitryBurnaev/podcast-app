@@ -38,20 +38,24 @@ class User(BaseModel):
 
     @classmethod
     def make_password(cls, raw_password: str) -> str:
+        """Hash a raw password for storage."""
         hasher = PBKDF2PasswordHasher()
         return hasher.encode(raw_password)
 
     def verify_password(self, raw_password: str) -> bool:
+        """Return whether a raw password matches the stored hash."""
         hasher = PBKDF2PasswordHasher()
         verified, _ = hasher.verify(raw_password, encoded=str(self.password))
         return verified
 
     @property
     def is_authenticated(self) -> bool:
+        """Return whether this user is authenticated."""
         return True
 
     @property
     def display_name(self) -> str:
+        """Return the display name for this user."""
         return self.email
 
     @property
@@ -106,6 +110,7 @@ class UserInvite(BaseModel):
 
     @classmethod
     def generate_token(cls) -> str:
+        """Generate an invite token."""
         return secrets.token_urlsafe()[: cls.TOKEN_MAX_LENGTH]
 
     def __repr__(self) -> str:
@@ -198,10 +203,12 @@ class UserAccessToken(BaseModel):
 
     @classmethod
     def generate_token(cls, length: int = LENGTH_USER_ACCESS_TOKEN) -> str:
+        """Generate a user access token."""
         return secrets.token_urlsafe(nbytes=length)[:LENGTH_USER_ACCESS_TOKEN]
 
     @property
     def active(self) -> bool:
+        """Return whether the access token is enabled and unexpired."""
         return self.enabled and self.expires_in >= utcnow()
 
     def __repr__(self) -> str:

@@ -10,6 +10,7 @@ from src.modules.views.base import BaseController
 class IndexController(BaseController):
     @get("/")
     async def get(self, request: Request) -> Template:
+        """Render the application dashboard."""
         async with SASessionUOW() as uow:
             podcast_repository = PodcastRepository(session=uow.session)
             podcasts, _ = await podcast_repository.all_with_aggregations(owner_id=1)

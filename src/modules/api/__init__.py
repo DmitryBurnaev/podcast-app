@@ -1,4 +1,5 @@
-from src.schemas import EpisodeResponse, PodcastResponse
+from src.modules.schemas.episodes import EpisodeResponse
+from src.modules.schemas.podcasts import PodcastResponse
 
 from .auth import AuthAPIController
 from .base import BaseApiController

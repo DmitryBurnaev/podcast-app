@@ -9,6 +9,7 @@ class ProfileController(BaseController):
 
     @get("/profile")
     async def get(self, request: Request) -> Template:
+        """Render the current user's profile page."""
         user = get_current_user(request)
         return self.get_response_template(
             template_name="profile.html",

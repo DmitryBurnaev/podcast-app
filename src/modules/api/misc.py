@@ -16,15 +16,13 @@ from src.modules.db.utils import cookie_file_ctx
 from src.modules.services.redis import check_redis_connection
 from src.modules.utils import common as common_utils
 from src.modules.utils.processing import check_state
-from src.schemas import (
-    HealthCheck,
-    PlaylistEntryResponse,
-    PlaylistResponse,
+from src.modules.schemas.playlist import PlaylistEntryResponse, PlaylistResponse
+from src.modules.schemas.progress import (
     ProgressEpisodeResponse,
     ProgressItemResponse,
     ProgressPodcastResponse,
-    SystemInfo,
 )
+from src.modules.schemas.system import HealthCheck, SystemInfo
 from src.settings.app import AppSettings
 from src.utils import cut_string, utcnow
 
@@ -36,10 +34,12 @@ class SystemAPIController(BaseApiController):
 
     @get("/api/system/info/")
     async def system_info(self, settings: AppSettings) -> SystemInfo:
+        """Return runtime system information."""
         return SystemInfo(status="ok", vendors=[settings.app_version])
 
     @get("/api/system/health/")
     async def system_health(self) -> HealthCheck:
+        """Run lightweight dependency checks and return health status."""
         await check_redis_connection()
         return HealthCheck(status="ok", timestamp=utcnow())
 
@@ -50,6 +50,7 @@ class PlaylistAPIController(BaseApiController):
 
     @get("/")
     async def get_playlist(self, current_user: User, url: str) -> PlaylistResponse:
+        """Extract playlist metadata for the current user."""
         try:
             source_info = common_utils.extract_source_info(url, playlist=True)
         except Exception as exc:
@@ -103,6 +104,7 @@ class ProgressAPIController(BaseApiController):
         current_user: User,
         episode_id: int | None = None,
     ) -> dict[str, list[ProgressItemResponse]]:
+        """Return active processing progress for the current user."""
         async with SASessionUOW() as uow:
             episode_repository = EpisodeRepository(uow.session)
             podcast_repository = PodcastRepository(uow.session)

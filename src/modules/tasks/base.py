@@ -76,41 +76,49 @@ class RQTask:
 
     @property
     def db_session(self) -> AsyncSession:
+        """Return the active database session for the task."""
         if self._db_session is None:
             raise RuntimeError("No database session available")
         return self._db_session
 
     @db_session.setter
     def db_session(self, value: AsyncSession | None) -> None:
+        """Set the active database session for the task."""
         self._db_session = value
 
     @property
     def task_context(self) -> TaskContext:
+        """Return the task context with job metadata."""
         if self._task_context is None:
             raise RuntimeError("No task context available")
         return self._task_context
 
     @task_context.setter
     def task_context(self, value: TaskContext | None) -> None:
+        """Set the task context with job metadata."""
         self._task_context = value
 
     @property
     def name(self):
+        """Return the task class name used in logs and job ids."""
         return self.__class__.__name__
 
     @classmethod
     def get_subclasses(cls):
+        """Yield all recursive task subclasses."""
         for subclass in cls.__subclasses__():
             yield from subclass.get_subclasses()
             yield subclass
 
     @classmethod
     def get_job_id(cls, *task_args, **task_kwargs) -> str:
+        """Build a deterministic RQ job id for task arguments."""
         kw_pairs = [f"{key}={value}" for key, value in task_kwargs.items()]
         return f"{cls.__name__.lower()}_{'_'.join(map(str, task_args))}_{'_'.join(kw_pairs)}_"
 
     @classmethod
     def cancel_task(cls, *task_args, **task_kwargs) -> None:
+        """Cancel a queued or running RQ job for task arguments."""
         job_id = cls.get_job_id(*task_args, **task_kwargs)
         logger.warning("Trying to cancel task %s", job_id)
         try:

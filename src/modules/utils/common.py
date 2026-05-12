@@ -64,6 +64,7 @@ class SourceConfig:
 
     @property
     def proxy_url(self) -> str | None:
+        """Return a configured proxy URL for source requests that require one."""
         if self.type is SourceType.YOUTUBE:
             settings = get_app_settings()
             return settings.http_proxy_url

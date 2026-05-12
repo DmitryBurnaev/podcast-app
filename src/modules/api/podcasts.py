@@ -18,8 +18,8 @@ from src.modules.services.storage import StorageS3
 from src.modules.tasks import GenerateRSSTask
 from src.modules.tasks.base import RQTask
 from src.modules.utils.processing import get_file_size, save_uploaded_file
-from src.schemas import (
-    LimitOffsetPagination,
+from src.modules.schemas.common import LimitOffsetPagination
+from src.modules.schemas.podcasts import (
     PodcastCreateRequest,
     PodcastResponse,
     PodcastTaskResponse,
@@ -82,6 +82,7 @@ class PodcastAPIController(BaseApiController):
         data: PodcastCreateRequest,
         current_user: User,
     ) -> PodcastResponse:
+        """Create a podcast for the current user."""
         async with SASessionUOW() as uow:
             podcast_repository = PodcastRepository(session=uow.session)
             podcast = await podcast_repository.create(
@@ -181,6 +182,7 @@ class PodcastAPIController(BaseApiController):
         data: PodcastUpdateRequest,
         current_user: User,
     ) -> PodcastResponse:
+        """Update editable fields for a podcast owned by the current user."""
         update_data = data.model_dump(exclude_unset=True)
         async with SASessionUOW() as uow:
             podcast_repository = PodcastRepository(session=uow.session)
@@ -206,6 +208,7 @@ class PodcastAPIController(BaseApiController):
 
     @delete("/{podcast_id:int}/", status_code=HTTP_204_NO_CONTENT)
     async def delete(self, podcast_id: int, current_user: User) -> None:
+        """Delete a podcast owned by the current user."""
         async with SASessionUOW() as uow:
             podcast_repository = PodcastRepository(session=uow.session)
             episode_repository = EpisodeRepository(session=uow.session)
@@ -232,6 +235,7 @@ class PodcastAPIController(BaseApiController):
         data: Annotated[dict[str, UploadFile], Body(media_type=RequestEncodingType.MULTI_PART)],
         current_user: User,
     ) -> PodcastResponse:
+        """Upload and attach a cover image to a podcast."""
         uploaded_file = data.get("file") or next(iter(data.values()), None)
         if not isinstance(uploaded_file, UploadFile):
             raise HTTPException(status_code=400, detail="Image file is required")
@@ -280,6 +284,7 @@ class PodcastAPIController(BaseApiController):
         request: Request,
         current_user: User,
     ) -> PodcastTaskResponse:
+        """Enqueue RSS generation for a podcast."""
         async with SASessionUOW() as uow:
             podcast_repository = PodcastRepository(session=uow.session)
             await _get_owned_podcast(

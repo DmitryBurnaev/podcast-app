@@ -15,7 +15,7 @@ from src.modules import tasks
 from src.modules.db import SASessionUOW
 from src.modules.db.models import File as MediaFile
 from src.modules.db.repositories import EpisodeRepository, PodcastRepository
-from src.modules.schemas import EpisodeCreateSchema
+from src.modules.schemas.episodes import EpisodeCreateSchema
 from src.modules.services.cover import CoverService
 from src.modules.services.episodes import EpisodeCreator
 from src.modules.views.base import BaseController, TaskQueueApp
@@ -97,6 +97,7 @@ class EpisodesController(BaseController):
 
     @get("/episodes/")
     async def get(self, request: Request) -> Template:
+        """Render the episode list page with optional filters."""
         query_params = request.query_params
         filters: dict = {}
         if query_params.get("status"):

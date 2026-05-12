@@ -18,6 +18,7 @@ class BaseModel(AsyncAttrs, DeclarativeBase):
     )
 
     def to_dict(self, excluded_fields: list[str] | None = None) -> dict:
+        """Return a plain dictionary of public mapped attributes."""
         excluded_fields = excluded_fields or []
         res = {}
         for field in self.__dict__:
@@ -28,6 +29,7 @@ class BaseModel(AsyncAttrs, DeclarativeBase):
 
     @classmethod
     def from_dict(cls, data: dict) -> Self:
+        """Create an instance and populate attributes from a dictionary."""
         instance = cls()
         for key, value in data.items():
             setattr(instance, key, value)

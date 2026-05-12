@@ -20,7 +20,7 @@ from src.constants import SourceType
 from src.modules.services.encryption import SensitiveData
 from src.modules.db.models.media import File
 from src.modules.db.models import BaseModel
-from src.schemas import PodcastStatistics
+from src.modules.schemas.statistics import PodcastStatistics
 from src.settings.app import get_app_settings
 from src.utils import utcnow, cut_string
 
@@ -33,6 +33,7 @@ class StringEnumMixin:
 
     @classmethod
     def members(cls) -> list[str]:
+        """Return enum member names as strings."""
         return [str(status) for status in cls.__members__]
 
 
@@ -58,6 +59,7 @@ class EpisodeStatus(StringEnumMixin, enum.StrEnum):
 
     @classmethod
     def members(cls) -> list[str]:
+        """Return persisted episode statuses without transient download states."""
         return [status for status in cls.__members__ if not status.startswith("DL_")]
 
 
@@ -90,14 +92,17 @@ class Podcast(BaseModel):
 
     @property
     def stat(self) -> PodcastStatistics | None:
+        """Return externally attached podcast statistics."""
         return getattr(self, "_stat", None)
 
     @stat.setter
     def stat(self, value: PodcastStatistics):
+        """Attach podcast statistics to this model instance."""
         setattr(self, "_stat", value)
 
     @property
     def rss_url(self) -> str | None:
+        """Return the public RSS URL for this podcast."""
         if self.rss_id:
             return self.rss.url
 
@@ -105,6 +110,7 @@ class Podcast(BaseModel):
 
     @property
     def image_url(self) -> str | None:
+        """Return the podcast image URL or the default cover URL."""
         app_settings = get_app_settings()
         url = self.image.url if self.image else None
         if not url and app_settings.default_podcast_cover:
@@ -129,6 +135,7 @@ class Podcast(BaseModel):
 
     @classmethod
     def generate_publish_id(cls) -> str:
+        """Generate a publish id for podcast RSS links."""
         return md5(uuid.uuid4().hex.encode()).hexdigest()[::2]
 
     #
@@ -152,14 +159,17 @@ class EpisodeChapter:
 
     @property
     def as_dict(self) -> dict:
+        """Return chapter fields as a dictionary."""
         return asdict(self)  # noqa
 
     @property
     def start_str(self) -> str:  # ex.: 0:45:05
+        """Return the chapter start time as HH:MM:SS."""
         return self._ftime(self.start)
 
     @property
     def end_str(self) -> str:  # ex.: 0:45:05
+        """Return the chapter end time as HH:MM:SS."""
         return self._ftime(self.end)
 
     @staticmethod
@@ -312,6 +322,7 @@ class Episode(BaseModel):
 
     @cached_property
     def audio_filename(self) -> str:
+        """Return a stable audio filename for RSS and storage usage."""
         app_settings = get_app_settings()
         filename = self.audio.name if self.audio else ""
         if not filename or (self.audio and "tmp" in self.audio.path):
@@ -323,10 +334,12 @@ class Episode(BaseModel):
 
     @property
     def short_description(self) -> str:
+        """Return a shortened episode description for list displays."""
         return cut_string(self.description, max_length=150)
 
     @classmethod
     def generate_image_name(cls, source_id: str) -> str:
+        """Generate a unique image filename for an episode source."""
         return f"{source_id}_{uuid.uuid4().hex}.png"
 
     def generate_metadata(self) -> EpisodeMetadata:
@@ -388,7 +401,7 @@ class Cookie(BaseModel):
         """Library for downloading content takes only path to cookie's file (stored on the disk)"""
         settings = get_app_settings()
 
-        def store_tmp_file():
+        def _store_tmp_file():
             cookies_file = settings.tmp_cookies_path / f"cookie_{self.source_type}_{self.id}.txt"
             if not cookies_file.exists():
                 logger.debug("Cookie #%s: Generation tmp cookie file [%s]", self.id, cookies_file)
@@ -400,7 +413,7 @@ class Cookie(BaseModel):
 
             return cookies_file
 
-        return await asyncio.to_thread(store_tmp_file)
+        return await asyncio.to_thread(_store_tmp_file)
 
     @classmethod
     def get_encrypted_data(cls, data: str) -> str:
@@ -409,8 +422,10 @@ class Cookie(BaseModel):
 
     @property
     def file_path(self) -> Path | None:
+        """Return the cached local cookie file path."""
         return self.__file_path
 
     @file_path.setter
     def file_path(self, value: str | Path) -> None:
+        """Set the cached local cookie file path."""
         self.__file_path = Path(value)

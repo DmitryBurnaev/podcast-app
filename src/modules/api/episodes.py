@@ -18,15 +18,17 @@ from src.modules.db.repositories import (
     PodcastRepository,
 )
 from src.modules.db.services import SASessionUOW
-from src.modules.schemas import (
+from src.modules.schemas.common import LimitOffsetPagination
+from src.modules.schemas.episodes import (
     EpisodeCreateNestedSchema,
     EpisodePatchSchema,
+    EpisodeResponse,
     UploadedEpisodeCreateSchema,
+    UploadedEpisodeResponse,
 )
 from src.modules.services.episodes import EpisodeCreator
 from src.modules.tasks.base import RQTask
 from src.modules.utils.processing import publish_redis_stop_downloading
-from src.schemas import EpisodeResponse, LimitOffsetPagination, UploadedEpisodeResponse
 
 logger = logging.getLogger(__name__)
 
@@ -82,6 +84,7 @@ class PodcastEpisodeAPIController(EpisodeTaskMixin, BaseApiController):
         offset: int = 0,
         order_by: EpisodeOrderT = "-created_at",
     ) -> LimitOffsetPagination[EpisodeResponse]:
+        """Return paginated episodes for a podcast owned by the current user."""
         logger.info(
             "[API] Getting podcast episodes | user #%i | podcast #%i",
             current_user.id,
@@ -114,6 +117,7 @@ class PodcastEpisodeAPIController(EpisodeTaskMixin, BaseApiController):
         current_user: User,
         data: EpisodeCreateNestedSchema,
     ) -> EpisodeResponse:
+        """Create an episode in the requested podcast."""
         source_url = data.normalized_source_url
         logger.info(
             "[API] Creating episode | user #%i | podcast #%i | source %s",
@@ -155,6 +159,7 @@ class PodcastEpisodeAPIController(EpisodeTaskMixin, BaseApiController):
         current_user: User,
         data: UploadedEpisodeCreateSchema,
     ) -> EpisodeResponse:
+        """Create an episode from an already uploaded audio file."""
         # TODO: move logic to the service!
         async with SASessionUOW() as uow:
             podcast_repository = PodcastRepository(session=uow.session)
@@ -250,6 +255,7 @@ class PodcastEpisodeAPIController(EpisodeTaskMixin, BaseApiController):
         hash: str,
         current_user: User,
     ) -> UploadedEpisodeResponse:
+        """Return metadata for an uploaded episode file by hash."""
         async with SASessionUOW() as uow:
             podcast_repository = PodcastRepository(session=uow.session)
             await self._ensure_owned_podcast(podcast_repository, podcast_id, current_user.id)
@@ -279,6 +285,7 @@ class EpisodeAPIController(EpisodeTaskMixin, BaseApiController):
         offset: int = 0,
         order_by: EpisodeOrderT = "-created_at",
     ) -> LimitOffsetPagination[EpisodeResponse]:
+        """Return paginated episodes owned by the current user."""
         logger.info("[API] Getting paginated list of episodes | user #%i", current_user.id)
         async with SASessionUOW() as uow:
             episode_repository = EpisodeRepository(session=uow.session)
@@ -297,6 +304,7 @@ class EpisodeAPIController(EpisodeTaskMixin, BaseApiController):
 
     @get("/{episode_id:int}/")
     async def get_details(self, episode_id: int, current_user: User) -> EpisodeResponse:
+        """Return details for an episode owned by the current user."""
         async with SASessionUOW() as uow:
             episode_repository = EpisodeRepository(session=uow.session)
             episode = await self._get_owned_episode(
@@ -319,6 +327,7 @@ class EpisodeAPIController(EpisodeTaskMixin, BaseApiController):
         current_user: User,
         data: EpisodePatchSchema,
     ) -> EpisodeResponse:
+        """Update editable fields for an episode owned by the current user."""
         update_data = data.update_data
         if not update_data:
             raise HTTPException(status_code=400, detail="No update fields provided")
@@ -336,6 +345,7 @@ class EpisodeAPIController(EpisodeTaskMixin, BaseApiController):
 
     @delete("/{episode_id:int}/", status_code=HTTP_204_NO_CONTENT)
     async def delete(self, episode_id: int, current_user: User) -> None:
+        """Delete an episode owned by the current user."""
         async with SASessionUOW() as uow:
             episode_repository = EpisodeRepository(session=uow.session)
             episode = await self._get_owned_episode(
@@ -355,6 +365,7 @@ class EpisodeAPIController(EpisodeTaskMixin, BaseApiController):
         episode_id: int,
         current_user: User,
     ) -> EpisodeResponse:
+        """Start downloading or processing an episode."""
         async with SASessionUOW() as uow:
             episode_repository = EpisodeRepository(session=uow.session)
             episode = await self._get_owned_episode(
@@ -385,6 +396,7 @@ class EpisodeAPIController(EpisodeTaskMixin, BaseApiController):
         episode_id: int,
         current_user: User,
     ) -> EpisodeResponse:
+        """Cancel the active download for an episode."""
         async with SASessionUOW() as uow:
             episode_repository = EpisodeRepository(session=uow.session)
             episode = await self._get_owned_episode(

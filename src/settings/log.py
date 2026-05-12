@@ -49,6 +49,7 @@ class LogSettings(BaseSettings):
 
     @property
     def dict_config(self) -> LogDictConfig:
+        """Return logging configuration compatible with dictConfig."""
         filters: list[logging.Filter] = []
         if self.skip_static_access:
             filters.append(LoggingRequestForStaticsFilter("skip-static-access"))

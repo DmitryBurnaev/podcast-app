@@ -21,7 +21,7 @@ def get_random_hash(size: int) -> str:
     """Allows calculating random hash with fixed length"""
 
     hash_value = hashlib.blake2b(key=get_salt().encode(), digest_size=size)
-    hash_value.update(str(uuid.uuid4()).encode())
+    hash_value.update(uuid.uuid4().hex.encode())
     return hash_value.hexdigest()[:size]
 
 

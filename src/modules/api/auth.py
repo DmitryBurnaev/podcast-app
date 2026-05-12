@@ -2,9 +2,9 @@ import logging
 
 from litestar import Request, delete, get, post
 from litestar.status_codes import HTTP_200_OK
-from pydantic import BaseModel, EmailStr, Field
 
-from settings.app import AppSettings
+from src.modules.schemas.auth import RefreshTokenRequest, SignInRequest, TokenResponse, UserResponse
+from src.settings.app import AppSettings
 from src.modules.api.base import BaseApiController
 from src.modules.api.errors import AuthInvalidError, InvalidParametersError
 from src.modules.auth.tokens import create_user_session, refresh_user_session
@@ -15,33 +15,13 @@ from src.modules.db.services import SASessionUOW
 logger = logging.getLogger(__name__)
 
 
-class SignInRequest(BaseModel):
-    email: EmailStr
-    password: str = Field(min_length=1, max_length=128)
-
-
-class RefreshTokenRequest(BaseModel):
-    refresh_token: str = Field(min_length=1, max_length=1024)
-
-
-class TokenResponse(BaseModel):
-    access_token: str
-    refresh_token: str
-
-
-class UserResponse(BaseModel):
-    id: int
-    email: EmailStr
-    is_active: bool
-    is_superuser: bool
-
-
 class AuthAPIController(BaseApiController):
     path = "/api/auth"
     tags = ["Auth"]
 
     @post("/sign-in/")
-    async def sign_in(self, request: Request) -> TokenResponse:
+    async def sign_in(self, request: Request, app_settings: AppSettings) -> TokenResponse:
+        """Authenticate a user and issue a token pair."""
         try:
             data = SignInRequest.model_validate(await request.json())
         except Exception as exc:
@@ -54,12 +34,13 @@ class AuthAPIController(BaseApiController):
         if user is None or not user.is_active or not user.verify_password(data.password):
             raise AuthInvalidError(details="Email or password is invalid.")
 
-        tokens = await create_user_session(user)
+        tokens = await create_user_session(user, settings=app_settings)
         logger.info("[API] User signed in: #%s", user.id)
         return TokenResponse(access_token=tokens.access_token, refresh_token=tokens.refresh_token)
 
     @post("/refresh-token/")
     async def refresh_token(self, request: Request, app_settings: AppSettings) -> TokenResponse:
+        """Refresh an access and refresh token pair."""
         try:
             data = RefreshTokenRequest.model_validate(await request.json())
         except Exception as exc:
@@ -70,6 +51,7 @@ class AuthAPIController(BaseApiController):
 
     @delete("/sign-out/", status_code=HTTP_200_OK)
     async def sign_out(self, current_user: User, request: Request) -> dict[str, bool]:
+        """Deactivate the current authenticated API session."""
         api_auth = getattr(request.state, "api_auth", None)
         session_id: str | None = getattr(api_auth, "session_id", None)
         if session_id is not None:
@@ -83,4 +65,5 @@ class AuthAPIController(BaseApiController):
 
     @get("/me/")
     async def me(self, current_user: User) -> UserResponse:
+        """Return the current authenticated user."""
         return UserResponse.model_validate(current_user, from_attributes=True)

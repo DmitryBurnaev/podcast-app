@@ -9,6 +9,7 @@ class AboutController(BaseController):
 
     @get("/about")
     async def get(self, request: Request, settings: AppSettings) -> Template:
+        """Render the about page."""
         return self.get_response_template(
             template_name="about.html",
             context={

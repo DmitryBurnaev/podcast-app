@@ -30,12 +30,14 @@ class BaseController(Controller):
         context: dict[str, Any],
         request: Request,
     ) -> Template:
+        """Build a template response with shared base context."""
         template_name = template_name or self.default_template_name
         base = self.get_base_context(request)
         return Template(template_name=template_name, context=(base | context))
 
     @staticmethod
     def get_base_context(request: Request) -> dict[str, Any]:
+        """Return context values shared by all HTML views."""
         current_user = get_current_user_or_none(request)
         is_authenticated = current_user is not None
         user_data: dict[str, Any] = {
@@ -64,6 +66,7 @@ class BaseController(Controller):
     @classmethod
     @lru_cache
     def get_controllers(cls) -> list[type["BaseController"]]:
+        """Return concrete HTML controllers registered under this base controller."""
         return [c for c in cls.__subclasses__()]
 
     @classmethod
