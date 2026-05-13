@@ -55,7 +55,7 @@ test: .env ## Run tests with coverage report
 .PHONY: run
 test-in-docker: .env  ## Run tests inside docker container
 	@echo Run project in container...
-	docker compose up test --build
+	docker compose --profile test up --build --abort-on-container-exit --exit-code-from test test
 
 .PHONY: run
 lint-in-docker: .env  ## Run linting inside docker container

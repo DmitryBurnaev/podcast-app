@@ -127,13 +127,16 @@ def make_app(settings: AppSettings | None = None) -> PodcastApp:
     logging.config.dictConfig(app_settings.log.dict_config_any)
     logging.captureWarnings(capture=True)
 
+    async def auth_gate(request: Any) -> Any:
+        return await browser_auth_gate(request, app_settings)
+
     logger.info("Setting up application...")
     podcast_app = PodcastApp(
         route_handlers=[
             *BaseApiController.get_controllers(),
             *BaseController.get_controllers(),
         ],
-        before_request=browser_auth_gate,
+        before_request=auth_gate,
         template_config=TemplateConfig(directory=APP_DIR / "templates", engine=JinjaTemplateEngine),
         static_files_config=[
             StaticFilesConfig(path="/static", directories=[str(APP_DIR / "static")])
