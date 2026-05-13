@@ -55,6 +55,7 @@ run_service() {
       print_caption "Test"
       export COVERAGE_FILE=/tmp/.coverage
       coverage run -m pytest -o cache_dir=/tmp
+      coverage report
       ;;
     lint)
       print_caption "Black check"
