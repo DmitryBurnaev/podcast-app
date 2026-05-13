@@ -2,12 +2,15 @@ from collections.abc import Generator
 from unittest.mock import AsyncMock
 
 import pytest
+from litestar import Request
 from litestar.testing import TestClient
 from pydantic import SecretStr
 
+from src.modules.db.models import User
 from src.main import PodcastApp, make_app
 from src.settings.app import AppSettings, FlagsSettings
 from src.settings.log import LogSettings
+from src.tests.factories import make_user
 
 
 def _make_settings(*, api_debug_mode: bool) -> AppSettings:
@@ -42,7 +45,20 @@ def mocked_redis_health(monkeypatch: pytest.MonkeyPatch) -> AsyncMock:
 
 
 @pytest.fixture
-def app(app_settings: AppSettings) -> PodcastApp:
+def current_user() -> User:
+    return make_user()
+
+
+@pytest.fixture
+def app(
+    app_settings: AppSettings,
+    current_user: User,
+    monkeypatch: pytest.MonkeyPatch,
+) -> PodcastApp:
+    def get_test_current_user(request: Request) -> User:
+        return current_user
+
+    monkeypatch.setattr("src.main.get_current_user", get_test_current_user)
     return make_app(settings=app_settings)
 
 
