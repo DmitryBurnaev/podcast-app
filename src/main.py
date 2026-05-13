@@ -130,6 +130,12 @@ def make_app(settings: AppSettings | None = None) -> PodcastApp:
     async def auth_gate(request: Any) -> Any:
         return await browser_auth_gate(request, app_settings)
 
+    def provide_settings() -> AppSettings:
+        return app_settings
+
+    def provide_app_settings() -> AppSettings:
+        return app_settings
+
     logger.info("Setting up application...")
     podcast_app = PodcastApp(
         route_handlers=[
@@ -150,7 +156,8 @@ def make_app(settings: AppSettings | None = None) -> PodcastApp:
             HTTPException: http_error_handler,
         },
         dependencies={
-            "settings": Provide(get_app_settings, sync_to_thread=False),
+            "settings": Provide(provide_settings, sync_to_thread=False),
+            "app_settings": Provide(provide_app_settings, sync_to_thread=False),
             "current_user": Provide(get_current_user, sync_to_thread=False),
         },
         settings=app_settings,
