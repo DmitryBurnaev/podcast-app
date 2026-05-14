@@ -40,8 +40,6 @@ def make_podcast(
         download_automatically=download_automatically,
         owner_id=owner_id,
         created_at=created_at or utcnow(),
-        rss_id=None,
-        image_id=None,
     )
     podcast.stat = PodcastStatistics(episodes_count=episodes_count)
     return podcast

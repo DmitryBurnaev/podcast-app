@@ -6,6 +6,15 @@ from pydantic import BaseModel, ConfigDict, Field, PositiveInt
 class EpisodeCreateSchema(BaseModel):
     """Request payload for creating an episode from a source URL."""
 
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "sourceURL": "https://www.youtube.com/watch?v=testyoutubeid",
+                "podcastID": 1,
+            }
+        }
+    )
+
     source_url: str = Field(
         alias="sourceURL",
         title="Source URL",
@@ -23,14 +32,6 @@ class EpisodeCreateSchema(BaseModel):
     def normalized_source_url(self) -> str:
         """Return the source URL stripped for consistent downstream usage."""
         return str(self.source_url).strip()
-
-    class Config:
-        json_schema_extra = {
-            "example": {
-                "sourceURL": "https://www.youtube.com/watch?v=testyoutubeid",
-                "podcastID": 1,
-            }
-        }
 
 
 class EpisodeCreateNestedSchema(BaseModel):
