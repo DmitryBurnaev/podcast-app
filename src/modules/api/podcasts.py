@@ -33,45 +33,6 @@ from src.settings.app import get_app_settings
 logger = logging.getLogger(__name__)
 
 
-async def _enqueue_task(
-    request: Request, task_class: type[RQTask], *args: Any, **kwargs: Any
-) -> str:
-    task = task_class()
-    job_id = task_class.get_job_id(*args, **kwargs)
-    kwargs["job_id"] = job_id
-    app = cast(Any, request.app)
-    await asyncio.to_thread(app.rq_queue.enqueue, task, *args, **kwargs)
-    return job_id
-
-
-async def _get_owned_podcast(
-    repository: PodcastRepository, podcast_id: int, owner_id: int
-) -> Podcast:
-    podcast = await repository.first(id=podcast_id, owner_id=owner_id)
-    if not podcast:
-        raise NotFoundException(f"Podcast with id {podcast_id} not found")
-
-    return podcast
-
-
-async def _upload_podcast_image(uploaded_file: UploadFile) -> tuple[str, int]:
-    settings = get_app_settings()
-    local_path = await save_uploaded_file(
-        uploaded_file=uploaded_file,
-        prefix="podcast_image_",
-        max_file_size=settings.max_upload_image_filesize,
-        tmp_path=settings.tmp_image_path,
-    )
-    remote_path = await StorageS3().upload_file(
-        local_path,
-        dst_path=settings.s3.bucket_podcast_images_path,
-    )
-    if not remote_path:
-        raise HTTPException(status_code=500, detail="Unable to upload podcast image")
-
-    return remote_path, get_file_size(local_path)
-
-
 class PodcastAPIController(BaseApiController):
     path = "/api/podcasts"
     tags = ["Podcasts"]
@@ -300,3 +261,42 @@ class PodcastAPIController(BaseApiController):
             current_user.id,
         )
         return PodcastTaskResponse(job_id=job_id)
+
+
+async def _enqueue_task(
+    request: Request, task_class: type[RQTask], *args: Any, **kwargs: Any
+) -> str:
+    task = task_class()
+    job_id = task_class.get_job_id(*args, **kwargs)
+    kwargs["job_id"] = job_id
+    app = cast(Any, request.app)
+    await asyncio.to_thread(app.rq_queue.enqueue, task, *args, **kwargs)
+    return job_id
+
+
+async def _get_owned_podcast(
+    repository: PodcastRepository, podcast_id: int, owner_id: int
+) -> Podcast:
+    podcast = await repository.first(id=podcast_id, owner_id=owner_id)
+    if not podcast:
+        raise NotFoundException(f"Podcast with id {podcast_id} not found")
+
+    return podcast
+
+
+async def _upload_podcast_image(uploaded_file: UploadFile) -> tuple[str, int]:
+    settings = get_app_settings()
+    local_path = await save_uploaded_file(
+        uploaded_file=uploaded_file,
+        prefix="podcast_image_",
+        max_file_size=settings.max_upload_image_filesize,
+        tmp_path=settings.tmp_image_path,
+    )
+    remote_path = await StorageS3().upload_file(
+        local_path,
+        dst_path=settings.s3.bucket_podcast_images_path,
+    )
+    if not remote_path:
+        raise HTTPException(status_code=500, detail="Unable to upload podcast image")
+
+    return remote_path, get_file_size(local_path)
