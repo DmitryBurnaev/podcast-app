@@ -43,7 +43,7 @@ class CookieAPIController(BaseApiController):
         data: Annotated[dict[str, object], Body(media_type=RequestEncodingType.MULTI_PART)],
     ) -> CookieResponse:
         """Create an encrypted cookie file record."""
-        source_type, encrypted_data = await _parse_cookie_form(data)
+        source_type, encrypted_data = await self._parse_cookie_form(data)
         async with SASessionUOW() as uow:
             cookie = await CookieRepository(uow.session).create(
                 source_type=source_type,
@@ -77,7 +77,7 @@ class CookieAPIController(BaseApiController):
         data: Annotated[dict[str, object], Body(media_type=RequestEncodingType.MULTI_PART)],
     ) -> CookieResponse:
         """Replace an encrypted cookie file record."""
-        source_type, encrypted_data = await _parse_cookie_form(data)
+        source_type, encrypted_data = await self._parse_cookie_form(data)
         async with SASessionUOW() as uow:
             cookie_repository = CookieRepository(uow.session)
             cookie = await cookie_repository.first(id=cookie_id, owner_id=current_user.id)
@@ -111,27 +111,29 @@ class CookieAPIController(BaseApiController):
 
             await cookie_repository.delete(cookie)
 
+    @classmethod
+    async def _parse_cookie_form(cls, data: dict[str, object]) -> tuple[SourceType, str]:
+        source_type_raw = data.get("source_type")
+        if not source_type_raw:
+            raise InvalidParametersError(details={"source_type": "Source type is required."})
 
-async def _parse_cookie_form(data: dict[str, object]) -> tuple[SourceType, str]:
-    source_type_raw = data.get("source_type")
-    if not source_type_raw:
-        raise InvalidParametersError(details={"source_type": "Source type is required."})
+        try:
+            source_type = SourceType(str(source_type_raw).upper())
+        except ValueError as exc:
+            raise InvalidParametersError(
+                details={"source_type": "Unsupported source type."}
+            ) from exc
 
-    try:
-        source_type = SourceType(str(source_type_raw).upper())
-    except ValueError as exc:
-        raise InvalidParametersError(details={"source_type": "Unsupported source type."}) from exc
+        uploaded_file = data.get("file") or next(
+            (value for value in data.values() if isinstance(value, UploadFile)),
+            None,
+        )
+        if not isinstance(uploaded_file, UploadFile):
+            raise InvalidParametersError(details={"file": "Cookie file is required."})
 
-    uploaded_file = data.get("file") or next(
-        (value for value in data.values() if isinstance(value, UploadFile)),
-        None,
-    )
-    if not isinstance(uploaded_file, UploadFile):
-        raise InvalidParametersError(details={"file": "Cookie file is required."})
+        try:
+            file_content = (await uploaded_file.read()).decode()
+        except UnicodeDecodeError as exc:
+            raise InvalidParametersError(details={"file": str(exc)}) from exc
 
-    try:
-        file_content = (await uploaded_file.read()).decode()
-    except UnicodeDecodeError as exc:
-        raise InvalidParametersError(details={"file": str(exc)}) from exc
-
-    return source_type, Cookie.get_encrypted_data(file_content)
+        return source_type, Cookie.get_encrypted_data(file_content)
