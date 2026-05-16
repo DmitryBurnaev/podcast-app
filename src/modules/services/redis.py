@@ -84,14 +84,14 @@ class RedisClient:
     def get(self, key: str) -> JSONT:
         """Sync JSON get (same encoding as async_get)."""
         raw = self.sync_redis.get(key)
+        if raw is None:
+            return json.loads("null")
+
         if not isinstance(raw, (str, bytes, bytearray)):
             raise TypeError(
                 f"Unexpected response from redis client: expected str, bytes, or bytearray "
                 f"got {type(raw)} instead"
             )
-
-        if raw is None:
-            return json.loads("null")
 
         if isinstance(raw, (bytes, bytearray)):
             raw = raw.decode("utf-8")

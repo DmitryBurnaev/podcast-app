@@ -211,3 +211,6 @@ __marimo__/
 .python-version
 .vscode
 .data
+
+# Local-only reference tests copied from the previous project incarnation.
+src/legacy-tests/
