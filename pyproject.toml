@@ -69,6 +69,7 @@ source = ["src"]
 omit = [
     "src/tests/*",
     "src/migrations/*",
+    "src/legacy-tests/*",
 ]
 
 [tool.coverage.report]
