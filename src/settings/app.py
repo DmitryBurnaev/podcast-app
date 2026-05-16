@@ -135,6 +135,9 @@ class AppSettings(BaseSettings):
         default_factory=lambda: ROOT_DIR / ".local" / "media_cache" / "episodes_cover",
         description="Local directory for cached episode cover images (env: MEDIA_CACHE_DIR)",
     )
+    auth_password_hash_algorithm: str = "pbkdf2_sha256"
+    auth_password_hash_iterations: int = 180000
+    auth_cookie_secure: bool = True
 
     @field_validator("media_cache_dir", mode="before")
     @classmethod
