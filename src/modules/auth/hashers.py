@@ -7,6 +7,8 @@ import uuid
 import logging
 from typing import ClassVar, Callable, Any
 
+from src.settings.app import get_app_settings, AppSettings
+
 logger = logging.getLogger(__name__)
 
 
@@ -40,11 +42,15 @@ class PBKDF2PasswordHasher:
 
     def encode(self, password: str, salt: str | None = None) -> str:
         """Encoding password using random salt + pbkdf2_sha256"""
+        app_settings: AppSettings = get_app_settings()
+        algorithm = app_settings.auth_password_hash_algorithm or self.algorithm
+        iterations = app_settings.auth_password_hash_iterations or self.iterations
+
         password_salt: str = salt or get_salt()
         self._validate_input(password, password_salt)
         hash_ = self._pbkdf2(password, password_salt)
         hash_value = base64.b64encode(hash_).decode("ascii").strip()
-        return f"{self.algorithm}${self.iterations}${salt}${hash_value}"
+        return f"{algorithm}${iterations}${salt}${hash_value}"
 
     def verify(self, password: str, encoded: str) -> tuple[bool, str]:
         """Check if the given password is correct."""
