@@ -140,7 +140,7 @@ class DownloadEpisodeTask(RQTask):
             )
             return
 
-        stored_file_size = self.storage.get_file_size(dst_path=audio_path)
+        stored_file_size = await self.storage.get_file_size(dst_path=audio_path)
         if stored_file_size and stored_file_size == episode.audio.size:
             logger.info(
                 "[%s] Episode already downloaded and file correct. Downloading will be ignored.",
