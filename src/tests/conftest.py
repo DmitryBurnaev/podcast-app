@@ -15,7 +15,7 @@ from src.tests.factories import make_user
 
 def _make_settings(*, api_debug_mode: bool) -> AppSettings:
     return AppSettings(
-        app_secret_key=SecretStr("test-secret-key"),
+        app_secret_key=SecretStr("test-secret-key" * 8),
         app_version="test",
         flags=FlagsSettings(debug_mode=True, api_debug_mode=api_debug_mode),
         log=LogSettings(format="[%(levelname)s] %(message)s"),
