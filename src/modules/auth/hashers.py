@@ -50,7 +50,7 @@ class PBKDF2PasswordHasher:
         self._validate_input(password, password_salt)
         hash_ = self._pbkdf2(password, password_salt)
         hash_value = base64.b64encode(hash_).decode("ascii").strip()
-        return f"{algorithm}${iterations}${salt}${hash_value}"
+        return f"{algorithm}${iterations}${password_salt}${hash_value}"
 
     def verify(self, password: str, encoded: str) -> tuple[bool, str]:
         """Check if the given password is correct."""
