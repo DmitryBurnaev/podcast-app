@@ -75,6 +75,14 @@ def encode_jwt(
     settings: AppSettings,
     expires_in: int | None = None,
 ) -> tuple[str, datetime.datetime]:
+    """
+    Prepares JWT token and returns it expires time
+
+    :param payload: data which should be encoded
+    :param settings: current app's settings
+    :param expires_in: expiration time
+    :return: encoded JWT, expires time
+    """
     if expires_in is None:
         expires_in = (
             settings.jwt_refresh_expires_in
@@ -94,12 +102,23 @@ def decode_jwt(
     expected_type: AuthTokenType,
     settings: AppSettings,
 ) -> dict[str, Any]:
+    """
+    Decodes JWT token and returns decoded data
+
+    :param token: encoded JWT
+    :param expected_type: expected token type
+    :param settings: current app's settings
+    :raises Errors, based on PyJWTError
+    :return: decoded data
+    """
     try:
         payload = jwt.decode(token, _jwt_key(settings), algorithms=[settings.jwt_algorithm])
     except ExpiredSignatureError as exc:
         if expected_type == AuthTokenType.REFRESH:
             raise RefreshExpiredError() from exc
+
         raise TokenExpiredError() from exc
+
     except InvalidTokenError as exc:
         raise AuthInvalidError(details=str(exc)) from exc
 
@@ -113,6 +132,7 @@ def decode_jwt(
 
 
 def issue_token_pair(user_id: int, session_id: str, settings: AppSettings) -> TokenCollection:
+    """Prepare collection: refresh + access tokens (and expirations)"""
     settings = settings or get_app_settings()
     access_token, access_exp = encode_jwt(
         TokenPayload(
