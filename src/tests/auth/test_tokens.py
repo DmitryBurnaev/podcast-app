@@ -315,7 +315,9 @@ class TestSessionTokens:
             get=AsyncMock(return_value=stored_session),
             update=AsyncMock(),
         )
-        monkeypatch.setattr("src.modules.auth.tokens.authenticate_refresh_token", AsyncMock(return_value=auth))
+        monkeypatch.setattr(
+            "src.modules.auth.tokens.authenticate_refresh_token", AsyncMock(return_value=auth)
+        )
         monkeypatch.setattr("src.modules.auth.tokens.SASessionUOW", lambda: MockUOW())
         monkeypatch.setattr(
             "src.modules.auth.tokens.UserSessionRepository",
@@ -371,7 +373,9 @@ class TestUserAccessToken:
         raw_token = "x" * LENGTH_USER_ACCESS_TOKEN
         token_repository = SimpleNamespace(first=AsyncMock(return_value=access_token))
         monkeypatch.setattr("src.modules.auth.tokens.SASessionUOW", lambda: MockUOW())
-        monkeypatch.setattr("src.modules.auth.tokens.BaseRepository", Mock(return_value=token_repository))
+        monkeypatch.setattr(
+            "src.modules.auth.tokens.BaseRepository", Mock(return_value=token_repository)
+        )
         request = SimpleNamespace(headers={"Authorization": f"Bearer {raw_token}"})
 
         with pytest.raises(AuthInvalidError, match="unknown"):
@@ -382,10 +386,14 @@ class TestUserAccessToken:
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         raw_token = "x" * LENGTH_USER_ACCESS_TOKEN
-        token_repository = SimpleNamespace(first=AsyncMock(return_value=SimpleNamespace(user_id=7, active=True)))
+        token_repository = SimpleNamespace(
+            first=AsyncMock(return_value=SimpleNamespace(user_id=7, active=True))
+        )
         user_repository = SimpleNamespace(first=AsyncMock(return_value=None))
         monkeypatch.setattr("src.modules.auth.tokens.SASessionUOW", lambda: MockUOW())
-        monkeypatch.setattr("src.modules.auth.tokens.BaseRepository", Mock(return_value=token_repository))
+        monkeypatch.setattr(
+            "src.modules.auth.tokens.BaseRepository", Mock(return_value=token_repository)
+        )
         monkeypatch.setattr(
             "src.modules.auth.tokens.UserRepository",
             Mock(return_value=user_repository),

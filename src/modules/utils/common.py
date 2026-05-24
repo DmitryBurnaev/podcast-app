@@ -10,7 +10,6 @@ from typing import (
     Callable,
     Any,
     NotRequired,
-    TYPE_CHECKING,
     cast,
 )
 
@@ -23,9 +22,6 @@ from src.modules.auth.hashers import get_random_hash
 from src.modules.db.models.podcasts import EpisodeChapter
 from src.modules.utils.processing import episode_process_hook
 from src.settings.app import get_app_settings
-
-if TYPE_CHECKING:
-    from yt_dlp import _Params
 
 logger = logging.getLogger(__name__)
 
@@ -191,7 +187,7 @@ async def download_audio(
         logger.info("YoutubeDL: Using proxy: %s", proxy_url)
         params["proxy"] = proxy_url
 
-    with yt_dlp.YoutubeDL(cast("_Params", params)) as ydl:
+    with yt_dlp.YoutubeDL(params) as ydl:  # type: ignore
         ydl.download([source_url])
 
     return result_path
@@ -226,7 +222,7 @@ async def get_source_media_info(source_info: SourceInfo) -> tuple[str, SourceMed
         return "Source URL is not specified", None
 
     try:
-        with yt_dlp.YoutubeDL(cast("_Params", params)) as ydl:
+        with yt_dlp.YoutubeDL(params) as ydl:  # type: ignore
             source_details = cast(
                 SourceDetails,
                 await asyncio.to_thread(

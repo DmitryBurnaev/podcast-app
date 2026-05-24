@@ -9,15 +9,7 @@ from src.modules.auth.hashers import PBKDF2PasswordHasher
 from src.modules.db.models import BaseModel
 from src.utils import utcnow
 
-# from common.utils import utcnow
-# from common.models import ModelMixin
-# from core.database import ModelBase
-# from src.modules.auth.hasher import PBKDF2PasswordHasher
-# from src.modules.auth.constants import LENGTH_USER_ACCESS_TOKEN
-
 logger = logging.getLogger(__name__)
-
-# Nbytes default for secrets.token_urlsafe; stored token truncated to this length.
 LENGTH_USER_ACCESS_TOKEN = 32
 
 
@@ -67,15 +59,9 @@ class User(BaseModel):
         local, sep, _ = raw.partition("@")
         return local if sep else raw
 
-    # @classmethod
-    # async def get_active(cls, db_session: AsyncSession, user_id: int) -> "User":
-    #     return await cls.async_get(db_session, id=user_id, is_active=True)
-    #
-
 
 class UserInvite(BaseModel):
     __tablename__ = "auth_invites"
-    TOKEN_MAX_LENGTH = 32
 
     id: Mapped[int] = mapped_column(primary_key=True)
     user_id: Mapped[int | None] = mapped_column(
@@ -111,7 +97,7 @@ class UserInvite(BaseModel):
     @classmethod
     def generate_token(cls) -> str:
         """Generate an invite token."""
-        return secrets.token_urlsafe()[: cls.TOKEN_MAX_LENGTH]
+        return secrets.token_urlsafe()[:LENGTH_USER_ACCESS_TOKEN]
 
     def __repr__(self) -> str:
         return f"<UserInvite #{self.id} {self.email}>"

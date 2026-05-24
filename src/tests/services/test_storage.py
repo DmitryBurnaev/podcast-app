@@ -23,7 +23,9 @@ class TestStorageSettings:
 
     def test_validate_s3_settings__missing__fail(self) -> None:
         with pytest.raises(StorageConfigurationError, match="S3_ACCESS_KEY_ID"):
-            validate_s3_settings(S3Settings(access_key_id=None, secret_access_key=None, bucket_name=""))
+            validate_s3_settings(
+                S3Settings(access_key_id=None, secret_access_key=None, bucket_name="")
+            )
 
 
 class TestStorageS3Operations:
@@ -90,7 +92,9 @@ class TestStorageS3Operations:
         with pytest.raises(ValueError, match="At least one argument"):
             await storage.delete_file()
 
-    async def test_get_presigned_url__uses_cached_url(self, monkeypatch: pytest.MonkeyPatch) -> None:
+    async def test_get_presigned_url__uses_cached_url(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         storage, s3 = _make_storage()
         redis = SimpleNamespace(async_get=AsyncMock(return_value="cached"), async_set=AsyncMock())
         monkeypatch.setattr("src.modules.services.storage.RedisClient", lambda: redis)

@@ -131,7 +131,9 @@ class TestDownloadEpisodeImageTask:
             "src.modules.tasks.process.download_content",
             AsyncMock(return_value=downloaded),
         )
-        monkeypatch.setattr("src.modules.tasks.process.ffmpeg.ffmpeg_preparation", ffmpeg_preparation)
+        monkeypatch.setattr(
+            "src.modules.tasks.process.ffmpeg.ffmpeg_preparation", ffmpeg_preparation
+        )
 
         result = await DownloadEpisodeImageTask._download_and_crop_image(episode)
 

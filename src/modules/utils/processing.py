@@ -203,7 +203,7 @@ def episode_process_hook(
     logger.info("[%s] for %s: %s", status, filename, progress)
 
 
-async def upload_episode(src_path: str | Path) -> str | None:
+async def upload_episode(src_path: Path) -> str | None:
     """Allows uploading src_path to S3 storage"""
 
     filename = os.path.basename(src_path)

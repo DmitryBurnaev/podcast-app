@@ -43,7 +43,11 @@ class TestRQTaskMetadata:
         [
             ((1, 2), {"kwarg": 123}, "successfultaskfortest_1_2_kwarg=123_"),
             ((), {}, "successfultaskfortest___"),
-            (("episode",), {"force": True, "attempt": 2}, "successfultaskfortest_episode_force=True_attempt=2_"),
+            (
+                ("episode",),
+                {"force": True, "attempt": 2},
+                "successfultaskfortest_episode_force=True_attempt=2_",
+            ),
         ],
     )
     def test_get_job_id__ok(

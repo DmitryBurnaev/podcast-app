@@ -57,7 +57,9 @@ class TestDownloadEpisodeTaskRun:
             message=task.settings.redis.progress_pubsub_signal,
         )
 
-    async def test_run__unexpected_error__marks_episode_error(self, monkeypatch: pytest.MonkeyPatch) -> None:
+    async def test_run__unexpected_error__marks_episode_error(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         task = DownloadEpisodeTask(db_session=MockSession())
         update_by_ids = AsyncMock()
         monkeypatch.setattr("src.modules.tasks.download.StorageS3", MockStorageS3)
@@ -190,7 +192,9 @@ class TestDownloadEpisodeTaskSteps:
         task.storage.get_file_size.return_value = 456
         task._update_files = AsyncMock()
         upload_episode = AsyncMock(return_value="audio/result.mp3")
-        monkeypatch.setattr("src.modules.tasks.download.processing_utils.upload_episode", upload_episode)
+        monkeypatch.setattr(
+            "src.modules.tasks.download.processing_utils.upload_episode", upload_episode
+        )
 
         result = await task._upload_file(episode, tmp_path / "episode.mp3")
 
@@ -296,7 +300,9 @@ class TestUploadedEpisodeTask:
         )
         task.db_session.flush.assert_awaited_once_with()
 
-    async def test_copy_file__failure__marks_episode_error(self, monkeypatch: pytest.MonkeyPatch) -> None:
+    async def test_copy_file__failure__marks_episode_error(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         episode = _episode_with_audio()
         task = UploadedEpisodeTask(db_session=MockSession())
         task.episode_repository = SimpleNamespace(update=AsyncMock())

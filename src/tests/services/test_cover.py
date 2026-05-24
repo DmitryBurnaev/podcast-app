@@ -84,17 +84,25 @@ class TestCoverServiceCache:
             file_obj.type.value,
         )
 
-    async def test_download_from_s3__missing__fail(self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    async def test_download_from_s3__missing__fail(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
         storage = SimpleNamespace(download_file=AsyncMock(return_value=None))
         monkeypatch.setattr("src.modules.services.cover.StorageS3", Mock(return_value=storage))
 
         with pytest.raises(NotFoundException):
-            await CoverService._download_from_s3("images/missing.jpg", tmp_path / "cover.jpg", "image")
+            await CoverService._download_from_s3(
+                "images/missing.jpg", tmp_path / "cover.jpg", "image"
+            )
 
-    async def test_download_from_url__ok(self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    async def test_download_from_url__ok(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
         response = SimpleNamespace(status_code=200, content=b"image")
         client = _FakeAsyncClient(response=response)
-        monkeypatch.setattr("src.modules.services.cover.httpx.AsyncClient", Mock(return_value=client))
+        monkeypatch.setattr(
+            "src.modules.services.cover.httpx.AsyncClient", Mock(return_value=client)
+        )
         dst_path = tmp_path / "cover.jpg"
 
         await CoverService._download_from_url("https://example.com/cover.jpg", dst_path, "image")
@@ -108,10 +116,14 @@ class TestCoverServiceCache:
         tmp_path: Path,
     ) -> None:
         client = _FakeAsyncClient(response=SimpleNamespace(status_code=404, content=b""))
-        monkeypatch.setattr("src.modules.services.cover.httpx.AsyncClient", Mock(return_value=client))
+        monkeypatch.setattr(
+            "src.modules.services.cover.httpx.AsyncClient", Mock(return_value=client)
+        )
 
         with pytest.raises(NotFoundException):
-            await CoverService._download_from_url("https://example.com/cover.jpg", tmp_path / "cover.jpg", "image")
+            await CoverService._download_from_url(
+                "https://example.com/cover.jpg", tmp_path / "cover.jpg", "image"
+            )
 
 
 class _FakeAsyncClient:

@@ -55,7 +55,9 @@ class TestAuthExempt:
 class TestBrowserAuthGate:
     async def test_browser_auth_gate__exempt__ok(self, monkeypatch: pytest.MonkeyPatch) -> None:
         attach_current_user = AsyncMock()
-        monkeypatch.setattr("src.modules.auth.before_request.attach_current_user", attach_current_user)
+        monkeypatch.setattr(
+            "src.modules.auth.before_request.attach_current_user", attach_current_user
+        )
         request = _request(path="/login")
 
         result = await browser_auth_gate(request, settings=SimpleNamespace())
@@ -63,7 +65,9 @@ class TestBrowserAuthGate:
         assert result is None
         attach_current_user.assert_awaited_once_with(request)
 
-    async def test_browser_auth_gate__current_user__ok(self, monkeypatch: pytest.MonkeyPatch) -> None:
+    async def test_browser_auth_gate__current_user__ok(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         monkeypatch.setattr("src.modules.auth.before_request.attach_current_user", AsyncMock())
         request = _request(path="/podcasts", current_user=make_user())
 

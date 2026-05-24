@@ -49,7 +49,9 @@ class TestEpisodeCreatorCreate:
         created_episode = make_episode(id=99)
         audio_file = make_file(id=1)
         image_file = make_file(id=2)
-        episode_repository = SimpleNamespace(all=AsyncMock(return_value=[]), create=AsyncMock(return_value=created_episode))
+        episode_repository = SimpleNamespace(
+            all=AsyncMock(return_value=[]), create=AsyncMock(return_value=created_episode)
+        )
         monkeypatch.setattr(
             "src.modules.services.episodes.EpisodeRepository",
             Mock(return_value=episode_repository),

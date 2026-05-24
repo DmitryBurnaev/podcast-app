@@ -38,7 +38,9 @@ class TestFFmpegPreparation:
 
         monkeypatch.setattr("src.modules.utils.ffmpeg.get_app_settings", lambda: settings)
         monkeypatch.setattr("src.modules.utils.ffmpeg.Process", Mock(return_value=process))
-        monkeypatch.setattr("src.modules.utils.ffmpeg.proc_utils.get_file_size", Mock(return_value=10))
+        monkeypatch.setattr(
+            "src.modules.utils.ffmpeg.proc_utils.get_file_size", Mock(return_value=10)
+        )
         monkeypatch.setattr("src.modules.utils.ffmpeg.common_utils.episode_process_hook", hooks)
         monkeypatch.setattr("src.modules.utils.ffmpeg.subprocess.run", run)
 
@@ -61,7 +63,9 @@ class TestFFmpegPreparation:
         settings = SimpleNamespace(tmp_audio_path=tmp_audio_path, ffmpeg_timeout=30)
         monkeypatch.setattr("src.modules.utils.ffmpeg.get_app_settings", lambda: settings)
         monkeypatch.setattr("src.modules.utils.ffmpeg.Process", Mock(return_value=_FakeProcess()))
-        monkeypatch.setattr("src.modules.utils.ffmpeg.proc_utils.get_file_size", Mock(return_value=10))
+        monkeypatch.setattr(
+            "src.modules.utils.ffmpeg.proc_utils.get_file_size", Mock(return_value=10)
+        )
         monkeypatch.setattr("src.modules.utils.ffmpeg.common_utils.episode_process_hook", Mock())
         monkeypatch.setattr(
             "src.modules.utils.ffmpeg.subprocess.run",
@@ -83,7 +87,9 @@ class TestFFmpegPreparation:
         settings = SimpleNamespace(tmp_audio_path=tmp_audio_path, ffmpeg_timeout=30)
         monkeypatch.setattr("src.modules.utils.ffmpeg.get_app_settings", lambda: settings)
         monkeypatch.setattr("src.modules.utils.ffmpeg.Process", Mock(return_value=_FakeProcess()))
-        monkeypatch.setattr("src.modules.utils.ffmpeg.proc_utils.get_file_size", Mock(return_value=10))
+        monkeypatch.setattr(
+            "src.modules.utils.ffmpeg.proc_utils.get_file_size", Mock(return_value=10)
+        )
         monkeypatch.setattr("src.modules.utils.ffmpeg.common_utils.episode_process_hook", Mock())
         monkeypatch.setattr(
             "src.modules.utils.ffmpeg.subprocess.run",
@@ -114,7 +120,9 @@ class TestExecuteFFmpeg:
             subprocess.TimeoutExpired(cmd="ffmpeg", timeout=1, output=b"timeout"),
         ],
     )
-    def test_execute_ffmpeg__error__fail(self, monkeypatch: pytest.MonkeyPatch, exc: Exception) -> None:
+    def test_execute_ffmpeg__error__fail(
+        self, monkeypatch: pytest.MonkeyPatch, exc: Exception
+    ) -> None:
         settings = SimpleNamespace(ffmpeg_timeout=30)
         monkeypatch.setattr("src.modules.utils.ffmpeg.get_app_settings", lambda: settings)
         monkeypatch.setattr("src.modules.utils.ffmpeg.subprocess.run", Mock(side_effect=exc))
@@ -183,7 +191,9 @@ class TestMetadata:
             episode_chapters=[],
         )
         monkeypatch.setattr("src.modules.utils.ffmpeg.get_app_settings", lambda: settings)
-        monkeypatch.setattr("src.modules.utils.ffmpeg.execute_ffmpeg", Mock(return_value="no title"))
+        monkeypatch.setattr(
+            "src.modules.utils.ffmpeg.execute_ffmpeg", Mock(return_value="no title")
+        )
 
         with pytest.raises(RuntimeError, match="Episode title"):
             ffmpeg_set_metadata(src_path, metadata)
@@ -213,7 +223,9 @@ class TestMetadata:
         )
 
     def test_audio_metadata__bad_output__fail(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        monkeypatch.setattr("src.modules.utils.ffmpeg.execute_ffmpeg", Mock(return_value="bad output"))
+        monkeypatch.setattr(
+            "src.modules.utils.ffmpeg.execute_ffmpeg", Mock(return_value="bad output")
+        )
 
         with pytest.raises(FFMPegParseError):
             audio_metadata("episode.mp3")
@@ -227,8 +239,12 @@ class TestMetadata:
 
         monkeypatch.setattr("src.modules.utils.ffmpeg.get_app_settings", lambda: settings)
         monkeypatch.setattr("src.modules.utils.ffmpeg.execute_ffmpeg", execute)
-        monkeypatch.setattr("src.modules.utils.ffmpeg.uuid.uuid4", Mock(return_value=SimpleNamespace(hex="abc")))
-        monkeypatch.setattr("src.modules.utils.ffmpeg.proc_utils.get_file_size", Mock(return_value=5))
+        monkeypatch.setattr(
+            "src.modules.utils.ffmpeg.uuid.uuid4", Mock(return_value=SimpleNamespace(hex="abc"))
+        )
+        monkeypatch.setattr(
+            "src.modules.utils.ffmpeg.proc_utils.get_file_size", Mock(return_value=5)
+        )
 
         result = audio_cover(tmp_path / "episode.mp3")
 
@@ -237,7 +253,9 @@ class TestMetadata:
         assert result.path.name == f"cover_{result.hash}.jpg"
         assert result.size == 5
 
-    def test_audio_cover__ffmpeg_error__none(self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    def test_audio_cover__ffmpeg_error__none(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
         settings = SimpleNamespace(tmp_image_path=tmp_path)
         monkeypatch.setattr("src.modules.utils.ffmpeg.get_app_settings", lambda: settings)
         monkeypatch.setattr(
@@ -248,7 +266,9 @@ class TestMetadata:
         assert audio_cover(tmp_path / "episode.mp3") is None
 
     def test_raw_meta_to_dict__ok(self) -> None:
-        assert _raw_meta_to_dict("    album           : TestAlbum\nbad\n    artist          : Artist") == {
+        assert _raw_meta_to_dict(
+            "    album           : TestAlbum\nbad\n    artist          : Artist"
+        ) == {
             "album": "TestAlbum",
             "artist": "Artist",
         }

@@ -69,7 +69,9 @@ class TestAuthSignInAPI:
             verify_password=Mock(return_value=True),
         )
         user_repository = SimpleNamespace(get_by_email=AsyncMock(return_value=user))
-        token_collection = SimpleNamespace(access_token="access-token", refresh_token="refresh-token")
+        token_collection = SimpleNamespace(
+            access_token="access-token", refresh_token="refresh-token"
+        )
         create_user_session = AsyncMock(return_value=token_collection)
         monkeypatch.setattr("src.modules.api.auth.SASessionUOW", lambda: MockUOW())
         monkeypatch.setattr("src.modules.api.auth.UserRepository", lambda session: user_repository)
