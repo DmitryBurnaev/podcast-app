@@ -21,7 +21,6 @@ _PUBLIC_API_PATHS = {
     "/api/auth/refresh-token",
     "/api/auth/reset-password",
     "/api/auth/change-password",
-    "/api/health",
     "/api/system/health",
 }
 

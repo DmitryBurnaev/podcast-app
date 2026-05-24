@@ -268,11 +268,8 @@ async def refresh_user_session(refresh_token: str, settings: AppSettings) -> Tok
     return tokens
 
 
-async def _authenticate_user_access_token(
-    uow: SASessionUOW,
-    token: str,
-) -> AuthenticatedRequest:
-    token_repo: BaseRepository[UserAccessToken] = BaseRepository(uow.session)
+async def _authenticate_user_access_token(uow: SASessionUOW, token: str) -> AuthenticatedRequest:
+    token_repo: BaseRepository[UserAccessToken] = BaseRepository[UserAccessToken](uow.session)
     token_repo.model = UserAccessToken
     access_token = await token_repo.first(token=hash_string(token))
     if access_token is None or not access_token.active:

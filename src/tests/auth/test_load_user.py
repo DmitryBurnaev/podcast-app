@@ -41,7 +41,9 @@ class TestAttachCurrentUser:
 
     async def test_attach_current_user__missing_cookie__skip(self) -> None:
         settings = SimpleNamespace(auth=SimpleNamespace(session_cookie_name="sid"))
-        request = SimpleNamespace(app=SimpleNamespace(settings=settings), cookies={}, state=SimpleNamespace())
+        request = SimpleNamespace(
+            app=SimpleNamespace(settings=settings), cookies={}, state=SimpleNamespace()
+        )
 
         await attach_current_user(request)
 

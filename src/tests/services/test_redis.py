@@ -14,7 +14,6 @@ from src.modules.services.redis import (
     close_async_redis_connection,
 )
 
-
 TEST_DATA = {"test": "my-value"}
 
 

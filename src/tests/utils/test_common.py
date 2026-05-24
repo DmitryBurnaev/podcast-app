@@ -31,7 +31,12 @@ class TestSourceInfo:
     @pytest.mark.parametrize(
         ("url", "playlist", "source_id", "source_type"),
         [
-            ("https://www.youtube.com/watch?v=abcdefghijk", False, "abcdefghijk", SourceType.YOUTUBE),
+            (
+                "https://www.youtube.com/watch?v=abcdefghijk",
+                False,
+                "abcdefghijk",
+                SourceType.YOUTUBE,
+            ),
             ("https://www.youtube.com/playlist?list=PL123", True, "PL123", SourceType.YOUTUBE),
             ("https://music.yandex.ru/album/1/track/12345", False, "12345", SourceType.YANDEX),
             ("https://music.yandex.ru/album/album-id", True, "album-id", SourceType.YANDEX),
@@ -91,7 +96,9 @@ class TestDownloadProcessHook:
             processed_bytes=25,
         )
 
-    def test_download_process_hook__missing_filename__skip(self, monkeypatch: pytest.MonkeyPatch) -> None:
+    def test_download_process_hook__missing_filename__skip(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         episode_process_hook = Mock()
         monkeypatch.setattr("src.modules.utils.common.episode_process_hook", episode_process_hook)
 
@@ -133,7 +140,9 @@ class TestYtDlpIntegrationWrappers:
         ydl.download.assert_called_once_with(["https://source"])
 
     async def test_get_source_media_info__missing_url__fail(self) -> None:
-        message, info = await get_source_media_info(SourceInfo(id="source", type=SourceType.YOUTUBE))
+        message, info = await get_source_media_info(
+            SourceInfo(id="source", type=SourceType.YOUTUBE)
+        )
 
         assert message == "Source URL is not specified"
         assert info is None

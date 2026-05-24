@@ -20,7 +20,7 @@ def _sync_redis_connection_dict() -> dict[str, str | int | bool]:
     Job.fetch / HGETALL does not force UTF-8. App JSON get/set decodes UTF-8
     explicitly in RedisClient.get.
     """
-    cfg = dict(get_redis_settings().connection_dict)
+    cfg = get_redis_settings().connection_dict
     cfg["decode_responses"] = False
     return cfg
 

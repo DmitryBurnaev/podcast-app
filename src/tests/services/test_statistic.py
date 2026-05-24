@@ -16,7 +16,9 @@ class TestStatisticService:
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         last_published_at = datetime(2026, 5, 16, 12, 30, tzinfo=timezone.utc)
-        podcast_repository = SimpleNamespace(all=AsyncMock(return_value=[make_podcast(), make_podcast(id=2)]))
+        podcast_repository = SimpleNamespace(
+            all=AsyncMock(return_value=[make_podcast(), make_podcast(id=2)])
+        )
         episode_repository = SimpleNamespace(
             get_aggregated=AsyncMock(
                 return_value=EpisodesStatData(
@@ -37,7 +39,9 @@ class TestStatisticService:
             Mock(return_value=episode_repository),
         )
 
-        result = await StatisticService(SimpleNamespace(session=MockSession())).get_app_statistics(owner_id=7)
+        result = await StatisticService(SimpleNamespace(session=MockSession())).get_app_statistics(
+            owner_id=7
+        )
 
         assert result.total_episodes == 3
         assert result.total_podcasts == 2
@@ -57,7 +61,11 @@ class TestStatisticService:
         )
         monkeypatch.setattr(
             "src.modules.services.statistic.EpisodeRepository",
-            Mock(return_value=SimpleNamespace(get_aggregated=AsyncMock(return_value=EpisodesStatData()))),
+            Mock(
+                return_value=SimpleNamespace(
+                    get_aggregated=AsyncMock(return_value=EpisodesStatData())
+                )
+            ),
         )
 
         result = await StatisticService(SimpleNamespace(session=MockSession())).get_app_statistics()
@@ -68,7 +76,9 @@ class TestStatisticService:
     async def test_get_podcast_statistics__ok(self, monkeypatch: pytest.MonkeyPatch) -> None:
         episode_repository = SimpleNamespace(
             get_aggregated=AsyncMock(
-                return_value=EpisodesStatData(total_count=4, total_duration=99, total_file_size=None)
+                return_value=EpisodesStatData(
+                    total_count=4, total_duration=99, total_file_size=None
+                )
             )
         )
         monkeypatch.setattr(
@@ -76,7 +86,9 @@ class TestStatisticService:
             Mock(return_value=episode_repository),
         )
 
-        result = await StatisticService(SimpleNamespace(session=MockSession())).get_podcast_statistics(10)
+        result = await StatisticService(
+            SimpleNamespace(session=MockSession())
+        ).get_podcast_statistics(10)
 
         assert result.episodes_count == 4
         assert result.total_duration == 99

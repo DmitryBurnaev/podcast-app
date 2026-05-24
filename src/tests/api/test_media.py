@@ -89,7 +89,9 @@ class TestMediaUploadAPI:
             AsyncMock(return_value=Path("/tmp/uploaded.bin")),
         )
         monkeypatch.setattr("src.modules.api.media.get_file_size", Mock(return_value=512))
-        monkeypatch.setattr("src.modules.api.media.ffmpeg_utils.audio_metadata", Mock(return_value=metadata))
+        monkeypatch.setattr(
+            "src.modules.api.media.ffmpeg_utils.audio_metadata", Mock(return_value=metadata)
+        )
 
         response = client.post(
             path,
@@ -155,10 +157,16 @@ class TestMediaUploadAPI:
             AsyncMock(return_value=Path("/tmp/uploaded.mp3")),
         )
         monkeypatch.setattr("src.modules.api.media.get_file_size", Mock(return_value=512))
-        monkeypatch.setattr("src.modules.api.media.ffmpeg_utils.audio_metadata", Mock(return_value=metadata))
+        monkeypatch.setattr(
+            "src.modules.api.media.ffmpeg_utils.audio_metadata", Mock(return_value=metadata)
+        )
         monkeypatch.setattr(
             "src.modules.api.media.ffmpeg_utils.audio_cover",
-            Mock(return_value=SimpleNamespace(path=Path("/tmp/cover.jpg"), hash=cover.hash, size=cover.size)),
+            Mock(
+                return_value=SimpleNamespace(
+                    path=Path("/tmp/cover.jpg"), hash=cover.hash, size=cover.size
+                )
+            ),
         )
 
         response = client.post(
@@ -187,10 +195,16 @@ class TestMediaUploadAPI:
             AsyncMock(return_value=Path("/tmp/uploaded.mp3")),
         )
         monkeypatch.setattr("src.modules.api.media.get_file_size", Mock(return_value=512))
-        monkeypatch.setattr("src.modules.api.media.ffmpeg_utils.audio_metadata", Mock(return_value=metadata))
+        monkeypatch.setattr(
+            "src.modules.api.media.ffmpeg_utils.audio_metadata", Mock(return_value=metadata)
+        )
         monkeypatch.setattr(
             "src.modules.api.media.ffmpeg_utils.audio_cover",
-            Mock(return_value=SimpleNamespace(path=Path("/tmp/cover.jpg"), hash="cover-hash", size=64)),
+            Mock(
+                return_value=SimpleNamespace(
+                    path=Path("/tmp/cover.jpg"), hash="cover-hash", size=64
+                )
+            ),
         )
 
         response = client.post(
@@ -205,6 +219,8 @@ class TestMediaUploadAPI:
         self,
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
-        monkeypatch.setattr("src.modules.api.media.ffmpeg_utils.audio_cover", Mock(return_value=None))
+        monkeypatch.setattr(
+            "src.modules.api.media.ffmpeg_utils.audio_cover", Mock(return_value=None)
+        )
 
         assert await _upload_audio_cover(Path("/tmp/uploaded.mp3")) is None

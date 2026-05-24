@@ -297,7 +297,11 @@ class TestPodcastEpisodeCreateAPI:
                 "hash": audio_file.hash,
                 "name": "episode.mp3",
                 "meta": {"duration": 15, "album": "Album", "track": 3},
-                "cover": {"path": image_file.path, "hash": image_file.hash, "size": image_file.size},
+                "cover": {
+                    "path": image_file.path,
+                    "hash": image_file.hash,
+                    "size": image_file.size,
+                },
             },
         )
 
@@ -460,7 +464,9 @@ class TestEpisodeDetailsAPI:
     ) -> None:
         episode = make_episode(id=13, owner_id=current_user.id)
         episode_repository.first.return_value = episode
-        episode_repository.safe_delete.side_effect = ValueError("Episode in progress cannot be deleted")
+        episode_repository.safe_delete.side_effect = ValueError(
+            "Episode in progress cannot be deleted"
+        )
 
         response = client.delete(self.url.format(episode_id=episode.id))
 
@@ -548,7 +554,9 @@ class TestEpisodeActionsAPI:
         download_cancel = Mock(return_value=None)
         image_cancel = Mock(return_value=None)
         publish_stop = AsyncMock(return_value=None)
-        monkeypatch.setattr("src.modules.api.episodes.tasks.DownloadEpisodeTask.cancel_task", download_cancel)
+        monkeypatch.setattr(
+            "src.modules.api.episodes.tasks.DownloadEpisodeTask.cancel_task", download_cancel
+        )
         monkeypatch.setattr(
             "src.modules.api.episodes.tasks.DownloadEpisodeImageTask.cancel_task",
             image_cancel,

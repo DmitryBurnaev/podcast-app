@@ -165,11 +165,12 @@ class ApplyMetadataEpisodeTask(BaseEpisodePostProcessTask):
         attempt = 1
         settings: AppSettings = get_app_settings()
         while attempt <= self.MAX_UPLOAD_ATTEMPT:
-            if remote_path := await self.storage.upload_file(
+            remote_path = await self.storage.upload_file(
                 src_path=str(tmp_path),
                 dst_path=settings.s3.bucket_audio_path,
                 filename=episode.audio_filename,
-            ):
+            )
+            if remote_path:
                 return remote_path
 
             attempt += 1

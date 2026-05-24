@@ -432,7 +432,13 @@ class EpisodeRepository(BaseRepository[Episode]):
             if file is None:
                 continue
 
-            path = Path(file.path)
+            if not file.path:
+                logger.warning(
+                    "[DB] Attached to episode %s file instance %s doesn't have path", episode, file
+                )
+                continue
+
+            path = Path(str(file.path))
             if path.is_absolute() and path.exists() and path.is_file():
                 path.unlink(missing_ok=True)
 

@@ -23,7 +23,9 @@ class TestGenerateRSSTaskRun:
             "src.modules.tasks.rss.PodcastRepository",
             Mock(return_value=podcast_repository),
         )
-        monkeypatch.setattr("src.modules.tasks.rss.FileRepository", Mock(return_value=file_repository))
+        monkeypatch.setattr(
+            "src.modules.tasks.rss.FileRepository", Mock(return_value=file_repository)
+        )
         task = GenerateRSSTask(db_session=MockSession())
         task._generate = AsyncMock(
             side_effect=[
@@ -43,7 +45,9 @@ class TestGenerateRSSTaskRun:
             "src.modules.tasks.rss.PodcastRepository",
             Mock(return_value=podcast_repository),
         )
-        monkeypatch.setattr("src.modules.tasks.rss.FileRepository", Mock(return_value=SimpleNamespace()))
+        monkeypatch.setattr(
+            "src.modules.tasks.rss.FileRepository", Mock(return_value=SimpleNamespace())
+        )
         task = GenerateRSSTask(db_session=MockSession())
         task._generate = AsyncMock(return_value={1: TaskResultCode.SUCCESS})
 

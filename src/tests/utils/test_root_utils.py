@@ -78,7 +78,9 @@ class TestSmallUtils:
         exception = RuntimeError("boom")
 
         with caplog.at_level(logging.WARNING):
-            log_message(exception, {"error": "Failure", "details": "details"}, level=logging.WARNING)
+            log_message(
+                exception, {"error": "Failure", "details": "details"}, level=logging.WARNING
+            )
 
         assert "RuntimeError 'Failure': [details]" in caplog.text
 
@@ -108,7 +110,9 @@ class TestDownloadContent:
         monkeypatch: pytest.MonkeyPatch,
         tmp_path,
     ) -> None:
-        client = _FakeAsyncClient([SimpleNamespace(status_code=HTTPStatus.NOT_FOUND, content=b"", text="")])
+        client = _FakeAsyncClient(
+            [SimpleNamespace(status_code=HTTPStatus.NOT_FOUND, content=b"", text="")]
+        )
         monkeypatch.setattr("src.utils.httpx.AsyncClient", Mock(return_value=client))
         monkeypatch.setattr(
             "src.utils.get_app_settings",
@@ -175,7 +179,12 @@ class TestCreateTask:
             raise RuntimeError("boom")
 
         logger = Mock()
-        task = create_task(fail(), log_instance=logger, error_message="failed %s", error_message_message_args=("x",))
+        task = create_task(
+            fail(),
+            log_instance=logger,
+            error_message="failed %s",
+            error_message_message_args=("x",),
+        )
 
         with pytest.raises(RuntimeError):
             await task
