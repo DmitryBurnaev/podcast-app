@@ -306,6 +306,80 @@ class TestProcessHooks:
         )
 
 
+class TestKillProcess:
+    def test_kill_process__kills_matching_process(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        ps_output = "\n".join(
+            [
+                "USER PID %CPU %MEM VSZ RSS TT STAT STARTED TIME COMMAND",
+                "user 1001 0.0 0.0 0 0 ?? S 10:00AM 0:00.01 ffmpeg -y -i /tmp/episode.mp3",
+                "user 1002 0.0 0.0 0 0 ?? S 10:00AM 0:00.01 python worker.py",
+                "user 1003 0.0 0.0 0 0 ?? S 10:00AM 0:00.01 ffmpeg -y -i /tmp/other.mp3",
+            ]
+        )
+        run = Mock(return_value=SimpleNamespace(stdout=ps_output))
+        kill = Mock(return_value=None)
+        monkeypatch.setattr("src.modules.utils.processing.subprocess.run", run)
+        monkeypatch.setattr("src.modules.utils.processing.os.kill", kill)
+        monkeypatch.setattr("src.modules.utils.processing.os.getpid", Mock(return_value=9999))
+
+        processing.kill_process(grep="ffmpeg -y -i /tmp/episode.mp3")
+
+        run.assert_called_once_with(
+            ["ps", "aux"],
+            check=True,
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+        kill.assert_called_once_with(1001, processing.signal.SIGTERM)
+
+    def test_kill_process__skips_current_process(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        ps_output = "\n".join(
+            [
+                "USER PID %CPU %MEM VSZ RSS TT STAT STARTED TIME COMMAND",
+                "user 1001 0.0 0.0 0 0 ?? S 10:00AM 0:00.01 ffmpeg -y -i /tmp/episode.mp3",
+            ]
+        )
+        monkeypatch.setattr(
+            "src.modules.utils.processing.subprocess.run",
+            Mock(return_value=SimpleNamespace(stdout=ps_output)),
+        )
+        kill = Mock(return_value=None)
+        monkeypatch.setattr("src.modules.utils.processing.os.kill", kill)
+        monkeypatch.setattr("src.modules.utils.processing.os.getpid", Mock(return_value=1001))
+
+        processing.kill_process(grep="ffmpeg -y -i /tmp/episode.mp3")
+
+        kill.assert_not_called()
+
+    def test_kill_process__no_matching_process__skips_kill(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        ps_output = "\n".join(
+            [
+                "USER PID %CPU %MEM VSZ RSS TT STAT STARTED TIME COMMAND",
+                "user 1001 0.0 0.0 0 0 ?? S 10:00AM 0:00.01 python worker.py",
+            ]
+        )
+        monkeypatch.setattr(
+            "src.modules.utils.processing.subprocess.run",
+            Mock(return_value=SimpleNamespace(stdout=ps_output)),
+        )
+        kill = Mock(return_value=None)
+        monkeypatch.setattr("src.modules.utils.processing.os.kill", kill)
+
+        processing.kill_process(grep="ffmpeg -y -i /tmp/episode.mp3")
+
+        kill.assert_not_called()
+
+
 class TestUploadHelpers:
     async def test_upload_episode__ok(
         self,
@@ -324,6 +398,7 @@ class TestUploadHelpers:
 
         assert result == "remote/uploaded.mp3"
         storage.upload_file.assert_awaited_once()
+        assert storage.upload_file.await_args is not None
         upload_kwargs = storage.upload_file.await_args.kwargs
         assert upload_kwargs["src_path"] == str(source)
         assert upload_kwargs["dst_path"] == app_settings.s3.bucket_audio_path

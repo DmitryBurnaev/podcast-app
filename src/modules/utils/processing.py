@@ -3,6 +3,8 @@ import dataclasses
 import json
 import os
 import shutil
+import signal
+import subprocess
 import time
 import logging
 from pathlib import Path
@@ -281,11 +283,48 @@ async def publish_redis_stop_downloading(episode_id: int) -> None:
 def kill_process(grep: str) -> None:
     """Finds (with grep) process and tries to kill it"""
 
-    command = f"ps aux | grep \"{grep}\" | grep -v grep | awk '{{print $2}}' | xargs kill"
     try:
-        logger.debug("KILL: Trying to kill subprocess by command: '%s'", command)
-        os.system(command)
+        logger.debug("KILL: Trying to kill subprocess by grep: '%s'", grep)
+        process_list = subprocess.run(
+            ["ps", "aux"],
+            check=True,
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
     except Exception as exc:
         logger.error("KILL: Couldn't kill subprocess by grep: %s | err: %r", grep, exc)
+        return
+
+    killed_pids: list[int] = []
+    current_pid = os.getpid()
+    for line in process_list.stdout.splitlines():
+        if grep not in line:
+            continue
+
+        columns = line.split(None, 10)
+        if len(columns) < 2:
+            continue
+
+        try:
+            pid = int(columns[1])
+        except ValueError:
+            logger.warning("KILL: Couldn't parse pid from ps line: %s", line)
+            continue
+
+        if pid == current_pid:
+            continue
+
+        try:
+            os.kill(pid, signal.SIGTERM)
+        except ProcessLookupError:
+            logger.info("KILL: Process already gone for pid %s by grep: '%s'", pid, grep)
+        except PermissionError as exc:
+            logger.error("KILL: Couldn't kill pid %s by grep: %s | err: %r", pid, grep, exc)
+        else:
+            killed_pids.append(pid)
+
+    if killed_pids:
+        logger.info("KILL: Killed processes by grep: '%s' | pids: %s", grep, killed_pids)
     else:
-        logger.info("KILL: Killed process by grep: '%s'", grep)
+        logger.info("KILL: No processes found by grep: '%s'", grep)

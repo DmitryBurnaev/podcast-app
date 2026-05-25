@@ -52,6 +52,11 @@ packages = ["app"]
 line-length = 100
 target-version = ["py314"]
 
+[tool.mypy]
+exclude = [
+    "^src/tests/",
+]
+
 [tool.pytest.ini_options]
 testpaths = ["src/tests"]
 python_files = ["test_*.py"]
