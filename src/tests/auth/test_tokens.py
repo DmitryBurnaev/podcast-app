@@ -30,6 +30,18 @@ from src.tests.mocks import MockUOW
 from src.utils import utcnow
 
 
+def _base_repository_for(repository: object) -> type:
+    class BaseRepositoryForTest:
+        @classmethod
+        def __class_getitem__(cls, item: object) -> type["BaseRepositoryForTest"]:
+            return cls
+
+        def __new__(cls, *args: object, **kwargs: object) -> object:
+            return repository
+
+    return BaseRepositoryForTest
+
+
 class TestTokenPayload:
     def test_as_dict__serializes_token_type_as_string(self) -> None:
         payload = TokenPayload(user_id=1, session_id="session", token_type=AuthTokenType.REFRESH)
@@ -342,9 +354,11 @@ class TestUserAccessToken:
         token_repository = SimpleNamespace(first=AsyncMock(return_value=access_token))
         user = make_user(id=7)
         user_repository = SimpleNamespace(first=AsyncMock(return_value=user))
-        base_repository = Mock(return_value=token_repository)
         monkeypatch.setattr("src.modules.auth.tokens.SASessionUOW", lambda: MockUOW())
-        monkeypatch.setattr("src.modules.auth.tokens.BaseRepository", base_repository)
+        monkeypatch.setattr(
+            "src.modules.auth.tokens.BaseRepository",
+            _base_repository_for(token_repository),
+        )
         monkeypatch.setattr(
             "src.modules.auth.tokens.UserRepository",
             Mock(return_value=user_repository),
@@ -374,7 +388,8 @@ class TestUserAccessToken:
         token_repository = SimpleNamespace(first=AsyncMock(return_value=access_token))
         monkeypatch.setattr("src.modules.auth.tokens.SASessionUOW", lambda: MockUOW())
         monkeypatch.setattr(
-            "src.modules.auth.tokens.BaseRepository", Mock(return_value=token_repository)
+            "src.modules.auth.tokens.BaseRepository",
+            _base_repository_for(token_repository),
         )
         request = SimpleNamespace(headers={"Authorization": f"Bearer {raw_token}"})
 
@@ -392,7 +407,8 @@ class TestUserAccessToken:
         user_repository = SimpleNamespace(first=AsyncMock(return_value=None))
         monkeypatch.setattr("src.modules.auth.tokens.SASessionUOW", lambda: MockUOW())
         monkeypatch.setattr(
-            "src.modules.auth.tokens.BaseRepository", Mock(return_value=token_repository)
+            "src.modules.auth.tokens.BaseRepository",
+            _base_repository_for(token_repository),
         )
         monkeypatch.setattr(
             "src.modules.auth.tokens.UserRepository",

@@ -1,6 +1,6 @@
-from collections import namedtuple
 from pathlib import Path
 from types import SimpleNamespace
+from typing import NamedTuple
 from unittest.mock import AsyncMock, Mock
 
 import pytest
@@ -11,6 +11,11 @@ from src.modules.api.errors import InvalidParametersError
 from src.modules.api.media import _get_upload, _upload_audio_cover
 from src.modules.schemas.media import UploadedImageData
 from src.tests.helpers import assert_error_response
+
+
+class AudioMetadataForTest(NamedTuple):
+    duration: int
+    title: str | None = None
 
 
 class TestMediaUploadAPI:
@@ -81,7 +86,7 @@ class TestMediaUploadAPI:
         content_type: str,
         message: str,
     ) -> None:
-        metadata = namedtuple("AudioMetadata", ["duration"])(duration=42)
+        metadata = AudioMetadataForTest(duration=42)
         storage = SimpleNamespace(upload_file=AsyncMock(return_value=""))
         monkeypatch.setattr("src.modules.api.media.StorageS3", lambda: storage)
         monkeypatch.setattr(
@@ -139,7 +144,7 @@ class TestMediaUploadAPI:
         client: TestClient[PodcastApp],
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
-        metadata = namedtuple("AudioMetadata", ["duration", "title"])(duration=42, title="Track")
+        metadata = AudioMetadataForTest(duration=42, title="Track")
         storage = SimpleNamespace(
             upload_file=AsyncMock(side_effect=["tmp/audio/uploaded.mp3", "images/cover.jpg"]),
             get_presigned_url=AsyncMock(return_value="https://storage/cover"),
@@ -187,7 +192,7 @@ class TestMediaUploadAPI:
         client: TestClient[PodcastApp],
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
-        metadata = namedtuple("AudioMetadata", ["duration", "title"])(duration=42, title="Track")
+        metadata = AudioMetadataForTest(duration=42, title="Track")
         storage = SimpleNamespace(upload_file=AsyncMock(side_effect=["tmp/audio/uploaded.mp3", ""]))
         monkeypatch.setattr("src.modules.api.media.StorageS3", lambda: storage)
         monkeypatch.setattr(
