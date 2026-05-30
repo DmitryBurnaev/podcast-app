@@ -95,8 +95,6 @@ class PodcastCoverController(BaseController):
     @staticmethod
     def _build_cover_file_response(cached_path: Path, file_obj: MediaFile) -> File:
         """Build File response for cover from local cache path."""
-        media_type, _ = mimetypes.guess_type(str(cached_path)) or (
-            "application/octet-stream",
-            None,
-        )
+        media_type, _ = mimetypes.guess_type(str(cached_path))
+        media_type = media_type or "application/octet-stream"
         return File(path=cached_path, filename=file_obj.name, media_type=media_type)
