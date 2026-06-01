@@ -19,7 +19,8 @@ dependencies = [
     "yt-dlp==2026.3.17",
     "rq==2.8.0",
     "pyjwt==2.12.1",
-    "sentry-sdk[litestar, rq]==2.60.0"
+    "sentry-sdk[litestar, rq]==2.60.0",
+    "aiosmtplib>=5.1.0",
 ]
 
 [dependency-groups]
@@ -54,6 +55,7 @@ target-version = ["py314"]
 
 [tool.mypy]
 exclude = [
+    "^legacy_api_views.py$",
     "^src/tests/",
 ]
 

@@ -4,14 +4,17 @@ import hashlib
 import logging
 import unicodedata
 import uuid
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
 from http import HTTPStatus
 from pathlib import Path
 from typing import TypeVar, Callable, ParamSpec, Any, Coroutine
 
 import httpx
+import aiosmtplib
 
 from src.settings.app import get_app_settings
-from src.exceptions import NotFoundError
+from src.exceptions import EmailSendingError, ImproperlyConfiguredError, NotFoundError
 
 __all__ = ("singleton",)
 logger = logging.getLogger(__name__)
@@ -146,50 +149,45 @@ def is_basic_emoji(char: str) -> bool:
         return False
 
 
-# async def send_email(recipient_email: str, subject: str, html_content: str):
-#     """Allows to send email via Sendgrid API"""
-#
-#     logger.debug("Sending email to: %s | subject: '%s'", recipient_email, subject)
-#     required_settings = (
-#         "SMTP_HOST",
-#         "SMTP_PORT",
-#         "SMTP_USERNAME",
-#         "SMTP_PASSWORD",
-#         "SMTP_FROM_EMAIL",
-#     )
-#     settings = get_app_settings()
-#     if not all(getattr(settings, settings_name) for settings_name in required_settings):
-#         raise ImproperlyConfiguredError(
-#             f"SMTP settings: {required_settings} must be set for sending email"
-#         )
-#
-#     smtp_client = aiosmtplib.SMTP(
-#         hostname=settings.SMTP_HOST,
-#         port=settings.SMTP_PORT,
-#         use_tls=settings.SMTP_USE_TLS,
-#         start_tls=settings.SMTP_STARTTLS,
-#         username=settings.SMTP_USERNAME,
-#         password=str(settings.SMTP_PASSWORD),
-#     )
-#
-#     message = MIMEMultipart("alternative")
-#     message["From"] = settings.SMTP_FROM_EMAIL
-#     message["To"] = recipient_email
-#     message["Subject"] = subject
-#     message.attach(MIMEText(html_content, "html"))
-#
-#     async with smtp_client:
-#         try:
-#             smtp_details, smtp_status = await smtp_client.send_message(message)
-#         except aiosmtplib.SMTPException as exc:
-#             details = f"Couldn't send email: recipient: {recipient_email} | exc: {exc!r}"
-#             raise EmailSendingError(details=details) from exc
-#
-#     if "OK" not in str(smtp_status):
-#         details = f"Couldn't send email: {recipient_email=} | {smtp_status=} | {smtp_details=}"
-#         raise EmailSendingError(details=details)
-#
-#     logger.info("Email sent to %s | subject: %s", recipient_email, subject)
+async def send_email(recipient_email: str, subject: str, html_content: str) -> None:
+    """Send an HTML email through the configured SMTP server."""
+    logger.debug("Sending email to: %s | subject: '%s'", recipient_email, subject)
+    settings = get_app_settings().smtp
+    required_settings = ("host", "port", "username", "password", "from_email")
+    if not all(getattr(settings, name) for name in required_settings):
+        raise ImproperlyConfiguredError(
+            f"SMTP settings: {required_settings} must be set for sending email"
+        )
+
+    if settings.password is None:
+        raise ImproperlyConfiguredError("SMTP password must be set for sending email")
+
+    smtp_client = aiosmtplib.SMTP(
+        hostname=settings.host,
+        port=settings.port,
+        use_tls=settings.use_tls,
+        start_tls=settings.starttls,
+        username=settings.username,
+        password=settings.password.get_secret_value(),
+    )
+    message = MIMEMultipart("alternative")
+    message["From"] = settings.from_email
+    message["To"] = recipient_email
+    message["Subject"] = subject
+    message.attach(MIMEText(html_content, "html"))
+
+    async with smtp_client:
+        try:
+            smtp_details, smtp_status = await smtp_client.send_message(message)
+        except aiosmtplib.SMTPException as exc:
+            details = f"Couldn't send email: recipient: {recipient_email} | exc: {exc!r}"
+            raise EmailSendingError(details=details) from exc
+
+    if "OK" not in str(smtp_status):
+        details = f"Couldn't send email: {recipient_email=} | {smtp_status=} | {smtp_details=}"
+        raise EmailSendingError(details=details)
+
+    logger.info("Email sent to %s | subject: %s", recipient_email, subject)
 
 
 def log_message(exc, error_data, level=logging.ERROR):
