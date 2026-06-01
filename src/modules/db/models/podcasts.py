@@ -78,13 +78,19 @@ class Podcast(BaseModel):
     updated_at: Mapped[datetime] = mapped_column(sa.DateTime(timezone=True), nullable=True)
     download_automatically: Mapped[bool] = mapped_column(sa.Boolean, default=True)
 
-    rss_id: Mapped[int] = mapped_column(sa.ForeignKey("media_files.id", ondelete="SET NULL"))
-    image_id: Mapped[int] = mapped_column(sa.ForeignKey("media_files.id", ondelete="SET NULL"))
+    rss_id: Mapped[int | None] = mapped_column(
+        sa.ForeignKey("media_files.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    image_id: Mapped[int | None] = mapped_column(
+        sa.ForeignKey("media_files.id", ondelete="SET NULL"),
+        nullable=True,
+    )
     owner_id: Mapped[int] = mapped_column(sa.ForeignKey("auth_users.id"))
 
     # relations
-    rss: Mapped["File"] = relationship("File", foreign_keys=[rss_id], lazy="subquery")
-    image: Mapped["File"] = relationship("File", foreign_keys=[image_id], lazy="subquery")
+    rss: Mapped["File | None"] = relationship("File", foreign_keys=[rss_id], lazy="subquery")
+    image: Mapped["File | None"] = relationship("File", foreign_keys=[image_id], lazy="subquery")
     episodes: Mapped[list["Episode"]] = relationship(back_populates="podcast", lazy="subquery")
 
     def __str__(self):
@@ -103,7 +109,7 @@ class Podcast(BaseModel):
     @property
     def rss_url(self) -> str | None:
         """Return the public RSS URL for this podcast."""
-        if self.rss_id:
+        if self.rss_id and self.rss:
             return self.rss.url
 
         return None

@@ -36,9 +36,16 @@ from sqlalchemy.sql.operators import isnot
 from sqlalchemy.sql.roles import ColumnsClauseRole
 
 from src.modules.db.models import BaseModel, User, UserSession, File
+from src.modules.db.models.users import UserAccessToken, UserIP, UserInvite
 from src.modules.db.models.podcasts import Episode, Podcast, Cookie
 
-__all__ = ("UserRepository", "UserSessionRepository")
+__all__ = (
+    "UserRepository",
+    "UserSessionRepository",
+    "UserInviteRepository",
+    "UserIPRepository",
+    "UserAccessTokenRepository",
+)
 
 from src.modules.schemas.statistics import PodcastStatistics
 
@@ -302,6 +309,38 @@ class UserSessionRepository(BaseRepository[UserSession]):
             return
 
         await self.update(user_session, is_active=False)
+
+    async def deactivate_for_user(self, user_id: int) -> None:
+        """Invalidate every API and browser session for a user."""
+        await self.update_by_filters(filters={"user_id": user_id}, value={"is_active": False})
+
+
+class UserInviteRepository(BaseRepository[UserInvite]):
+    """User invitation repository."""
+
+    model = UserInvite
+
+    async def get_valid(self, token: str, email: str) -> UserInvite | None:
+        """Return an unused, unexpired invitation matching an email."""
+        statement = select(UserInvite).where(
+            UserInvite.token == token,
+            UserInvite.email == email,
+            UserInvite.is_applied.is_(False),
+            UserInvite.expired_at > datetime.now(UTC),
+        )
+        return await self.session.scalar(statement)
+
+
+class UserIPRepository(BaseRepository[UserIP]):
+    """Registered user-address repository."""
+
+    model = UserIP
+
+
+class UserAccessTokenRepository(BaseRepository[UserAccessToken]):
+    """Long-lived user API token repository."""
+
+    model = UserAccessToken
 
 
 class PodcastRepository(BaseRepository[Podcast]):

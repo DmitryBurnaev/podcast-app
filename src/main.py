@@ -7,10 +7,6 @@ from typing import Any, AsyncGenerator
 
 import rq
 
-# from litestar.middleware.session.server_side import (
-#     ServerSideSessionBackend,
-#     ServerSideSessionConfig,
-# )
 import uvicorn
 from litestar import Litestar
 from litestar.contrib.jinja import JinjaTemplateEngine
@@ -19,7 +15,6 @@ from litestar.exceptions import HTTPException, ValidationException
 from litestar.static_files import StaticFilesConfig
 from litestar.template import TemplateConfig
 
-# from litestar.middleware.session.memory_backend import MemoryBackendConfig
 from redis import Redis
 
 from src.exceptions import BaseApplicationError, StartupError, StorageConfigurationError
@@ -133,9 +128,6 @@ def make_app(settings: AppSettings | None = None) -> PodcastApp:
     def provide_settings() -> AppSettings:
         return app_settings
 
-    def provide_app_settings() -> AppSettings:
-        return app_settings
-
     logger.info("Setting up application...")
     podcast_app = PodcastApp(
         route_handlers=[
@@ -157,7 +149,6 @@ def make_app(settings: AppSettings | None = None) -> PodcastApp:
         },
         dependencies={
             "settings": Provide(provide_settings, sync_to_thread=False),
-            "app_settings": Provide(provide_app_settings, sync_to_thread=False),
             "current_user": Provide(get_current_user, sync_to_thread=False),
         },
         settings=app_settings,

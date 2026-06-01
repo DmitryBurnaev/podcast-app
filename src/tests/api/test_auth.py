@@ -1,14 +1,25 @@
 from types import SimpleNamespace
+from datetime import timedelta
 from unittest.mock import AsyncMock, Mock
 
 import pytest
 from litestar.testing import TestClient
 
 from src.main import PodcastApp
-from src.modules.api.auth import AuthAPIController
+from src.modules.api.auth import AuthAccessTokenAPIController, AuthAPIController
+from src.modules.services.email import _send_invitation_email
+from src.modules.schemas.auth import (
+    ChangePasswordRequest,
+    SignUpRequest,
+    UserAccessTokenCreateRequest,
+    UserInviteResponse,
+)
 from src.modules.db.models import User
+from src.modules.db.models.users import UserAccessToken
+from src.tests.factories import make_user
 from src.tests.helpers import assert_error_response
 from src.tests.mocks import MockUOW
+from src.utils import hash_string, utcnow
 
 
 class TestAuthSignInAPI:
@@ -165,3 +176,164 @@ class TestAuthSessionAPI:
             "is_active": True,
             "is_superuser": False,
         }
+
+
+class TestAuthAccountManagementAPI:
+    async def test_sign_up__valid_invite__creates_user_and_session(
+        self,
+        app_settings,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        user = make_user(id=7)
+        invite = SimpleNamespace(id=3)
+        user_repository = SimpleNamespace(
+            get_by_email=AsyncMock(return_value=None),
+            create=AsyncMock(return_value=user),
+        )
+        invite_repository = SimpleNamespace(
+            get_valid=AsyncMock(return_value=invite),
+            update=AsyncMock(),
+        )
+        podcast_repository = SimpleNamespace(create=AsyncMock())
+        create_user_session = AsyncMock(
+            return_value=SimpleNamespace(access_token="access", refresh_token="refresh")
+        )
+        monkeypatch.setattr("src.modules.api.auth.SASessionUOW", lambda: MockUOW())
+        monkeypatch.setattr("src.modules.api.auth.UserRepository", lambda session: user_repository)
+        monkeypatch.setattr(
+            "src.modules.api.auth.UserInviteRepository",
+            lambda session: invite_repository,
+        )
+        monkeypatch.setattr(
+            "src.modules.api.auth.PodcastRepository",
+            lambda session: podcast_repository,
+        )
+        monkeypatch.setattr("src.modules.api.auth.create_user_session", create_user_session)
+        monkeypatch.setattr("src.modules.api.auth.User.make_password", Mock(return_value="hashed"))
+
+        response = await AuthAPIController.sign_up.fn(
+            None,
+            SignUpRequest(
+                email="new@podcast.dev",
+                invite_token="invite",
+                password_1="secret",
+                password_2="secret",
+            ),
+            app_settings,
+        )
+
+        assert response.model_dump() == {"access_token": "access", "refresh_token": "refresh"}
+        invite_repository.get_valid.assert_awaited_once_with("invite", "new@podcast.dev")
+        invite_repository.update.assert_awaited_once_with(invite, is_applied=True, user_id=7)
+        podcast_repository.create.assert_awaited_once()
+        create_user_session.assert_awaited_once_with(user, settings=app_settings)
+
+    async def test_reset_password__does_not_expose_token(
+        self,
+        app_settings,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        user = make_user(id=7)
+        repository = SimpleNamespace(get_by_email=AsyncMock(return_value=user))
+        send_reset_email = AsyncMock()
+        monkeypatch.setattr("src.modules.api.auth.SASessionUOW", lambda: MockUOW())
+        monkeypatch.setattr("src.modules.api.auth.UserRepository", lambda session: repository)
+        monkeypatch.setattr("src.modules.api.auth._send_reset_password_email", send_reset_email)
+
+        response = await AuthAPIController.reset_password.fn(
+            None,
+            SimpleNamespace(email="user@podcast.dev"),
+            app_settings,
+        )
+
+        assert response == {"ok": True}
+        send_reset_email.assert_awaited_once()
+        assert send_reset_email.await_args.args[0] is user
+
+    async def test_change_password__updates_hash_and_deactivates_sessions(
+        self,
+        app_settings,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        user = make_user(id=7)
+        user_repository = SimpleNamespace(
+            first=AsyncMock(return_value=user),
+            update=AsyncMock(),
+        )
+        session_repository = SimpleNamespace(deactivate_for_user=AsyncMock())
+        monkeypatch.setattr("src.modules.api.auth.SASessionUOW", lambda: MockUOW())
+        monkeypatch.setattr("src.modules.api.auth.UserRepository", lambda session: user_repository)
+        monkeypatch.setattr(
+            "src.modules.api.auth.UserSessionRepository",
+            lambda session: session_repository,
+        )
+        monkeypatch.setattr(
+            "src.modules.api.auth.decode_jwt",
+            Mock(return_value={"user_id": user.id}),
+        )
+        monkeypatch.setattr("src.modules.api.auth.User.make_password", Mock(return_value="hashed"))
+
+        response = await AuthAPIController.change_password.fn(
+            None,
+            ChangePasswordRequest(token="reset-token", password_1="new", password_2="new"),
+            app_settings,
+        )
+
+        assert response == {"ok": True}
+        user_repository.update.assert_awaited_once_with(user, password="hashed")
+        session_repository.deactivate_for_user.assert_awaited_once_with(7)
+
+    async def test_create_access_token__stores_hash_and_returns_raw_token(
+        self,
+        current_user: User,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        raw_token = UserAccessToken.generate_token()
+        access_token = SimpleNamespace(
+            id=3,
+            name="automation",
+            enabled=True,
+            expires_in=utcnow() + timedelta(days=30),
+            created_at=utcnow(),
+        )
+        repository = SimpleNamespace(create=AsyncMock(return_value=access_token))
+        monkeypatch.setattr("src.modules.api.auth.SASessionUOW", lambda: MockUOW())
+        monkeypatch.setattr(
+            "src.modules.api.auth.UserAccessTokenRepository",
+            lambda session: repository,
+        )
+        monkeypatch.setattr(
+            "src.modules.db.models.users.UserAccessToken.generate_token", lambda: raw_token
+        )
+
+        response = await AuthAccessTokenAPIController.create_access_token.fn(
+            None,
+            UserAccessTokenCreateRequest(name="automation", expires_in_days=30),
+            current_user,
+        )
+
+        assert response.token == raw_token
+        assert repository.create.await_args.kwargs["token"] == hash_string(raw_token)
+
+
+class TestAuthEmail:
+    async def test_send_invitation_email__contains_encoded_signup_link(
+        self,
+        app_settings,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        send_email = AsyncMock()
+        monkeypatch.setattr("src.modules.services.email.send_email", send_email)
+        invite = UserInviteResponse(
+            id=1,
+            email="new@podcast.dev",
+            token="invite-token",
+            is_applied=False,
+            expired_at=utcnow() + timedelta(days=1),
+        )
+
+        await _send_invitation_email(invite, settings=app_settings)
+
+        kwargs = send_email.await_args.kwargs
+        assert kwargs["recipient_email"] == "new@podcast.dev"
+        assert "/sign-up/?i=" in kwargs["html_content"]

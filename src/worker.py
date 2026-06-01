@@ -22,7 +22,7 @@ async def run_worker() -> None:
         sentry_logging = LoggingIntegration(level=logging.INFO, event_level=logging.ERROR)
         sentry_sdk.init(settings.sentry_dsn, integrations=[RqIntegration(), sentry_logging])
 
-    # Must match PodcastApp.rq_queue (settings.rq_queue_name); CLI args override for multi-queue setups.
+    # Must match `PodcastApp.rq_queue_name` (settings.rq_queue_name); can be overridden by args
     queue_names = sys.argv[1:] or [settings.rq_queue_name]
 
     async with lifespan(

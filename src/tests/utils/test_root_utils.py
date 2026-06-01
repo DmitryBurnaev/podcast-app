@@ -5,6 +5,7 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock, Mock
 
 import pytest
+from pydantic import SecretStr
 
 from src.exceptions import NotFoundError
 from src.utils import (
@@ -14,6 +15,7 @@ from src.utils import (
     hash_string,
     is_basic_emoji,
     log_message,
+    send_email,
     simple_slugify,
     singleton,
     utcnow,
@@ -83,6 +85,35 @@ class TestSmallUtils:
             )
 
         assert "RuntimeError 'Failure': [details]" in caplog.text
+
+    async def test_send_email__builds_html_message(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        smtp_client = _FakeSMTPClient()
+        monkeypatch.setattr("src.utils.aiosmtplib.SMTP", Mock(return_value=smtp_client))
+        monkeypatch.setattr(
+            "src.utils.get_app_settings",
+            lambda: SimpleNamespace(
+                smtp=SimpleNamespace(
+                    host="smtp.example.com",
+                    port=465,
+                    username="user",
+                    password=SecretStr("password"),
+                    from_email="podcast@example.com",
+                    use_tls=True,
+                    starttls=None,
+                )
+            ),
+        )
+
+        await send_email("listener@example.com", "Hello", "<p>Welcome</p>")
+
+        message = smtp_client.send_message.await_args.args[0]
+        assert message["From"] == "podcast@example.com"
+        assert message["To"] == "listener@example.com"
+        assert message["Subject"] == "Hello"
+        assert "<p>Welcome</p>" in message.get_payload()[0].get_payload()
 
 
 class TestDownloadContent:
@@ -212,6 +243,17 @@ class _FakeAsyncClient:
         self.get = AsyncMock(side_effect=responses)
 
     async def __aenter__(self) -> "_FakeAsyncClient":
+        return self
+
+    async def __aexit__(self, *args: object) -> None:
+        return None
+
+
+class _FakeSMTPClient:
+    def __init__(self) -> None:
+        self.send_message = AsyncMock(return_value=({}, "OK"))
+
+    async def __aenter__(self) -> "_FakeSMTPClient":
         return self
 
     async def __aexit__(self, *args: object) -> None:
