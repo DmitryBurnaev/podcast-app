@@ -45,9 +45,7 @@ class TestPodcastsController:
         user = SimpleNamespace(id=7)
         podcasts = [make_podcast()]
         template = object()
-        repository = SimpleNamespace(
-            all_with_aggregations=AsyncMock(return_value=(podcasts, 1))
-        )
+        repository = SimpleNamespace(all_with_aggregations=AsyncMock(return_value=(podcasts, 1)))
         controller = _controller(PodcastsController)
         controller.get_response_template = Mock(return_value=template)
         monkeypatch.setattr("src.modules.views.podcasts.get_current_user", Mock(return_value=user))
@@ -83,9 +81,7 @@ class TestPodcastsDetailsController:
         podcast_stats = object()
         template = object()
         podcast_repository = SimpleNamespace(first=AsyncMock(return_value=podcast))
-        episode_repository = SimpleNamespace(
-            all_paginated=AsyncMock(return_value=(episodes, 1))
-        )
+        episode_repository = SimpleNamespace(all_paginated=AsyncMock(return_value=(episodes, 1)))
         statistic_service = SimpleNamespace(
             get_podcast_statistics=AsyncMock(return_value=podcast_stats)
         )

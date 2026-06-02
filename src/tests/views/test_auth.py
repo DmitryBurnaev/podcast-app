@@ -58,7 +58,9 @@ class TestAuthLoginPage:
         template = object()
         controller = _controller()
         controller.get_response_template = Mock(return_value=template)
-        monkeypatch.setattr("src.modules.views.auth.get_current_user_or_none", Mock(return_value=None))
+        monkeypatch.setattr(
+            "src.modules.views.auth.get_current_user_or_none", Mock(return_value=None)
+        )
 
         result = await _login_page(controller, request)
 
