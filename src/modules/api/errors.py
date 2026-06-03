@@ -1,6 +1,7 @@
 import logging
 from typing import Any, cast
 
+from exceptions import APIError
 from litestar.connection import Request
 from litestar.exceptions import HTTPException, ValidationException
 from litestar.response import Response
@@ -9,76 +10,6 @@ from src.exceptions import BaseApplicationError
 from src.modules.schemas.errors import ErrorCode, ErrorPayload, ErrorResponse
 
 logger = logging.getLogger(__name__)
-
-
-class APIError(BaseApplicationError):
-    code: ErrorCode = ErrorCode.INTERNAL_ERROR
-    message = "Something went wrong."
-
-    def __init__(
-        self,
-        code: ErrorCode | str | None = None,
-        message: str | None = None,
-        details: Any = None,
-        status_code: int | None = None,
-    ) -> None:
-        super().__init__(details=details, message=message, status_code=status_code)
-        if code is not None:
-            self.code = ErrorCode(code)
-
-
-class AuthMissingError(APIError):
-    code = ErrorCode.AUTH_MISSING
-    message = "Authentication credentials were not provided."
-    status_code = 401
-
-
-class AuthInvalidError(APIError):
-    code = ErrorCode.AUTH_INVALID
-    message = "Authentication credentials are invalid."
-    status_code = 401
-
-
-class TokenExpiredError(APIError):
-    code = ErrorCode.TOKEN_EXPIRED
-    message = "Access token expired."
-    status_code = 401
-
-
-class RefreshExpiredError(APIError):
-    code = ErrorCode.REFRESH_EXPIRED
-    message = "Refresh token expired."
-    status_code = 401
-
-
-class SessionInactiveError(APIError):
-    code = ErrorCode.SESSION_INACTIVE
-    message = "Session is inactive or expired."
-    status_code = 401
-
-
-class ForbiddenError(APIError):
-    code = ErrorCode.FORBIDDEN
-    message = "You do not have permission to perform this action."
-    status_code = 403
-
-
-class InvalidParametersError(APIError):
-    code = ErrorCode.INVALID_PARAMETERS
-    message = "Requested data is not valid."
-    status_code = 400
-
-
-class NotFoundAPIError(APIError):
-    code = ErrorCode.NOT_FOUND
-    message = "Requested object was not found."
-    status_code = 404
-
-
-class ConflictError(APIError):
-    code = ErrorCode.CONFLICT
-    message = "Requested operation conflicts with the current state."
-    status_code = 409
 
 
 def api_error_response(

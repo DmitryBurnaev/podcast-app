@@ -8,7 +8,7 @@ from litestar.status_codes import HTTP_201_CREATED, HTTP_204_NO_CONTENT
 
 from src.constants import SourceType
 from src.modules.api.base import BaseApiController
-from src.modules.api.errors import ConflictError, InvalidParametersError, NotFoundAPIError
+from exceptions import InvalidParametersAPIError, NotFoundAPIAPIError, StateConflictAPIError
 from src.modules.db import User
 from src.modules.db.models.podcasts import Cookie
 from src.modules.db.repositories import CookieRepository, EpisodeRepository
@@ -65,7 +65,7 @@ class CookieAPIController(BaseApiController):
                 owner_id=current_user.id,
             )
         if cookie is None:
-            raise NotFoundAPIError()
+            raise NotFoundAPIAPIError()
 
         return CookieResponse.model_validate(cookie)
 
@@ -82,7 +82,7 @@ class CookieAPIController(BaseApiController):
             cookie_repository = CookieRepository(uow.session)
             cookie = await cookie_repository.first(id=cookie_id, owner_id=current_user.id)
             if cookie is None:
-                raise NotFoundAPIError()
+                raise NotFoundAPIAPIError()
 
             await cookie_repository.update(
                 cookie,
@@ -100,14 +100,14 @@ class CookieAPIController(BaseApiController):
             cookie_repository = CookieRepository(uow.session)
             cookie = await cookie_repository.first(id=cookie_id, owner_id=current_user.id)
             if cookie is None:
-                raise NotFoundAPIError()
+                raise NotFoundAPIAPIError()
 
             linked_episodes = await EpisodeRepository(uow.session).get_total_count(
                 cookie_id=cookie_id,
                 owner_id=current_user.id,
             )
             if linked_episodes:
-                raise ConflictError(message="There are episodes related to this cookie.")
+                raise StateConflictAPIError(message="There are episodes related to this cookie.")
 
             await cookie_repository.delete(cookie)
 
@@ -115,12 +115,12 @@ class CookieAPIController(BaseApiController):
     async def _parse_cookie_form(cls, data: dict[str, object]) -> tuple[SourceType, str]:
         source_type_raw = data.get("source_type")
         if not source_type_raw:
-            raise InvalidParametersError(details={"source_type": "Source type is required."})
+            raise InvalidParametersAPIError(details={"source_type": "Source type is required."})
 
         try:
             source_type = SourceType(str(source_type_raw).upper())
         except ValueError as exc:
-            raise InvalidParametersError(
+            raise InvalidParametersAPIError(
                 details={"source_type": "Unsupported source type."}
             ) from exc
 
@@ -129,11 +129,11 @@ class CookieAPIController(BaseApiController):
             None,
         )
         if not isinstance(uploaded_file, UploadFile):
-            raise InvalidParametersError(details={"file": "Cookie file is required."})
+            raise InvalidParametersAPIError(details={"file": "Cookie file is required."})
 
         try:
             file_content = (await uploaded_file.read()).decode()
         except UnicodeDecodeError as exc:
-            raise InvalidParametersError(details={"file": str(exc)}) from exc
+            raise InvalidParametersAPIError(details={"file": str(exc)}) from exc
 
         return source_type, Cookie.get_encrypted_data(file_content)

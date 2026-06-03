@@ -5,7 +5,7 @@ from litestar import Request, delete, get, patch, post
 from litestar.status_codes import HTTP_200_OK, HTTP_201_CREATED, HTTP_204_NO_CONTENT
 
 from src.modules.api.base import BaseApiController
-from src.modules.api.errors import AuthInvalidError, ConflictError, InvalidParametersError
+from exceptions import AuthInvalidAPIError, InvalidParametersAPIError, StateConflictAPIError
 from src.modules.auth.tokens import (
     AuthTokenType,
     TokenPayload,
@@ -88,14 +88,14 @@ class AuthCoreAPIController(BaseAuthAPIController):
         try:
             data = SignInRequest.model_validate(await request.json())
         except Exception as exc:
-            raise InvalidParametersError(details=str(exc)) from exc
+            raise InvalidParametersAPIError(details=str(exc)) from exc
 
         async with SASessionUOW() as uow:
             user_repo = UserRepository(uow.session)
             user = await user_repo.get_by_email(str(data.email))
 
         if user is None or not user.is_active or not user.verify_password(data.password):
-            raise AuthInvalidError(details="Email or password is invalid.")
+            raise AuthInvalidAPIError(details="Email or password is invalid.")
 
         tokens = await create_user_session(user, settings=settings)
         await self._register_user_ip(request, user, settings=settings)
@@ -108,7 +108,7 @@ class AuthCoreAPIController(BaseAuthAPIController):
         try:
             data = RefreshTokenRequest.model_validate(await request.json())
         except Exception as exc:
-            raise InvalidParametersError(details=str(exc)) from exc
+            raise InvalidParametersAPIError(details=str(exc)) from exc
 
         tokens = await refresh_user_session(data.refresh_token, settings=settings)
         return TokenResponse(access_token=tokens.access_token, refresh_token=tokens.refresh_token)
@@ -133,12 +133,16 @@ class AuthCoreAPIController(BaseAuthAPIController):
         async with SASessionUOW() as uow:
             user_repository = UserRepository(uow.session)
             if await user_repository.get_by_email(str(data.email)):
-                raise ConflictError(details=f"User with email '{data.email}' already exists.")
+                raise StateConflictAPIError(
+                    details=f"User with email '{data.email}' already exists."
+                )
 
             invite_repository = UserInviteRepository(uow.session)
             invite = await invite_repository.get_valid(data.invite_token, str(data.email))
             if invite is None:
-                raise InvalidParametersError(details="Invitation link is expired or unavailable.")
+                raise InvalidParametersAPIError(
+                    details="Invitation link is expired or unavailable."
+                )
 
             user = await user_repository.create(
                 email=str(data.email),
@@ -197,13 +201,15 @@ class AuthCoreAPIController(BaseAuthAPIController):
         )
         user_id = int(payload.get("user_id") or 0)
         if not user_id:
-            raise AuthInvalidError(details="Token payload misses user_id.")
+            raise AuthInvalidAPIError(details="Token payload misses user_id.")
 
         async with SASessionUOW() as uow:
             user_repository = UserRepository(uow.session)
             user = await user_repository.first(id=user_id, is_active=True)
             if user is None:
-                raise AuthInvalidError(details="Password reset token owner is inactive or missing.")
+                raise AuthInvalidAPIError(
+                    details="Password reset token owner is inactive or missing."
+                )
 
             await user_repository.update(user, password=User.make_password(data.password_1))
             await UserSessionRepository(uow.session).deactivate_for_user(user.id)
@@ -224,7 +230,7 @@ class AuthInviteAPIController(BaseAuthAPIController):
         email = str(data.email)
         async with SASessionUOW() as uow:
             if await UserRepository(uow.session).get_by_email(email):
-                raise ConflictError(details=f"User with email '{email}' already exists.")
+                raise StateConflictAPIError(details=f"User with email '{email}' already exists.")
 
             invite_repository = UserInviteRepository(uow.session)
             invite = await invite_repository.first(email=email)
@@ -283,7 +289,9 @@ class AuthProfileAPIController(BaseAuthAPIController):
                 if email := update_data.get("email"):
                     existing_user = await user_repository.get_by_email(email)
                     if existing_user is not None and existing_user.id != current_user.id:
-                        raise ConflictError(details=f"User with email '{email}' already exists.")
+                        raise StateConflictAPIError(
+                            details=f"User with email '{email}' already exists."
+                        )
                 await user_repository.update(current_user, **update_data)
                 uow.mark_for_commit()
 
@@ -386,7 +394,7 @@ class AuthAccessTokenAPIController(BaseAuthAPIController):
             repository = UserAccessTokenRepository(uow.session)
             access_token = await repository.first(id=token_id, user_id=current_user.id)
             if access_token is None:
-                raise InvalidParametersError(details=f"Access token #{token_id} not found.")
+                raise InvalidParametersAPIError(details=f"Access token #{token_id} not found.")
             await repository.update(access_token, **data.model_dump(exclude_unset=True))
             uow.mark_for_commit()
 
@@ -399,7 +407,7 @@ class AuthAccessTokenAPIController(BaseAuthAPIController):
             repository = UserAccessTokenRepository(uow.session)
             access_token = await repository.first(id=token_id, user_id=current_user.id)
             if access_token is None:
-                raise InvalidParametersError(details=f"Access token #{token_id} not found.")
+                raise InvalidParametersAPIError(details=f"Access token #{token_id} not found.")
             await repository.delete(access_token)
             uow.mark_for_commit()
 

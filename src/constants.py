@@ -12,7 +12,7 @@ class NavigationItem(NamedTuple):
     slug: str
 
 
-class ResponseStatus(str, enum.Enum):
+class ResponseCode(str, enum.Enum):
     OK = "OK"
     INTERNAL_ERROR = "INTERNAL_ERROR"
     AUTH_FAILED = "AUTH_FAILED"

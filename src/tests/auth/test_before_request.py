@@ -4,7 +4,7 @@ from unittest.mock import AsyncMock
 import pytest
 from litestar.response import Redirect, Response
 
-from src.modules.api.errors import AuthInvalidError
+from exceptions import AuthInvalidAPIError
 from src.modules.auth.before_request import _is_auth_exempt, browser_auth_gate
 from src.tests.factories import make_user
 
@@ -116,7 +116,7 @@ class TestBrowserAuthGate:
         monkeypatch.setattr("src.modules.auth.before_request.attach_current_user", AsyncMock())
         monkeypatch.setattr(
             "src.modules.auth.before_request.authenticate_bearer_request",
-            AsyncMock(side_effect=AuthInvalidError(details="bad token")),
+            AsyncMock(side_effect=AuthInvalidAPIError(details="bad token")),
         )
         settings = SimpleNamespace(flags=SimpleNamespace(api_debug_mode=False))
         request = _request(path="/api/podcasts")

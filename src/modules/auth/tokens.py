@@ -9,12 +9,12 @@ import jwt
 from jwt import ExpiredSignatureError, InvalidTokenError
 from litestar.connection import Request
 
-from src.modules.api.errors import (
-    AuthInvalidError,
-    AuthMissingError,
-    RefreshExpiredError,
-    SessionInactiveError,
-    TokenExpiredError,
+from exceptions import (
+    AuthMissingAPIError,
+    AuthInvalidAPIError,
+    TokenExpiredAPIError,
+    RefreshExpiredAPIError,
+    SessionInactiveAPIError,
 )
 from src.modules.db.models.users import LENGTH_USER_ACCESS_TOKEN, User, UserAccessToken, UserSession
 from src.modules.db.repositories import UserRepository, UserSessionRepository, BaseRepository
@@ -115,16 +115,16 @@ def decode_jwt(
         payload = jwt.decode(token, _jwt_key(settings), algorithms=[settings.jwt_algorithm])
     except ExpiredSignatureError as exc:
         if expected_type == AuthTokenType.REFRESH:
-            raise RefreshExpiredError() from exc
+            raise RefreshExpiredAPIError() from exc
 
-        raise TokenExpiredError() from exc
+        raise TokenExpiredAPIError() from exc
 
     except InvalidTokenError as exc:
-        raise AuthInvalidError(details=str(exc)) from exc
+        raise AuthInvalidAPIError(details=str(exc)) from exc
 
     token_type = str(payload.get("token_type", "")).upper()
     if token_type != expected_type.value:
-        raise AuthInvalidError(
+        raise AuthInvalidAPIError(
             details=f"Expected {expected_type.value} token, got {token_type or 'unknown'}."
         )
 
@@ -180,11 +180,11 @@ async def create_user_session(user: User, settings: AppSettings) -> TokenCollect
 def extract_bearer_token(request: Request) -> str:
     auth_header = request.headers.get("Authorization") or request.headers.get("authorization")
     if not auth_header:
-        raise AuthMissingError()
+        raise AuthMissingAPIError()
 
     parts = auth_header.split()
     if len(parts) != 2 or parts[0] != "Bearer":
-        raise AuthInvalidError(details="Authorization header must be 'Bearer <token>'.")
+        raise AuthInvalidAPIError(details="Authorization header must be 'Bearer <token>'.")
 
     return parts[1]
 
@@ -202,16 +202,16 @@ async def authenticate_bearer_request(
         user_id = int(payload.get("user_id") or 0)
         session_id = payload.get("session_id")
         if not user_id or not session_id:
-            raise AuthInvalidError(details="Token payload misses user_id or session_id.")
+            raise AuthInvalidAPIError(details="Token payload misses user_id or session_id.")
 
         session_repo = UserSessionRepository(uow.session)
         pair = await session_repo.get_active_with_user(str(session_id))
         if pair is None:
-            raise SessionInactiveError()
+            raise SessionInactiveAPIError()
 
         user_session, user = pair
         if user_session.user_id != user_id or not user.is_active:
-            raise AuthInvalidError()
+            raise AuthInvalidAPIError()
 
         return AuthenticatedRequest(user=user, session_id=str(session_id), payload=payload)
 
@@ -223,20 +223,20 @@ async def authenticate_refresh_token(
     user_id = int(payload.get("user_id") or 0)
     session_id = payload.get("session_id")
     if not user_id or not session_id:
-        raise AuthInvalidError(details="Refresh token payload misses user_id or session_id.")
+        raise AuthInvalidAPIError(details="Refresh token payload misses user_id or session_id.")
 
     async with SASessionUOW() as uow:
         session_repo = UserSessionRepository(uow.session)
         pair = await session_repo.get_active_with_user(str(session_id))
         if pair is None:
-            raise SessionInactiveError()
+            raise SessionInactiveAPIError()
 
         user_session, user = pair
         if user_session.user_id != user_id or not user.is_active:
-            raise AuthInvalidError()
+            raise AuthInvalidAPIError()
 
         if user_session.refresh_token != refresh_token:
-            raise AuthInvalidError(details="Refresh token does not match the session.")
+            raise AuthInvalidAPIError(details="Refresh token does not match the session.")
 
         return RefreshAuthentication(
             user=user,
@@ -273,12 +273,12 @@ async def _authenticate_user_access_token(uow: SASessionUOW, token: str) -> Auth
     token_repo.model = UserAccessToken
     access_token = await token_repo.first(token=hash_string(token))
     if access_token is None or not access_token.active:
-        raise AuthInvalidError(details="Provided access token is unknown, disabled, or expired.")
+        raise AuthInvalidAPIError(details="Provided access token is unknown, disabled, or expired.")
 
     user_repo = UserRepository(uow.session)
     user = await user_repo.first(id=access_token.user_id, is_active=True)
     if user is None:
-        raise AuthInvalidError(details="Access token owner is inactive or missing.")
+        raise AuthInvalidAPIError(details="Access token owner is inactive or missing.")
 
     return AuthenticatedRequest(
         user=user,
