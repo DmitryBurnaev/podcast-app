@@ -9,7 +9,7 @@ from litestar.testing import TestClient
 from src.constants import SourceType
 from src.main import PodcastApp
 from src.modules.api.cookies import CookieAPIController
-from src.modules.api.errors import InvalidParametersError
+from exceptions import InvalidParametersAPIError
 from src.modules.db.models import User
 from src.tests.factories import make_cookie
 from src.tests.helpers import assert_error_response
@@ -135,7 +135,7 @@ class TestCookieCreateAPI:
         assert error["details"] == details
 
     async def test_create__missing_file__fail(self) -> None:
-        with pytest.raises(InvalidParametersError) as exc_info:
+        with pytest.raises(InvalidParametersAPIError) as exc_info:
             await CookieAPIController._parse_cookie_form({"source_type": "youtube"})
 
         assert getattr(exc_info.value, "details", None) == {"file": "Cookie file is required."}
@@ -147,7 +147,7 @@ class TestCookieCreateAPI:
             file_data=b"\xff",
         )
 
-        with pytest.raises(InvalidParametersError) as exc_info:
+        with pytest.raises(InvalidParametersAPIError) as exc_info:
             await CookieAPIController._parse_cookie_form(
                 {"source_type": "youtube", "file": uploaded_file}
             )

@@ -7,7 +7,7 @@ import pytest
 from litestar.testing import TestClient
 
 from src.main import PodcastApp
-from src.modules.api.errors import InvalidParametersError
+from exceptions import InvalidParametersAPIError
 from src.modules.api.media import _get_upload, _upload_audio_cover
 from src.modules.schemas.media import UploadedImageData
 from src.tests.helpers import assert_error_response
@@ -58,7 +58,7 @@ class TestMediaUploadAPI:
         assert error["details"] == {"file": message}
 
     def test_upload__missing_file__fail(self) -> None:
-        with pytest.raises(InvalidParametersError) as exc_info:
+        with pytest.raises(InvalidParametersAPIError) as exc_info:
             _get_upload({})
 
         assert getattr(exc_info.value, "details", None) == {"file": "File is required."}

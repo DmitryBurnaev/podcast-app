@@ -7,7 +7,7 @@ import yt_dlp
 from litestar import get
 
 from src.modules.api.base import BaseApiController
-from src.modules.api.errors import InvalidParametersError
+from exceptions import InvalidParametersAPIError
 from src.modules.db import User
 from src.modules.db.models import Episode
 from src.modules.db.repositories import EpisodeRepository, PodcastRepository
@@ -54,7 +54,7 @@ class PlaylistAPIController(BaseApiController):
         try:
             source_info = common_utils.extract_source_info(url, playlist=True)
         except Exception as exc:
-            raise InvalidParametersError(details=str(exc)) from exc
+            raise InvalidParametersAPIError(details=str(exc)) from exc
 
         async with SASessionUOW() as uow:
             async with cookie_file_ctx(uow.session, current_user.id, source_info.type) as cookie:
@@ -69,12 +69,12 @@ class PlaylistAPIController(BaseApiController):
                     try:
                         source_data = await asyncio.to_thread(extract_info)
                     except yt_dlp.utils.DownloadError as exc:
-                        raise InvalidParametersError(
+                        raise InvalidParametersAPIError(
                             details=f"Couldn't extract playlist: {exc}"
                         ) from exc
 
         if source_data.get("_type") != "playlist":
-            raise InvalidParametersError(details="It seems like incorrect playlist URL.")
+            raise InvalidParametersAPIError(details="It seems like incorrect playlist URL.")
 
         videos = cast(Iterable[dict[str, Any]], source_data.get("entries") or [])
         entries = [

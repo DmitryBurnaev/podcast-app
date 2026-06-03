@@ -3,12 +3,12 @@ from unittest.mock import AsyncMock, Mock
 
 import pytest
 
-from src.modules.api.errors import (
-    AuthInvalidError,
-    AuthMissingError,
-    RefreshExpiredError,
-    SessionInactiveError,
-    TokenExpiredError,
+from exceptions import (
+    AuthMissingAPIError,
+    AuthInvalidAPIError,
+    TokenExpiredAPIError,
+    RefreshExpiredAPIError,
+    SessionInactiveAPIError,
 )
 from src.modules.auth.tokens import (
     AuthTokenType,
@@ -69,7 +69,7 @@ class TestJWT:
             expires_in=-1,
         )
 
-        with pytest.raises(TokenExpiredError):
+        with pytest.raises(TokenExpiredAPIError):
             decode_jwt(token, expected_type=AuthTokenType.ACCESS, settings=app_settings)
 
     def test_decode_jwt__expired_refresh__fail(self, app_settings) -> None:
@@ -79,11 +79,11 @@ class TestJWT:
             expires_in=-1,
         )
 
-        with pytest.raises(RefreshExpiredError):
+        with pytest.raises(RefreshExpiredAPIError):
             decode_jwt(token, expected_type=AuthTokenType.REFRESH, settings=app_settings)
 
     def test_decode_jwt__invalid_token__fail(self, app_settings) -> None:
-        with pytest.raises(AuthInvalidError):
+        with pytest.raises(AuthInvalidAPIError):
             decode_jwt("not-a-token", expected_type=AuthTokenType.ACCESS, settings=app_settings)
 
     def test_decode_jwt__unexpected_type__fail(self, app_settings) -> None:
@@ -92,7 +92,7 @@ class TestJWT:
             settings=app_settings,
         )
 
-        with pytest.raises(AuthInvalidError, match="Expected ACCESS token"):
+        with pytest.raises(AuthInvalidAPIError, match="Expected ACCESS token"):
             decode_jwt(token, expected_type=AuthTokenType.ACCESS, settings=app_settings)
 
     def test_issue_token_pair__creates_access_and_refresh(self, app_settings) -> None:
@@ -118,7 +118,7 @@ class TestBearerToken:
     def test_extract_bearer_token__missing__fail(self, headers: dict[str, str]) -> None:
         request = SimpleNamespace(headers=headers)
 
-        with pytest.raises(AuthMissingError):
+        with pytest.raises(AuthMissingAPIError):
             extract_bearer_token(request)
 
     @pytest.mark.parametrize(
@@ -132,7 +132,7 @@ class TestBearerToken:
     def test_extract_bearer_token__invalid__fail(self, header: str) -> None:
         request = SimpleNamespace(headers={"Authorization": header})
 
-        with pytest.raises(AuthInvalidError):
+        with pytest.raises(AuthInvalidAPIError):
             extract_bearer_token(request)
 
     def test_extract_bearer_token__ok(self) -> None:
@@ -214,7 +214,7 @@ class TestSessionTokens:
         )
         request = SimpleNamespace(headers={"Authorization": f"Bearer {token}"})
 
-        with pytest.raises(AuthInvalidError, match="misses user_id or session_id"):
+        with pytest.raises(AuthInvalidAPIError, match="misses user_id or session_id"):
             await authenticate_bearer_request(request, settings=app_settings)
 
     async def test_authenticate_bearer_request__inactive_session__fail(
@@ -234,7 +234,7 @@ class TestSessionTokens:
         )
         request = SimpleNamespace(headers={"Authorization": f"Bearer {token}"})
 
-        with pytest.raises(SessionInactiveError):
+        with pytest.raises(SessionInactiveAPIError):
             await authenticate_bearer_request(request, settings=app_settings)
 
     @pytest.mark.parametrize(
@@ -264,7 +264,7 @@ class TestSessionTokens:
         )
         request = SimpleNamespace(headers={"Authorization": f"Bearer {token}"})
 
-        with pytest.raises(AuthInvalidError):
+        with pytest.raises(AuthInvalidAPIError):
             await authenticate_bearer_request(request, settings=app_settings)
 
     async def test_authenticate_refresh_token__ok(
@@ -312,7 +312,7 @@ class TestSessionTokens:
             Mock(return_value=session_repository),
         )
 
-        with pytest.raises(AuthInvalidError, match="does not match"):
+        with pytest.raises(AuthInvalidAPIError, match="does not match"):
             await authenticate_refresh_token(refresh_token, settings=app_settings)
 
     async def test_refresh_user_session__updates_session(
@@ -393,7 +393,7 @@ class TestUserAccessToken:
         )
         request = SimpleNamespace(headers={"Authorization": f"Bearer {raw_token}"})
 
-        with pytest.raises(AuthInvalidError, match="unknown"):
+        with pytest.raises(AuthInvalidAPIError, match="unknown"):
             await authenticate_bearer_request(request, settings=SimpleNamespace())
 
     async def test_authenticate_bearer_request__user_access_token_owner_missing__fail(
@@ -416,5 +416,5 @@ class TestUserAccessToken:
         )
         request = SimpleNamespace(headers={"Authorization": f"Bearer {raw_token}"})
 
-        with pytest.raises(AuthInvalidError, match="owner"):
+        with pytest.raises(AuthInvalidAPIError, match="owner"):
             await authenticate_bearer_request(request, settings=SimpleNamespace())

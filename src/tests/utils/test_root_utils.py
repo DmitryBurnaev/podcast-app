@@ -1,4 +1,3 @@
-import asyncio
 import logging
 from http import HTTPStatus
 from types import SimpleNamespace
@@ -9,17 +8,15 @@ from pydantic import SecretStr
 
 from src.exceptions import NotFoundError
 from src.utils import (
-    create_task,
     cut_string,
     download_content,
     hash_string,
-    is_basic_emoji,
     log_message,
-    send_email,
     simple_slugify,
     singleton,
     utcnow,
 )
+from modules.services.email import send_email
 
 
 class TestSmallUtils:
@@ -66,10 +63,6 @@ class TestSmallUtils:
         expected: str,
     ) -> None:
         assert cut_string(value, max_length=max_length, placeholder=placeholder) == expected
-
-    @pytest.mark.parametrize(("char", "expected"), [("★", True), ("a", False)])
-    def test_is_basic_emoji__ok(self, char: str, expected: bool) -> None:
-        assert is_basic_emoji(char) is expected
 
     def test_hash_string__stable_sha256(self) -> None:
         assert hash_string("127.0.0.1") == (
@@ -194,47 +187,6 @@ class TestDownloadContent:
 
         with pytest.raises(NotFoundError, match="Couldn't download url"):
             await download_content("https://example.com/file", file_ext="txt", retries=2)
-
-
-class TestCreateTask:
-    async def test_create_task__returns_task_result(self) -> None:
-        async def work() -> str:
-            return "done"
-
-        task = create_task(work(), log_instance=Mock())
-
-        assert await task == "done"
-
-    async def test_create_task__logs_exception(self) -> None:
-        async def fail() -> None:
-            raise RuntimeError("boom")
-
-        logger = Mock()
-        task = create_task(
-            fail(),
-            log_instance=logger,
-            error_message="failed %s",
-            error_message_message_args=("x",),
-        )
-
-        with pytest.raises(RuntimeError):
-            await task
-        await asyncio.sleep(0)
-
-        logger.exception.assert_called_once_with("failed %s", "x")
-
-    async def test_create_task__cancelled_is_not_logged(self) -> None:
-        async def wait() -> None:
-            await asyncio.sleep(10)
-
-        logger = Mock()
-        task = create_task(wait(), log_instance=logger)
-        task.cancel()
-        with pytest.raises(asyncio.CancelledError):
-            await task
-        await asyncio.sleep(0)
-
-        logger.exception.assert_not_called()
 
 
 class _FakeAsyncClient:

@@ -8,7 +8,7 @@ from litestar.enums import RequestEncodingType
 from litestar.params import Body
 
 from src.modules.api.base import BaseApiController
-from src.modules.api.errors import InvalidParametersError
+from exceptions import InvalidParametersAPIError
 from src.modules.services.storage import StorageS3
 from src.modules.utils import ffmpeg as ffmpeg_utils
 from src.modules.utils.processing import get_file_size, save_uploaded_file
@@ -28,7 +28,7 @@ class MediaUploadAPIController(BaseApiController):
         """Upload an audio file and return its stored metadata."""
         uploaded_file = _get_upload(data)
         if not uploaded_file.content_type.startswith("audio/"):
-            raise InvalidParametersError(details={"file": "File must be audio."})
+            raise InvalidParametersAPIError(details={"file": "File must be audio."})
 
         settings = get_app_settings()
         local_path = await save_uploaded_file(
@@ -49,7 +49,7 @@ class MediaUploadAPIController(BaseApiController):
             filename=remote_name,
         )
         if not remote_path:
-            raise InvalidParametersError(details={"file": "Could not upload audio file."})
+            raise InvalidParametersAPIError(details={"file": "Could not upload audio file."})
 
         cover_data = await _upload_audio_cover(local_path)
         return UploadedAudioData(
@@ -69,7 +69,7 @@ class MediaUploadAPIController(BaseApiController):
         """Upload an image file and return its stored metadata."""
         uploaded_file = _get_upload(data)
         if not uploaded_file.content_type.startswith("image/"):
-            raise InvalidParametersError(details={"file": "File must be image."})
+            raise InvalidParametersAPIError(details={"file": "File must be image."})
 
         settings = get_app_settings()
         local_path = await save_uploaded_file(
@@ -86,7 +86,7 @@ class MediaUploadAPIController(BaseApiController):
             filename=remote_name,
         )
         if not remote_path:
-            raise InvalidParametersError(details={"file": "Could not upload image file."})
+            raise InvalidParametersAPIError(details={"file": "Could not upload image file."})
 
         preview_url = await StorageS3().get_presigned_url(remote_path)
         return UploadedImageData(
@@ -101,7 +101,7 @@ class MediaUploadAPIController(BaseApiController):
 def _get_upload(data: dict[str, UploadFile]) -> UploadFile:
     uploaded_file = data.get("file") or next(iter(data.values()), None)
     if not isinstance(uploaded_file, UploadFile):
-        raise InvalidParametersError(details={"file": "File is required."})
+        raise InvalidParametersAPIError(details={"file": "File is required."})
     return uploaded_file
 
 

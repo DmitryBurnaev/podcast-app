@@ -2,19 +2,15 @@ import asyncio
 import datetime
 import hashlib
 import logging
-import unicodedata
 import uuid
-from email.mime.multipart import MIMEMultipart
-from email.mime.text import MIMEText
 from http import HTTPStatus
 from pathlib import Path
-from typing import TypeVar, Callable, ParamSpec, Any, Coroutine
+from typing import TypeVar, Callable, ParamSpec, Any
 
 import httpx
-import aiosmtplib
 
 from src.settings.app import get_app_settings
-from src.exceptions import EmailSendingError, ImproperlyConfiguredError, NotFoundError
+from src.exceptions import NotFoundError
 
 __all__ = ("singleton",)
 logger = logging.getLogger(__name__)
@@ -41,51 +37,51 @@ def singleton(cls: type[C]) -> Callable[P, C]:
 
 
 # TODO: reimplement with litestar specific
-# async def universal_exception_handler(request: "Request", exc: Exception) -> "JSONResponse":
-#     """Universal exception handler that handles all types of exceptions"""
-#
-#     log_data: dict[str, str] = {
-#         "error": "Internal server error",
-#         "detail": str(exc),
-#         "path": request.url.path,
-#         "method": request.method,
-#     }
-#     log_level = logging.ERROR
-#     status_code: int = 500
-#
-#     if isinstance(exc, BaseApplicationError):
-#         log_level = exc.log_level
-#         log_message = f"{exc.log_message}: {exc.message}"
-#         status_code = exc.status_code
-#         log_data |= {"error": exc.log_message, "detail": str(exc.message)}
-#
-#     elif isinstance(exc, (ValidationError,)):
-#         log_level = logging.WARNING
-#         log_message = f"Validation error: {str(exc)}"
-#         status_code = 422
-#         log_data |= {"error": log_message}
-#
-#     elif isinstance(exc, HTTPException):
-#         log_level = logging.WARNING
-#         status_code = exc.status_code
-#         log_message = "Auth problem" if status_code == 401 else "Some http-related error"
-#         log_message = f"{log_message}: {exc.detail}"
-#         log_data |= {"error": log_message}
-#
-#     else:
-#         log_message = f"Internal server error: {exc}"
-#         log_data |= {
-#             "detail": "An internal error has been detected. We apologize for the inconvenience."
-#         }
-#
-#     exc_info = exc if logger.isEnabledFor(logging.DEBUG) else None
-#     # Log the error
-#     logger.log(log_level, log_message, extra=log_data, exc_info=exc_info)
-#
-#     return JSONResponse(
-#         status_code=status_code,
-#         content=ErrorResponse.model_validate(log_data).model_dump(),
-#     )
+async def universal_exception_handler(request: "Request", exc: Exception) -> "JSONResponse":
+    """Universal exception handler that handles all types of exceptions"""
+
+    log_data: dict[str, str] = {
+        "error": "Internal server error",
+        "detail": str(exc),
+        "path": request.url.path,
+        "method": request.method,
+    }
+    log_level = logging.ERROR
+    status_code: int = 500
+
+    if isinstance(exc, BaseApplicationError):
+        log_level = exc.log_level
+        log_message = f"{exc.log_message}: {exc.message}"
+        status_code = exc.status_code
+        log_data |= {"error": exc.log_message, "detail": str(exc.message)}
+
+    elif isinstance(exc, (ValidationError,)):
+        log_level = logging.WARNING
+        log_message = f"Validation error: {str(exc)}"
+        status_code = 422
+        log_data |= {"error": log_message}
+
+    elif isinstance(exc, HTTPException):
+        log_level = logging.WARNING
+        status_code = exc.status_code
+        log_message = "Auth problem" if status_code == 401 else "Some http-related error"
+        log_message = f"{log_message}: {exc.detail}"
+        log_data |= {"error": log_message}
+
+    else:
+        log_message = f"Internal server error: {exc}"
+        log_data |= {
+            "detail": "An internal error has been detected. We apologize for the inconvenience."
+        }
+
+    exc_info = exc if logger.isEnabledFor(logging.DEBUG) else None
+    # Log the error
+    logger.log(log_level, log_message, extra=log_data, exc_info=exc_info)
+
+    return JSONResponse(
+        status_code=status_code,
+        content=ErrorResponse.model_validate(log_data).model_dump(),
+    )
 
 
 def utcnow(skip_tz: bool = True) -> datetime.datetime:
@@ -138,99 +134,46 @@ def cut_string(value: str | None, max_length: int = 128, placeholder: str = "...
     return value[:max_length] + placeholder if len(value) > max_length else value
 
 
-def is_basic_emoji(char: str) -> bool:
-    try:
-        # Check if the character's Unicode name contains 'EMOJI' or 'PICTOGRAM'
-        # name = unicodedata.name(char)
-        # print(char, name, unicodedata.category(char), sep=" | ")
-        return unicodedata.category(char).lower() == "so"
-    except ValueError:
-        # Handles cases where a single char from a sequence has no name
-        return False
-
-
-async def send_email(recipient_email: str, subject: str, html_content: str) -> None:
-    """Send an HTML email through the configured SMTP server."""
-    logger.debug("Sending email to: %s | subject: '%s'", recipient_email, subject)
-    settings = get_app_settings().smtp
-    required_settings = ("host", "port", "username", "password", "from_email")
-    if not all(getattr(settings, name) for name in required_settings):
-        raise ImproperlyConfiguredError(
-            f"SMTP settings: {required_settings} must be set for sending email"
-        )
-
-    if settings.password is None:
-        raise ImproperlyConfiguredError("SMTP password must be set for sending email")
-
-    smtp_client = aiosmtplib.SMTP(
-        hostname=settings.host,
-        port=settings.port,
-        use_tls=settings.use_tls,
-        start_tls=settings.starttls,
-        username=settings.username,
-        password=settings.password.get_secret_value(),
-    )
-    message = MIMEMultipart("alternative")
-    message["From"] = settings.from_email
-    message["To"] = recipient_email
-    message["Subject"] = subject
-    message.attach(MIMEText(html_content, "html"))
-
-    async with smtp_client:
-        try:
-            smtp_details, smtp_status = await smtp_client.send_message(message)
-        except aiosmtplib.SMTPException as exc:
-            details = f"Couldn't send email: recipient: {recipient_email} | exc: {exc!r}"
-            raise EmailSendingError(details=details) from exc
-
-    if "OK" not in str(smtp_status):
-        details = f"Couldn't send email: {recipient_email=} | {smtp_status=} | {smtp_details=}"
-        raise EmailSendingError(details=details)
-
-    logger.info("Email sent to %s | subject: %s", recipient_email, subject)
-
-
-def log_message(exc, error_data, level=logging.ERROR):
+def custom_exception_handler(_, exc):
     """
-    Helps to log caught errors by exception handler
+    Returns the response that should be used for any given exception.
+    Response will be formatted by our format: {"error": "text", "detail": details}
     """
-    error_details = {
-        "error": error_data.get("error", "Unbound exception"),
-        "details": error_data.get("details", str(exc)),
-    }
-    message = "{exc.__class__.__name__} '{error}': [{details}]".format(exc=exc, **error_details)
-    logger.log(level, message, exc_info=(level == logging.ERROR))
 
+    def log_message(data, level=logging.ERROR):
+        """
+        Helps to log caught errors by exception handler
+        """
+        error_details = {
+            "error": data.get("error", "Unbound exception"),
+            "details": data.get("details", str(exc)),
+        }
+        message = "{exc.__class__.__name__} '{error}': [{details}]".format(exc=exc, **error_details)
+        logger.log(level, message, exc_info=(level == logging.ERROR))
 
-#
-# def custom_exception_handler(_, exc):
-#     """
-#     Returns the response that should be used for any given exception.
-#     Response will be formatted by our format: {"error": "text", "detail": details}
-#     """
-#     error_message = "Something went wrong!"
-#     error_details = f"Raised Error: {exc.__class__.__name__}"
-#     status_code = getattr(exc, "status_code", status.HTTP_500_INTERNAL_SERVER_ERROR)
-#     response_status = ResponseStatus.INTERNAL_ERROR
-#     if isinstance(exc, BaseApplicationError):
-#         error_message = exc.message
-#         error_details = exc.details
-#         response_status = exc.response_status
-#
-#     elif isinstance(exc, WebargsHTTPException):
-#         error_message = "Requested data is not valid."
-#         error_details = exc.messages.get("json") or exc.messages.get("form") or exc.messages
-#         status_code = status.HTTP_400_BAD_REQUEST
-#         response_status = ResponseStatus.INVALID_PARAMETERS
-#
-#     payload = {"error": error_message}
-#     if settings.APP_DEBUG or response_status == ResponseStatus.INVALID_PARAMETERS:
-#         payload["details"] = error_details
-#
-#     response_data = {"status": response_status, "payload": payload}
-#     log_level = logging.ERROR if httpx.codes.is_server_error(status_code) else logging.WARNING
-#     log_message(exc, response_data["payload"], log_level)
-#     return JSONResponse(response_data, status_code=status_code)
+    error_message = "Something went wrong!"
+    error_details = f"Raised Error: {exc.__class__.__name__}"
+    status_code = getattr(exc, "status_code", status.HTTP_500_INTERNAL_SERVER_ERROR)
+    response_status = ResponseStatus.INTERNAL_ERROR
+    if isinstance(exc, BaseApplicationError):
+        error_message = exc.message
+        error_details = exc.details
+        response_status = exc.response_status
+
+    elif isinstance(exc, WebargsHTTPException):
+        error_message = "Requested data is not valid."
+        error_details = exc.messages.get("json") or exc.messages.get("form") or exc.messages
+        status_code = status.HTTP_400_BAD_REQUEST
+        response_status = ResponseStatus.INVALID_PARAMETERS
+
+    payload = {"error": error_message}
+    if settings.APP_DEBUG or response_status == ResponseStatus.INVALID_PARAMETERS:
+        payload["details"] = error_details
+
+    response_data = {"status": response_status, "payload": payload}
+    log_level = logging.ERROR if httpx.codes.is_server_error(status_code) else logging.WARNING
+    log_message(data=response_data["payload"], level=log_level)
+    return JSONResponse(response_data, status_code=status_code)
 
 
 def hash_string(source_string: str) -> str:
@@ -288,29 +231,3 @@ async def download_content(
         file.write(result_content)
 
     return path
-
-
-def create_task(
-    coroutine: Coroutine[Any, Any, T],
-    log_instance: logging.Logger,
-    error_message: str = "",
-    error_message_message_args: tuple[Any, ...] = (),
-) -> asyncio.Task[T]:
-    """Creates asyncio.Task from coro and provides logging for any exceptions"""
-
-    def handle_task_result(cover_task: asyncio.Task) -> None:
-        """Logging any exceptions after task finished"""
-        try:
-            cover_task.result()
-        except asyncio.CancelledError:
-            # Task cancellation should not be logged as an error.
-            pass
-        except Exception as exc:  # pylint: disable=broad-except
-            if error_message:
-                log_instance.exception(error_message, *error_message_message_args)
-            else:
-                log_instance.exception(f"Couldn't complete {coroutine.__name__}: %r", exc)
-
-    task = asyncio.create_task(coroutine)
-    task.add_done_callback(handle_task_result)
-    return task

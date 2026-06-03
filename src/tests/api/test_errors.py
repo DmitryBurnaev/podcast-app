@@ -2,13 +2,7 @@ import pytest
 from litestar.exceptions import HTTPException
 
 from src.exceptions import BaseApplicationError
-from src.modules.api.errors import APIError, app_error_handler, http_error_handler
-
-
-def test_api_error__accepts_string_code() -> None:
-    error = APIError(code="NOT_FOUND")
-
-    assert error.code == "NOT_FOUND"
+from src.modules.api.errors import app_error_handler, http_error_handler
 
 
 @pytest.mark.parametrize(
