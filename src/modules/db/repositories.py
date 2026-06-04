@@ -337,12 +337,6 @@ class UserIPRepository(BaseRepository[UserIP]):
     model = UserIP
 
 
-class UserAccessTokenRepository(BaseRepository[UserAccessToken]):
-    """Long-lived user API token repository."""
-
-    model = UserAccessToken
-
-
 class PodcastRepository(BaseRepository[Podcast]):
     """Podcast's repository."""
 
@@ -733,3 +727,35 @@ class FileRepository(BaseRepository[File]):
             size=source_file.size,
             source_url=source_file.source_url,
         )
+
+
+class AuthUserSessionRepository(BaseRepository[UserSession]):
+    """Auth user session repository."""
+
+    model = UserSession
+
+    async def get_active(self, user_id: int) -> UserSession | None:
+        """Get active user session."""
+        return await self.first(user_id=user_id, is_active=True)
+
+    async def get_active_by_public_id(self, public_id: str) -> UserSession | None:
+        """Get active user session by public ID."""
+        return await self.first(public_id=public_id, is_active=True)
+
+    async def create(self, user_id: int, public_id: str, is_active: bool = True) -> UserSession:
+        """Create a user session."""
+        return await self.create(user_id=user_id, public_id=public_id, is_active=is_active)
+
+
+class UserAccessTokenRepository(BaseRepository[UserAccessToken]):
+    """User access token repository."""
+
+    model = UserAccessToken
+
+    async def get_active(self, user_id: int) -> UserAccessToken | None:
+        """Get active user access token."""
+        return await self.first(user_id=user_id, is_active=True)
+
+    async def get_active_by_token(self, token: str) -> UserAccessToken | None:
+        """Get active user access token by token."""
+        return await self.first(token=token, is_active=True)

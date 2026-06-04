@@ -10,8 +10,13 @@ from src.exceptions import (
     PermissionDeniedError,
     SignatureExpiredError,
 )
-from src.utils import hash_string, utcnow
-from src.modules.db.models import User, UserSession, UserAccessToken
+from src.modules.db.repositories import (
+    AuthUserSessionRepository,
+    UserAccessTokenRepository,
+    UserRepository,
+)
+from src.utils import hash_string
+from src.modules.db.models import User
 from src.modules.auth.utils import decode_jwt
 from src.modules.auth.constants import LENGTH_USER_ACCESS_TOKEN, AuthTokenType
 
@@ -54,7 +59,7 @@ class BaseAuthBackend:
         self,
         jwt_token: str,
         token_type: AuthTokenType = AuthTokenType.ACCESS,
-    ) -> tuple[User, dict, str | None]:
+    ) -> tuple[User, dict | None, str | None]:
         """Allows to find active user by jwt_token"""
 
         if self._seems_like_user_access_token(jwt_token):
@@ -64,7 +69,8 @@ class BaseAuthBackend:
             by_token_data = self._encode_jwt(jwt_token, token_type)
 
         user_id = by_token_data.user_id
-        user = await User.get_active(self.db_session, user_id)
+        user_repo = UserRepository(session=self.db_session)
+        user = await user_repo.first(id=user_id, is_active=True)
         if not user:
             msg = "Couldn't found active user with id=%s."
             logger.warning(msg, user_id)
@@ -77,9 +83,8 @@ class BaseAuthBackend:
         if not session_id:
             raise AuthenticationFailedError("Incorrect data in JWT: session_id is missed")
 
-        user_session = await UserSession.async_get(
-            self.db_session, public_id=session_id, is_active=True
-        )
+        user_session_repo = AuthUserSessionRepository(session=self.db_session)
+        user_session = await user_session_repo.get_active_by_public_id(session_id)
         if not user_session:
             raise AuthenticationFailedError(
                 f"Couldn't found active session: {user_id=} | {session_id=}."
@@ -119,10 +124,14 @@ class BaseAuthBackend:
                 f"got '{jwt_payload['token_type'].lower()}' instead."
             )
 
+        session_id: str | None = jwt_payload.get("session_id")
+        if not session_id:
+            raise AuthenticationFailedError("Incorrect data in JWT: session_id is missed")
+
         return ByTokenData(
             user_id=jwt_payload["user_id"],
             payload=jwt_payload,
-            session_id=jwt_payload.get("session_id"),
+            session_id=session_id,
         )
 
     async def _encode_user_access_token(self, token: str) -> ByTokenData:
@@ -133,16 +142,10 @@ class BaseAuthBackend:
         :return: ByTokenData instance (stores token-specific info)
         """
         logger.debug("Logging via UserAccess token. Got token: %s", token)
-        user_access_token: UserAccessToken = await UserAccessToken.async_get(
-            self.db_session,
-            token=hash_string(token),
-        )
+        user_token_repo = UserAccessTokenRepository(session=self.db_session)
+        user_access_token = await user_token_repo.get_active_by_token(hash_string(token))
         if not user_access_token:
             raise AuthenticationFailedError("Provided access token is unknown.")
-
-        logger.debug("UserAccess token has been decoded: %r", user_access_token)
-        if not user_access_token.enabled or user_access_token.expires_in < utcnow():
-            raise AuthenticationFailedError("Provided access token is disabled or expired.")
 
         return ByTokenData(user_id=user_access_token.user_id)
 
@@ -162,7 +165,7 @@ class AdminRequiredAuthBackend(BaseAuthBackend):
         self,
         jwt_token: str,
         token_type: AuthTokenType = AuthTokenType.ACCESS,
-    ) -> tuple[User, dict, str]:
+    ) -> tuple[User, dict | None, str | None]:
         """
         Authenticate user by jwt_token and check that current user is superuser
 
