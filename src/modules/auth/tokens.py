@@ -9,18 +9,18 @@ import jwt
 from jwt import ExpiredSignatureError, InvalidTokenError
 from litestar.connection import Request
 
-from exceptions import (
+from src.exceptions import (
     AuthMissingAPIError,
     AuthInvalidAPIError,
     TokenExpiredAPIError,
     RefreshExpiredAPIError,
     SessionInactiveAPIError,
 )
-from src.modules.db.models.users import LENGTH_USER_ACCESS_TOKEN, User, UserAccessToken, UserSession
-from src.modules.db.repositories import UserRepository, UserSessionRepository, BaseRepository
+from src.utils import hash_string, utcnow
 from src.modules.db.services import SASessionUOW
 from src.settings.app import AppSettings, get_app_settings
-from src.utils import hash_string, utcnow
+from src.modules.db.repositories import UserRepository, UserSessionRepository, BaseRepository
+from src.modules.db.models.users import LENGTH_USER_ACCESS_TOKEN, User, UserAccessToken, UserSession
 
 logger = logging.getLogger(__name__)
 
@@ -59,7 +59,7 @@ class TokenPayload:
     token_type: AuthTokenType = AuthTokenType.ACCESS
     exp: datetime.datetime | None = None
 
-    def as_dict(self) -> dict[str, Any]:
+    def as_dict(self) -> dict[str, int | str | None]:
         """Return the JWT-serializable payload dictionary."""
         data = dataclasses.asdict(self)
         data["token_type"] = str(self.token_type)
