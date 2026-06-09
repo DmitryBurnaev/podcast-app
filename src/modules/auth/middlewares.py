@@ -3,7 +3,8 @@ import logging
 from litestar.connection import ASGIConnection
 from litestar.middleware import AbstractAuthenticationMiddleware, AuthenticationResult
 
-from src.exceptions import AuthenticationRequiredError
+from modules.auth.constants import AuthTokenType
+from src.exceptions import AuthenticationRequiredError, AuthenticationFailedError
 
 logger = logging.getLogger(__name__)
 
@@ -22,40 +23,110 @@ class APIAuthenticationMiddleware(AbstractAuthenticationMiddleware):
 
         auth = header.split()
         if len(auth) != 2:
-            logger.warning("Trying to authenticate with header %s", auth_header)
+            logger.warning("Trying to authenticate with header %s", header)
             raise AuthenticationFailedError("Invalid token header. Token should be format as JWT.")
 
         if auth[0] != self.keyword:
             raise AuthenticationFailedError("Invalid token header. Keyword mismatch.")
 
-        user, _, session_id = await self.authenticate_user(jwt_token=auth[1])
+        user, _, session_id = await self._authenticate_user(jwt_token=auth[1])
 
-        # retrieve the auth header
-        auth_header = connection.headers.get(API_KEY_HEADER)
-        if not auth_header:
-            raise NotAuthorizedException()
+        return AuthenticationResult(user=user, auth=session_id)
 
-        # this would be a database call
-        token = MyToken(api_key=auth_header)
-        user = MyUser(name=TOKEN_USER_DATABASE.get(token.api_key))
-        if not user.name:
-            raise NotAuthorizedException()
+    async def _authenticate_user(
+        self,
+        jwt_token: str,
+        token_type: AuthTokenType = AuthTokenType.ACCESS,
+    ) -> tuple[User, dict | None, str | None]:
+        """Allows to find active user by jwt_token"""
 
-        return AuthenticationResult(user=user, auth=token)
+        if self._seems_like_user_access_token(jwt_token):
+            by_token_data = await self._encode_user_access_token(jwt_token)
+            token_type = AuthTokenType.USER_ACCESS
+        else:
+            by_token_data = self._encode_jwt(jwt_token, token_type)
 
-    async def authenticate(self) -> tuple[User, str | None]:
-        request = self.request
-        auth_header = request.headers.get("Authorization") or request.headers.get("authorization")
-        if not auth_header:
-            raise AuthenticationRequiredError("Invalid token header. No credentials provided.")
+        user_id = by_token_data.user_id
+        user_repo = UserRepository(session=self.db_session)
+        user = await user_repo.first(id=user_id, is_active=True)
+        if not user:
+            msg = "Couldn't found active user with id=%s."
+            logger.warning(msg, user_id)
+            raise AuthenticationFailedError(details=(msg % (user_id,)))
 
-        auth = auth_header.split()
-        if len(auth) != 2:
-            logger.warning("Trying to authenticate with header %s", auth_header)
-            raise AuthenticationFailedError("Invalid token header. Token should be format as JWT.")
+        if token_type in (AuthTokenType.RESET_PASSWORD, AuthTokenType.USER_ACCESS):
+            return user, by_token_data.payload, None
 
-        if auth[0] != self.keyword:
-            raise AuthenticationFailedError("Invalid token header. Keyword mismatch.")
+        session_id = by_token_data.session_id
+        if not session_id:
+            raise AuthenticationFailedError("Incorrect data in JWT: session_id is missed")
 
-        user, _, session_id = await self.authenticate_user(jwt_token=auth[1])
-        return user, session_id
+        user_session_repo = AuthUserSessionRepository(session=self.db_session)
+        user_session = await user_session_repo.get_active_by_public_id(session_id)
+        if not user_session:
+            raise AuthenticationFailedError(
+                f"Couldn't found active session: {user_id=} | {session_id=}."
+            )
+
+        return user, by_token_data.payload, session_id
+
+    @staticmethod
+    def _encode_jwt(token: str, token_type: AuthTokenType) -> ByTokenData:
+        """
+        Encodes given JWT token and extract stored data in a JWT payload
+
+        :param token: JWT token
+        :return: ByTokenData instance (stores token-specific info)
+        """
+        logger.debug("Logging via JWT auth. Got token: %s", token)
+        try:
+            jwt_payload = decode_jwt(token)
+        except ExpiredSignatureError as exc:
+            logger.debug("JWT signature has been expired for %s token", token_type)
+            exception_class = (
+                SignatureExpiredError
+                if token_type == AuthTokenType.ACCESS
+                else AuthenticationFailedError
+            )
+            raise exception_class("JWT signature has been expired for token") from exc
+
+        except InvalidTokenError as exc:
+            msg = "Token could not be decoded: %s"
+            logger.exception(msg, exc)
+            raise AuthenticationFailedError(msg % (exc,)) from exc
+
+        expected_token_type = str(token_type).lower()
+        if jwt_payload["token_type"].lower() != expected_token_type:
+            raise AuthenticationFailedError(
+                f"Token type '{expected_token_type}' expected, "
+                f"got '{jwt_payload['token_type'].lower()}' instead."
+            )
+
+        session_id: str | None = jwt_payload.get("session_id")
+        if not session_id:
+            raise AuthenticationFailedError("Incorrect data in JWT: session_id is missed")
+
+        return ByTokenData(
+            user_id=jwt_payload["user_id"],
+            payload=jwt_payload,
+            session_id=session_id,
+        )
+
+    async def _encode_user_access_token(self, token: str) -> ByTokenData:
+        """
+        Finds active UserAccessToken instance by provided token
+
+        :param token: access token (will be hashed for finding stored in DB)
+        :return: ByTokenData instance (stores token-specific info)
+        """
+        logger.debug("Logging via UserAccess token. Got token: %s", token)
+        user_token_repo = UserAccessTokenRepository(session=self.db_session)
+        user_access_token = await user_token_repo.get_active_by_token(hash_string(token))
+        if not user_access_token:
+            raise AuthenticationFailedError("Provided access token is unknown.")
+
+        return ByTokenData(user_id=user_access_token.user_id)
+
+    @staticmethod
+    def _seems_like_user_access_token(token: str) -> bool:
+        return len(token) == LENGTH_USER_ACCESS_TOKEN and len(token.split(".")) == 1
