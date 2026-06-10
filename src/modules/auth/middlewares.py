@@ -1,10 +1,19 @@
 import logging
 
+from jwt import ExpiredSignatureError, InvalidTokenError
 from litestar.connection import ASGIConnection
 from litestar.middleware import AbstractAuthenticationMiddleware, AuthenticationResult
+from sqlalchemy.ext.asyncio import AsyncSession
 
+from modules.auth.backend import ByTokenData
 from modules.auth.constants import AuthTokenType
-from src.exceptions import AuthenticationRequiredError, AuthenticationFailedError
+from modules.db import SASessionUOW
+from modules.db.repositories import UserAccessTokenRepository
+from src.exceptions import (
+    AuthenticationRequiredError,
+    AuthenticationFailedError,
+    SignatureExpiredError,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -29,7 +38,9 @@ class APIAuthenticationMiddleware(AbstractAuthenticationMiddleware):
         if auth[0] != self.keyword:
             raise AuthenticationFailedError("Invalid token header. Keyword mismatch.")
 
-        user, _, session_id = await self._authenticate_user(jwt_token=auth[1])
+        async with SASessionUOW() as uow:
+            self.db_session: AsyncSession = uow.session
+            user, _, session_id = await self._authenticate_user(jwt_token=auth[1])
 
         return AuthenticationResult(user=user, auth=session_id)
 
