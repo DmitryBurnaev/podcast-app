@@ -1,21 +1,40 @@
 import logging
+from typing import NamedTuple, Any, Optional
 
 from jwt import ExpiredSignatureError, InvalidTokenError
 from litestar.connection import ASGIConnection
 from litestar.middleware import AbstractAuthenticationMiddleware, AuthenticationResult
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from modules.auth.backend import ByTokenData
-from modules.auth.constants import AuthTokenType
-from modules.db import SASessionUOW
-from modules.db.repositories import UserAccessTokenRepository
+from src.modules.auth.constants import AuthTokenType, LENGTH_USER_ACCESS_TOKEN
+from src.modules.auth.tokens import decode_jwt
+from src.modules.db import SASessionUOW, User
+from src.modules.db.repositories import (
+    UserAccessTokenRepository,
+    UserRepository,
+    AuthUserSessionRepository,
+)
 from src.exceptions import (
     AuthenticationRequiredError,
     AuthenticationFailedError,
     SignatureExpiredError,
 )
+from src.utils import hash_string
 
 logger = logging.getLogger(__name__)
+type SessionPayloadT = Optional[dict[str, Any]]
+
+
+class _AuthUserResult(NamedTuple):
+    user: User
+    payload: SessionPayloadT
+    session_id: str | None
+
+
+class ByTokenData(NamedTuple):
+    user_id: int
+    session_id: str = ""
+    payload: SessionPayloadT = None
 
 
 class APIAuthenticationMiddleware(AbstractAuthenticationMiddleware):
@@ -39,26 +58,30 @@ class APIAuthenticationMiddleware(AbstractAuthenticationMiddleware):
             raise AuthenticationFailedError("Invalid token header. Keyword mismatch.")
 
         async with SASessionUOW() as uow:
-            self.db_session: AsyncSession = uow.session
-            user, _, session_id = await self._authenticate_user(jwt_token=auth[1])
+            auth_result = await self._authenticate_user(
+                jwt_token=auth[1],
+                db_session=uow.session,
+                token_type=AuthTokenType.USER_ACCESS,
+            )
 
-        return AuthenticationResult(user=user, auth=session_id)
+        return AuthenticationResult(user=auth_result.user, auth=auth_result.session_id)
 
     async def _authenticate_user(
         self,
         jwt_token: str,
+        db_session: AsyncSession,
         token_type: AuthTokenType = AuthTokenType.ACCESS,
-    ) -> tuple[User, dict | None, str | None]:
+    ) -> _AuthUserResult:
         """Allows to find active user by jwt_token"""
 
         if self._seems_like_user_access_token(jwt_token):
-            by_token_data = await self._encode_user_access_token(jwt_token)
+            by_token_data = await self._encode_user_access_token(db_session, jwt_token)
             token_type = AuthTokenType.USER_ACCESS
         else:
             by_token_data = self._encode_jwt(jwt_token, token_type)
 
         user_id = by_token_data.user_id
-        user_repo = UserRepository(session=self.db_session)
+        user_repo = UserRepository(session=db_session)
         user = await user_repo.first(id=user_id, is_active=True)
         if not user:
             msg = "Couldn't found active user with id=%s."
@@ -66,20 +89,20 @@ class APIAuthenticationMiddleware(AbstractAuthenticationMiddleware):
             raise AuthenticationFailedError(details=(msg % (user_id,)))
 
         if token_type in (AuthTokenType.RESET_PASSWORD, AuthTokenType.USER_ACCESS):
-            return user, by_token_data.payload, None
+            return _AuthUserResult(user=user, payload=by_token_data.payload, session_id=None)
 
         session_id = by_token_data.session_id
         if not session_id:
             raise AuthenticationFailedError("Incorrect data in JWT: session_id is missed")
 
-        user_session_repo = AuthUserSessionRepository(session=self.db_session)
+        user_session_repo = AuthUserSessionRepository(session=db_session)
         user_session = await user_session_repo.get_active_by_public_id(session_id)
         if not user_session:
             raise AuthenticationFailedError(
                 f"Couldn't found active session: {user_id=} | {session_id=}."
             )
 
-        return user, by_token_data.payload, session_id
+        return _AuthUserResult(user=user, payload=by_token_data.payload, session_id=session_id)
 
     @staticmethod
     def _encode_jwt(token: str, token_type: AuthTokenType) -> ByTokenData:
@@ -123,7 +146,8 @@ class APIAuthenticationMiddleware(AbstractAuthenticationMiddleware):
             session_id=session_id,
         )
 
-    async def _encode_user_access_token(self, token: str) -> ByTokenData:
+    @staticmethod
+    async def _encode_user_access_token(db_session: AsyncSession, token: str) -> ByTokenData:
         """
         Finds active UserAccessToken instance by provided token
 
@@ -131,7 +155,7 @@ class APIAuthenticationMiddleware(AbstractAuthenticationMiddleware):
         :return: ByTokenData instance (stores token-specific info)
         """
         logger.debug("Logging via UserAccess token. Got token: %s", token)
-        user_token_repo = UserAccessTokenRepository(session=self.db_session)
+        user_token_repo = UserAccessTokenRepository(session=db_session)
         user_access_token = await user_token_repo.get_active_by_token(hash_string(token))
         if not user_access_token:
             raise AuthenticationFailedError("Provided access token is unknown.")
@@ -141,3 +165,17 @@ class APIAuthenticationMiddleware(AbstractAuthenticationMiddleware):
     @staticmethod
     def _seems_like_user_access_token(token: str) -> bool:
         return len(token) == LENGTH_USER_ACCESS_TOKEN and len(token.split(".")) == 1
+
+
+class RegularAPIAuthMiddleware(APIAuthenticationMiddleware): ...
+
+
+class AdminAPIAuthMiddleware(APIAuthenticationMiddleware):
+    """Regular auth middleware but requires superuser privileges"""
+
+    async def authenticate_request(self, connection: ASGIConnection) -> AuthenticationResult:
+        result = await super().authenticate_request(connection)
+        if not result.user.is_superuser:
+            raise AuthenticationFailedError(details="User is not a superuser")
+
+        return result

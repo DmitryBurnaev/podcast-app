@@ -2,6 +2,9 @@ import logging
 from typing import NamedTuple
 
 from jwt import InvalidTokenError, ExpiredSignatureError
+from litestar.connection import ASGIConnection
+from litestar.exceptions import PermissionDeniedException
+from litestar.handlers import BaseRouteHandler
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.exceptions import (
@@ -27,6 +30,11 @@ class ByTokenData(NamedTuple):
     user_id: int
     session_id: str = ""
     payload: dict | None = None
+
+
+def admin_user_guard(connection: ASGIConnection, _: BaseRouteHandler) -> None:
+    if not connection.user.is_admin:
+        raise PermissionDeniedException()
 
 
 class BaseAuthBackend:

@@ -7,10 +7,9 @@ from jwt import InvalidTokenError
 from litestar import Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from modules.db.repositories import UserIPRepository
-from settings.app import AppSettings
+from src.modules.db.repositories import UserIPRepository
+from src.settings.app import AppSettings
 from src.utils import hash_string, utcnow
-from src.modules.db.models import UserIP
 from src.modules.auth.constants import AuthTokenType
 
 logger = logging.getLogger(__name__)
@@ -84,7 +83,7 @@ async def register_ip(request: Request, db_session: AsyncSession, settings: AppS
 
     user_ip_data = {"user_id": request.user.id, "hashed_address": hash_string(ip_address)}
     user_ip_repo = UserIPRepository(db_session)
-    user_ip: UserIP = await user_ip_repo.first(**user_ip_data)
+    user_ip = await user_ip_repo.first(**user_ip_data)
     if user_ip:
         logger.debug("Found UserIP record for: %s | ip: %s", user_ip_data, ip_address)
     else:
