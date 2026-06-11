@@ -6,6 +6,8 @@ from litestar.status_codes import HTTP_200_OK, HTTP_201_CREATED, HTTP_204_NO_CON
 
 from src.modules.api.base import BaseApiController
 from exceptions import AuthInvalidAPIError, InvalidParametersAPIError, StateConflictAPIError
+
+from src.modules.auth.backend import admin_user_guard
 from src.modules.auth.tokens import (
     AuthTokenType,
     TokenPayload,
@@ -219,7 +221,8 @@ class AuthCoreAPIController(BaseAuthAPIController):
 
 
 class AuthInviteAPIController(BaseAuthAPIController):
-    @post("/invites/", status_code=HTTP_201_CREATED)
+
+    @post("/invites/", status_code=HTTP_201_CREATED, guards=[admin_user_guard])
     async def invite_user(
         self,
         data: InviteUserRequest,

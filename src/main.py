@@ -12,6 +12,7 @@ from litestar import Litestar
 from litestar.contrib.jinja import JinjaTemplateEngine
 from litestar.di import Provide
 from litestar.exceptions import HTTPException, ValidationException
+from litestar.middleware import DefineMiddleware
 from litestar.static_files import StaticFilesConfig
 from litestar.template import TemplateConfig
 
@@ -19,6 +20,7 @@ from redis import Redis
 
 from src.exceptions import BaseApplicationError, StartupError, StorageConfigurationError
 from src.modules.auth.load_user import get_current_user
+from src.modules.auth.middlewares import RegularAPIAuthMiddleware, AdminAPIAuthMiddleware
 from src.modules.db import close_database, initialize_database, verify_database_reachable
 from src.modules.services.redis import check_redis_connection, close_async_redis_connection
 from src.modules.services.storage import validate_s3_settings
@@ -121,6 +123,10 @@ def make_app(settings: AppSettings | None = None) -> PodcastApp:
     app_settings: AppSettings = settings or get_app_settings()
     logging.config.dictConfig(app_settings.log.dict_config_any)
     logging.captureWarnings(capture=True)
+    # TODO move "invite to separated path?"
+    auth_api_mw = DefineMiddleware(RegularAPIAuthMiddleware, exclude=["schema", "static"])
+    # replaced with guards
+    # admin_api_mw = DefineMiddleware(AdminAPIAuthMiddleware, exclude=["schema", "api"])
 
     async def auth_gate(request: Any) -> Any:
         return await browser_auth_gate(request, app_settings)
@@ -134,7 +140,11 @@ def make_app(settings: AppSettings | None = None) -> PodcastApp:
             *BaseApiController.get_controllers(),
             *BaseController.get_controllers(),
         ],
-        before_request=auth_gate,
+        middleware=[
+            auth_api_mw,
+            # admin_api_mw,
+        ],
+        # before_request=auth_gate,
         template_config=TemplateConfig(directory=APP_DIR / "templates", engine=JinjaTemplateEngine),
         static_files_config=[
             StaticFilesConfig(path="/static", directories=[str(APP_DIR / "static")])

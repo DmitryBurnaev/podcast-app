@@ -7,7 +7,7 @@ import yt_dlp
 from litestar import get
 
 from src.modules.api.base import BaseApiController
-from exceptions import InvalidParametersAPIError
+from src.exceptions import InvalidParametersAPIError
 from src.modules.db import User
 from src.modules.db.models import Episode
 from src.modules.db.repositories import EpisodeRepository, PodcastRepository
