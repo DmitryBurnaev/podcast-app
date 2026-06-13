@@ -20,7 +20,7 @@ from redis import Redis
 
 from src.exceptions import BaseApplicationError, StartupError, StorageConfigurationError
 from src.modules.auth.load_user import get_current_user
-from src.modules.auth.middlewares import RegularAPIAuthMiddleware, AdminAPIAuthMiddleware
+from src.modules.auth.middlewares import RegularAPIAuthMiddleware
 from src.modules.db import close_database, initialize_database, verify_database_reachable
 from src.modules.services.redis import check_redis_connection, close_async_redis_connection
 from src.modules.services.storage import validate_s3_settings

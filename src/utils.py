@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import TypeVar, Callable, ParamSpec, Any
 
 import httpx
+from litestar import Request
 
 from src.settings.app import get_app_settings
 from src.exceptions import NotFoundError
@@ -37,51 +38,51 @@ def singleton(cls: type[C]) -> Callable[P, C]:
 
 
 # TODO: reimplement with litestar specific
-async def universal_exception_handler(request: "Request", exc: Exception) -> "JSONResponse":
-    """Universal exception handler that handles all types of exceptions"""
-
-    log_data: dict[str, str] = {
-        "error": "Internal server error",
-        "detail": str(exc),
-        "path": request.url.path,
-        "method": request.method,
-    }
-    log_level = logging.ERROR
-    status_code: int = 500
-
-    if isinstance(exc, BaseApplicationError):
-        log_level = exc.log_level
-        log_message = f"{exc.log_message}: {exc.message}"
-        status_code = exc.status_code
-        log_data |= {"error": exc.log_message, "detail": str(exc.message)}
-
-    elif isinstance(exc, (ValidationError,)):
-        log_level = logging.WARNING
-        log_message = f"Validation error: {str(exc)}"
-        status_code = 422
-        log_data |= {"error": log_message}
-
-    elif isinstance(exc, HTTPException):
-        log_level = logging.WARNING
-        status_code = exc.status_code
-        log_message = "Auth problem" if status_code == 401 else "Some http-related error"
-        log_message = f"{log_message}: {exc.detail}"
-        log_data |= {"error": log_message}
-
-    else:
-        log_message = f"Internal server error: {exc}"
-        log_data |= {
-            "detail": "An internal error has been detected. We apologize for the inconvenience."
-        }
-
-    exc_info = exc if logger.isEnabledFor(logging.DEBUG) else None
-    # Log the error
-    logger.log(log_level, log_message, extra=log_data, exc_info=exc_info)
-
-    return JSONResponse(
-        status_code=status_code,
-        content=ErrorResponse.model_validate(log_data).model_dump(),
-    )
+# async def universal_exception_handler(request: "Request", exc: Exception) -> "JSONResponse":
+#     """Universal exception handler that handles all types of exceptions"""
+#
+#     log_data: dict[str, str] = {
+#         "error": "Internal server error",
+#         "detail": str(exc),
+#         "path": request.url.path,
+#         "method": request.method,
+#     }
+#     log_level = logging.ERROR
+#     status_code: int = 500
+#
+#     if isinstance(exc, BaseApplicationError):
+#         log_level = exc.log_level
+#         log_message = f"{exc.log_message}: {exc.message}"
+#         status_code = exc.status_code
+#         log_data |= {"error": exc.log_message, "detail": str(exc.message)}
+#
+#     elif isinstance(exc, (ValidationError,)):
+#         log_level = logging.WARNING
+#         log_message = f"Validation error: {str(exc)}"
+#         status_code = 422
+#         log_data |= {"error": log_message}
+#
+#     elif isinstance(exc, HTTPException):
+#         log_level = logging.WARNING
+#         status_code = exc.status_code
+#         log_message = "Auth problem" if status_code == 401 else "Some http-related error"
+#         log_message = f"{log_message}: {exc.detail}"
+#         log_data |= {"error": log_message}
+#
+#     else:
+#         log_message = f"Internal server error: {exc}"
+#         log_data |= {
+#             "detail": "An internal error has been detected. We apologize for the inconvenience."
+#         }
+#
+#     exc_info = exc if logger.isEnabledFor(logging.DEBUG) else None
+#     # Log the error
+#     logger.log(log_level, log_message, extra=log_data, exc_info=exc_info)
+#
+#     return JSONResponse(
+#         status_code=status_code,
+#         content=ErrorResponse.model_validate(log_data).model_dump(),
+#     )
 
 
 def utcnow(skip_tz: bool = True) -> datetime.datetime:
