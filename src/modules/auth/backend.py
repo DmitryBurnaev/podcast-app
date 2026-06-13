@@ -7,6 +7,7 @@ from litestar.exceptions import PermissionDeniedException
 from litestar.handlers import BaseRouteHandler
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from src.settings.app import AppSettings, get_app_settings
 from src.exceptions import (
     AuthenticationFailedError,
     AuthenticationRequiredError,
@@ -45,6 +46,7 @@ class BaseAuthBackend:
     def __init__(self, request, db_session: AsyncSession | None = None):
         self.request = request
         self.db_session: AsyncSession = db_session or request.db_session
+        self.settings: AppSettings = get_app_settings()
 
     async def authenticate(self) -> tuple[User, str | None]:
         request = self.request
@@ -74,7 +76,7 @@ class BaseAuthBackend:
             by_token_data = await self._encode_user_access_token(jwt_token)
             token_type = AuthTokenType.USER_ACCESS
         else:
-            by_token_data = self._encode_jwt(jwt_token, token_type)
+            by_token_data = self._decode_jwt(jwt_token, token_type)
 
         user_id = by_token_data.user_id
         user_repo = UserRepository(session=self.db_session)
@@ -100,8 +102,7 @@ class BaseAuthBackend:
 
         return user, by_token_data.payload, session_id
 
-    @staticmethod
-    def _encode_jwt(token: str, token_type: AuthTokenType) -> ByTokenData:
+    def _decode_jwt(self, token: str, token_type: AuthTokenType) -> ByTokenData:
         """
         Encodes given JWT token and extract stored data in a JWT payload
 
@@ -110,7 +111,7 @@ class BaseAuthBackend:
         """
         logger.debug("Logging via JWT auth. Got token: %s", token)
         try:
-            jwt_payload = decode_jwt(token)
+            jwt_payload = decode_jwt(token, settings=self.settings)
         except ExpiredSignatureError as exc:
             logger.debug("JWT signature has been expired for %s token", token_type)
             exception_class = (
