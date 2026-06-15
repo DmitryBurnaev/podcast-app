@@ -8,7 +8,7 @@ from litestar.response import Redirect, Response
 
 from src.settings.app import AppSettings
 from src.modules.api.errors import api_error_response
-from exceptions import APIError
+from src.exceptions import APIError
 from src.modules.auth.load_user import attach_current_user, get_current_user_or_none
 from src.modules.auth.tokens import authenticate_bearer_request
 

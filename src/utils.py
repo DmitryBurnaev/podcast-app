@@ -8,7 +8,6 @@ from pathlib import Path
 from typing import TypeVar, Callable, ParamSpec, Any
 
 import httpx
-from litestar import Request
 
 from src.settings.app import get_app_settings
 from src.exceptions import NotFoundError

@@ -7,11 +7,11 @@ from litestar.exceptions import PermissionDeniedException
 from litestar.handlers import BaseRouteHandler
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from src.modules.db import SASessionUOW
 from src.settings.app import AppSettings, get_app_settings
 from src.exceptions import (
     AuthenticationFailedError,
     AuthenticationRequiredError,
-    PermissionDeniedError,
     SignatureExpiredError,
 )
 from src.modules.db.repositories import (
@@ -38,19 +38,19 @@ def admin_user_guard(connection: ASGIConnection, _: BaseRouteHandler) -> None:
         raise PermissionDeniedException()
 
 
-class BaseAuthBackend:
+class AuthBackend:
     """Core of authenticate system, based on JWT auth approach"""
 
     keyword = "Bearer"
 
-    def __init__(self, request, db_session: AsyncSession | None = None):
-        self.request = request
-        self.db_session: AsyncSession = db_session or request.db_session
+    def __init__(self, connection: ASGIConnection, header_keyword: str | None = None) -> None:
+        self.connection = connection
         self.settings: AppSettings = get_app_settings()
+        self.header_keyword: str = header_keyword if header_keyword else self.keyword
 
     async def authenticate(self) -> tuple[User, str | None]:
-        request = self.request
-        auth_header = request.headers.get("Authorization") or request.headers.get("authorization")
+        headers = self.connection.headers
+        auth_header = headers.get("Authorization") or headers.get("authorization")
         if not auth_header:
             raise AuthenticationRequiredError("Invalid token header. No credentials provided.")
 
@@ -59,27 +59,33 @@ class BaseAuthBackend:
             logger.warning("Trying to authenticate with header %s", auth_header)
             raise AuthenticationFailedError("Invalid token header. Token should be format as JWT.")
 
-        if auth[0] != self.keyword:
+        if auth[0] != self.header_keyword:
             raise AuthenticationFailedError("Invalid token header. Keyword mismatch.")
 
-        user, _, session_id = await self.authenticate_user(jwt_token=auth[1])
+        async with SASessionUOW() as uow:
+            user, _, session_id = await self.authenticate_user(
+                jwt_token=auth[1],
+                db_session=uow.session,
+            )
+
         return user, session_id
 
     async def authenticate_user(
         self,
         jwt_token: str,
+        db_session: AsyncSession,
         token_type: AuthTokenType = AuthTokenType.ACCESS,
     ) -> tuple[User, dict | None, str | None]:
-        """Allows to find active user by jwt_token"""
+        """Allows to find active user by provided jwt_token"""
 
         if self._seems_like_user_access_token(jwt_token):
-            by_token_data = await self._encode_user_access_token(jwt_token)
+            by_token_data = await self._encode_user_access_token(jwt_token, db_session=db_session)
             token_type = AuthTokenType.USER_ACCESS
         else:
             by_token_data = self._decode_jwt(jwt_token, token_type)
 
         user_id = by_token_data.user_id
-        user_repo = UserRepository(session=self.db_session)
+        user_repo = UserRepository(session=db_session)
         user = await user_repo.first(id=user_id, is_active=True)
         if not user:
             msg = "Couldn't found active user with id=%s."
@@ -93,7 +99,7 @@ class BaseAuthBackend:
         if not session_id:
             raise AuthenticationFailedError("Incorrect data in JWT: session_id is missed")
 
-        user_session_repo = AuthUserSessionRepository(session=self.db_session)
+        user_session_repo = AuthUserSessionRepository(session=db_session)
         user_session = await user_session_repo.get_active_by_public_id(session_id)
         if not user_session:
             raise AuthenticationFailedError(
@@ -143,15 +149,17 @@ class BaseAuthBackend:
             session_id=session_id,
         )
 
-    async def _encode_user_access_token(self, token: str) -> ByTokenData:
+    @staticmethod
+    async def _encode_user_access_token(token: str, db_session: AsyncSession) -> ByTokenData:
         """
         Finds active UserAccessToken instance by provided token
 
         :param token: access token (will be hashed for finding stored in DB)
+        :param db_session: current db's session instance
         :return: ByTokenData instance (stores token-specific info)
         """
         logger.debug("Logging via UserAccess token. Got token: %s", token)
-        user_token_repo = UserAccessTokenRepository(session=self.db_session)
+        user_token_repo = UserAccessTokenRepository(session=db_session)
         user_access_token = await user_token_repo.get_active_by_token(hash_string(token))
         if not user_access_token:
             raise AuthenticationFailedError("Provided access token is unknown.")
@@ -163,26 +171,47 @@ class BaseAuthBackend:
         return len(token) == LENGTH_USER_ACCESS_TOKEN and len(token.split(".")) == 1
 
 
-class LoginRequiredAuthBackend(BaseAuthBackend):
-    """Each request must have filled `user` attribute"""
+class APIAuthBackend(AuthBackend): ...
 
 
-class AdminRequiredAuthBackend(BaseAuthBackend):
-    """Login-ed used must have `is_superuser` attribute"""
+class WebAuthBackend(AuthBackend):
 
-    async def authenticate_user(
-        self,
-        jwt_token: str,
-        token_type: AuthTokenType = AuthTokenType.ACCESS,
-    ) -> tuple[User, dict | None, str | None]:
-        """
-        Authenticate user by jwt_token and check that current user is superuser
+    async def authenticate(self) -> tuple[User, str | None]:
+        cookie_jwt = self.connection.cookies.get(self.settings.auth.session_cookie_name)
+        if not cookie_jwt:
+            raise AuthenticationRequiredError("Auth: unable to resolve token from session cookie")
 
-        :param jwt_token: Currently detected JWT token
-        :param token_type: expected token's type (access or refresh)
-        """
-        user, jwt_payload, session_id = await super().authenticate_user(jwt_token)
-        if not user.is_superuser:
-            raise PermissionDeniedError("You don't have an admin privileges.")
+        async with SASessionUOW() as uow:
+            user, _, session_id = await self.authenticate_user(
+                jwt_token=cookie_jwt,
+                db_session=uow.session,
+                token_type=AuthTokenType.COOKIE_ACCESS,
+            )
 
-        return user, jwt_payload, session_id
+        return user, session_id
+
+
+#
+# class LoginRequiredAuthBackend(BaseAuthBackend):
+#     """Each request must have filled `user` attribute"""
+#
+#
+# class AdminRequiredAuthBackend(BaseAuthBackend):
+#     """Login-ed used must have `is_superuser` attribute"""
+#
+#     async def authenticate_user(
+#         self,
+#         jwt_token: str,
+#         token_type: AuthTokenType = AuthTokenType.ACCESS,
+#     ) -> tuple[User, dict | None, str | None]:
+#         """
+#         Authenticate user by jwt_token and check that current user is superuser
+#
+#         :param jwt_token: Currently detected JWT token
+#         :param token_type: expected token's type (access or refresh)
+#         """
+#         user, jwt_payload, session_id = await super().authenticate_user(jwt_token)
+#         if not user.is_superuser:
+#             raise PermissionDeniedError("You don't have an admin privileges.")
+#
+#         return user, jwt_payload, session_id
