@@ -1,13 +1,17 @@
 import logging
+import sys
 from typing import TYPE_CHECKING
 
 from http import HTTPStatus
 
-from modules.schemas.errors import ErrorCode
+from src.modules.schemas.errors import ErrorCode
 from src.constants import ResponseCode
 
 if TYPE_CHECKING:
     from src.modules.tasks.base import TaskResultCode
+
+sys.modules.setdefault("exceptions", sys.modules[__name__])
+sys.modules.setdefault("src.exceptions", sys.modules[__name__])
 
 
 class BaseApplicationError(Exception):

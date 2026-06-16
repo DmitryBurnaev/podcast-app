@@ -84,7 +84,8 @@ class BaseAuthAPIController(BaseApiController):
 
 
 class AuthCoreAPIController(BaseAuthAPIController):
-    @post("/sign-in/")
+
+    @post("/sign-in/", auth_api_skip=True)
     async def sign_in(self, request: Request, settings: AppSettings) -> TokenResponse:
         """Authenticate a user and issue a token pair."""
         try:
@@ -104,7 +105,7 @@ class AuthCoreAPIController(BaseAuthAPIController):
         logger.info("[API] User signed in: #%s", user.id)
         return TokenResponse(access_token=tokens.access_token, refresh_token=tokens.refresh_token)
 
-    @post("/refresh-token/")
+    @post("/refresh-token/", auth_api_skip=True)
     async def refresh_token(self, request: Request, settings: AppSettings) -> TokenResponse:
         """Refresh an access and refresh token pair."""
         try:
@@ -129,7 +130,7 @@ class AuthCoreAPIController(BaseAuthAPIController):
         logger.info("[API] User signed out: #%s", current_user.id)
         return {"ok": True}
 
-    @post("/sign-up/", status_code=HTTP_201_CREATED)
+    @post("/sign-up/", auth_api_skip=True, status_code=HTTP_201_CREATED)
     async def sign_up(self, data: SignUpRequest, settings: AppSettings) -> TokenResponse:
         """Create an invited user and issue a token pair."""
         async with SASessionUOW() as uow:
@@ -169,7 +170,7 @@ class AuthCoreAPIController(BaseAuthAPIController):
         logger.info("[API] User signed up: #%s", user.id)
         return TokenResponse(access_token=tokens.access_token, refresh_token=tokens.refresh_token)
 
-    @post("/reset-password/")
+    @post("/reset-password/", auth_api_skip=True)
     async def reset_password(
         self,
         data: ResetPasswordRequest,

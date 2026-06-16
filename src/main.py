@@ -18,7 +18,7 @@ from litestar.template import TemplateConfig
 
 from redis import Redis
 
-from src.exceptions import BaseApplicationError, StartupError, StorageConfigurationError
+from src.exceptions import BaseApplicationError, StartupError, StorageConfigurationError, APIError
 from src.modules.auth.load_user import get_current_user
 from src.modules.auth.middlewares import (
     APIAuthenticationMiddleware,
@@ -34,7 +34,6 @@ from src.modules.api.errors import (
     http_error_handler,
     validation_error_handler,
 )
-from exceptions import APIError
 from src.modules.views.base import BaseController
 from src.settings.app import APP_DIR, AppSettings, get_app_settings
 
@@ -125,12 +124,44 @@ def make_app(settings: AppSettings | None = None) -> PodcastApp:
     app_settings: AppSettings = settings or get_app_settings()
     logging.config.dictConfig(app_settings.log.dict_config_any)
     logging.captureWarnings(capture=True)
-    # TODO move "invite to separated path?"
-    auth_api_mw = DefineMiddleware(APIAuthenticationMiddleware, exclude=["schema", "static"])
+
+    def provide_settings(_: Any) -> AppSettings:
+        return app_settings
+
+    # TODO: move to
+    public_api_exclude = [
+        r"^/$",
+        r"^/(?:login|logout|profile|about)/?$",
+        r"^/(?:podcasts|episodes)(?:/.*)?$",
+        r"^/[mr]/[A-Za-z0-9_-]+/?$",
+        r"^/schema(?:/.*)?$",
+        r"^/static(?:/.*)?$",
+        r"^/api/auth/(?:sign-in|sign-up|refresh-token|reset-password|change-password)/?$",
+        r"^/api/system/health/?$",
+    ]
+    web_exclude = [
+        r"^/api(?:/.*)?$",
+        r"^/schema(?:/.*)?$",
+        r"^/static(?:/.*)?$",
+        # r"^/login/?$",
+        # r"^/logout/?$",
+        # r"^/[mr]/[A-Za-z0-9_-]+/?$",
+    ]
+
+    auth_api_mw = DefineMiddleware(
+        APIAuthenticationMiddleware,
+        exclude=public_api_exclude,
+        exclude_from_auth_key="auth_api_skip",
+    )
     auth_web_mw = DefineMiddleware(
         WebAppAuthenticationMiddleware,
-        exclude=["api", "schema", "static"],
+        exclude=web_exclude,
+        exclude_from_auth_key="auth_web_skip",
     )
+    auth_middlewares = [auth_web_mw]
+    if not app_settings.flags.api_debug_mode:
+        auth_middlewares.append(auth_api_mw)
+
     # replaced with guards
     # admin_api_mw = DefineMiddleware(AdminAPIAuthMiddleware, exclude=["schema", "api"])
 
@@ -146,13 +177,15 @@ def make_app(settings: AppSettings | None = None) -> PodcastApp:
             *BaseApiController.get_controllers(),
             *BaseController.get_controllers(),
         ],
-        middleware=[auth_web_mw, auth_api_mw],
+        middleware=auth_middlewares,
         # before_request=auth_gate,
         template_config=TemplateConfig(directory=APP_DIR / "templates", engine=JinjaTemplateEngine),
         static_files_config=[
-            StaticFilesConfig(path="/static", directories=[str(APP_DIR / "static")])
+            StaticFilesConfig(
+                path="/static", directories=[str(APP_DIR / "static")], opt={"auth_web_skip": True}
+            ),
         ],
-        lifespan=[lambda _: lifespan(app_settings)],
+        lifespan=[lambda: lifespan(app_settings)],
         debug=app_settings.flags.debug_mode,
         exception_handlers={
             APIError: api_error_handler,
@@ -161,7 +194,7 @@ def make_app(settings: AppSettings | None = None) -> PodcastApp:
             HTTPException: http_error_handler,
         },
         dependencies={
-            "settings": Provide(lambda _: app_settings, sync_to_thread=False),
+            "settings": Provide(provide_settings, sync_to_thread=False),
             "current_user": Provide(get_current_user, sync_to_thread=False),
         },
         settings=app_settings,

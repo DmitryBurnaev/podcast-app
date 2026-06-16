@@ -1,13 +1,21 @@
 import logging
-from typing import Any, Optional
+from typing import Any, Optional, cast
 
-from litestar.connection import ASGIConnection
+from litestar.connection import ASGIConnection, Request
 from litestar.middleware import AbstractAuthenticationMiddleware, AuthenticationResult
 
 from src.modules.auth.backend import WebAuthBackend, APIAuthBackend
 
+# from src.modules.auth.tokens import authenticate_bearer_request
+# from src.settings.app import get_app_settings
+
 logger = logging.getLogger(__name__)
 type SessionPayloadT = Optional[dict[str, Any]]
+
+
+# def _set_request_state(connection: ASGIConnection, **values: Any) -> None:
+#     state = connection.scope.setdefault("state", {})
+#     state.update(values)
 
 
 class APIAuthenticationMiddleware(AbstractAuthenticationMiddleware):
@@ -22,6 +30,18 @@ class APIAuthenticationMiddleware(AbstractAuthenticationMiddleware):
         return AuthenticationResult(user=user, auth=session_id)
 
 
+#         authenticated = await authenticate_bearer_request(
+#             cast(Request, connection),
+#             settings=get_app_settings(),
+#         )
+#         _set_request_state(
+#             connection,
+#             current_user=authenticated.user,
+#             api_auth=authenticated,
+#         )
+#         return AuthenticationResult(user=authenticated.user, auth=authenticated.session_id)
+
+
 class WebAppAuthenticationMiddleware(AbstractAuthenticationMiddleware):
 
     async def authenticate_request(self, connection: ASGIConnection) -> AuthenticationResult:
@@ -31,6 +51,7 @@ class WebAppAuthenticationMiddleware(AbstractAuthenticationMiddleware):
         """
         auth_backend = WebAuthBackend(connection=connection)
         user, session_id = await auth_backend.authenticate()
+        # _set_request_state(connection, current_user=user)
         return AuthenticationResult(user=user, auth=session_id)
 
 

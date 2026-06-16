@@ -1,7 +1,7 @@
 import asyncio
 import logging
 from functools import lru_cache
-from typing import Any, Protocol
+from typing import Any, Protocol, TypedDict
 
 from litestar import Controller
 from litestar.connection import Request
@@ -19,10 +19,16 @@ class TaskQueueApp(Protocol):
     rq_queue: Any
 
 
+class ControllerOpt(TypedDict, total=False):
+    auth_api_skip: bool
+    auth_web_skip: bool
+
+
 class BaseController(Controller):
     include_in_schema = False
     default_template_name = "base.html"
     login_template_name = "login.html"
+    opt: ControllerOpt = {"auth_api_skip": True}
 
     def get_response_template(
         self,

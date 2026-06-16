@@ -22,6 +22,11 @@ class MediaByTokenController(BaseController):
     Covers stay on dedicated episode/podcast cover routes with local cache.
     """
 
+    opt = {
+        "auth_api_skip": True,
+        "auth_web_skip": True,
+    }
+
     @get("/m/{access_token:str}/")
     async def get_private_media(self, access_token: str) -> Redirect:
         """Audio and image tokens: redirect to S3 (Range/CORS handled by storage)."""
@@ -38,8 +43,8 @@ class MediaByTokenController(BaseController):
             allowed_types=(MediaType.RSS,),
         )
 
+    @staticmethod
     async def _redirect_presigned(
-        self,
         access_token: str,
         allowed_types: tuple[MediaType, ...],
     ) -> Redirect:
