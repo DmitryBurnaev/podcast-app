@@ -17,7 +17,7 @@ from src.modules.views.base import BaseController
 class AuthController(BaseController):
     """Session cookie auth (UserSession.public_id)."""
 
-    @get("/login")
+    @get("/login", auth_web_skip=True)
     async def login_page(self, request: Request) -> Template | Redirect:
         """Render the login page or redirect authenticated users home."""
         if get_current_user_or_none(request) is not None:
@@ -33,7 +33,7 @@ class AuthController(BaseController):
             request=request,
         )
 
-    @post("/login")
+    @post("/login", auth_web_skip=True)
     async def login_submit(self, request: Request) -> Redirect:
         """Authenticate form credentials and create a browser session."""
         settings = get_app_settings()
