@@ -81,13 +81,13 @@ class InviteUserRequest(BaseModel):
 
 
 class UserInviteResponse(BaseModel):
-    """Invitation metadata returned to its owner."""
+    """Invitation metadata exposed via API."""
 
     id: int
     email: EmailStr
-    token: str
     is_applied: bool
     expired_at: datetime
+    created_at: datetime
 
 
 class ResetPasswordRequest(BaseModel):

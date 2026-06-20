@@ -92,15 +92,19 @@ class HttpError(BaseApplicationError):
     message = "Some HTTP error happened."
 
 
-class AuthenticationFailedError(BaseApplicationError):
+class AuthenticationError(BaseApplicationError):
     status_code = 401
     response_code = ResponseCode.AUTH_FAILED
+    message = "Authentication failed."
+
+
+class AuthCredentialsInvalidError(AuthenticationError):
     message = "Authentication credentials are invalid."
+    response_code = ResponseCode.AUTH_FAILED
 
 
 # TODO: rework/optimize auth
-class AuthenticationRequiredError(BaseApplicationError):
-    status_code = 401
+class AuthMissingCredentialsError(AuthenticationError):
     response_code = ResponseCode.MISSED_CREDENTIALS
     message = "Authentication is required."
 

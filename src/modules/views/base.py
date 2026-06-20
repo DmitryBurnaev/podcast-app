@@ -1,19 +1,23 @@
 import asyncio
 import logging
 from functools import lru_cache
-from typing import Any, Protocol
+from typing import Any, Protocol, Self
 
 from litestar import Controller
 from litestar.connection import Request
+from litestar.datastructures import State
 from litestar.response import Template
 
 from src import constants as const
 from src.constants import AuthSkip
-from src.modules.auth.load_user import get_current_user_or_none
+from src.modules.auth.backend import TokenData
+from src.modules.db import User
 from src.modules.tasks.base import RQTask
 
 __all__ = ("BaseViewController",)
 logger = logging.getLogger(__name__)
+type AppRequest = Request[User, TokenData, State]
+type AppRequestMayBeAuthenticated = Request[User | None, TokenData | None, State]
 
 
 class TaskQueueApp(Protocol):
@@ -23,8 +27,8 @@ class TaskQueueApp(Protocol):
 class BaseViewController(Controller):
     include_in_schema = False
     default_template_name = "base.html"
-    login_template_name = "login.html"
-    opt = {AuthSkip.SKIP_AUTH_API: True}
+    base_auth_opt: dict[str, bool] = {AuthSkip.SKIP_AUTH_API: True}
+    opt = base_auth_opt
 
     def get_response_template(
         self,
@@ -38,10 +42,9 @@ class BaseViewController(Controller):
         return Template(template_name=template_name, context=(base | context))
 
     @staticmethod
-    def get_base_context(request: Request) -> dict[str, Any]:
+    def get_base_context(request: AppRequestMayBeAuthenticated) -> dict[str, Any]:
         """Return context values shared by all HTML views."""
-        current_user = get_current_user_or_none(request)
-        is_authenticated = current_user is not None
+        current_user = request.user
         user_data: dict[str, Any] = {
             "name": None,
             "email": None,
@@ -53,10 +56,11 @@ class BaseViewController(Controller):
                 "email": current_user.email,
                 "avatar": None,
             }
+
         return {
             "current": "home",
             "navigation": const.NAVIGATION,
-            "is_authenticated": is_authenticated,
+            "is_authenticated": request.user is not None,
             "user_data": user_data,
             "get_episode_status_color": const.get_episode_status_color,
             "get_episode_status_label": const.get_episode_status_label,
@@ -67,9 +71,9 @@ class BaseViewController(Controller):
 
     @classmethod
     @lru_cache
-    def get_controllers(cls) -> list[type["BaseViewController"]]:
+    def get_controllers(cls) -> list[type[Self]]:
         """Return concrete HTML controllers registered under this base controller."""
-        return [c for c in cls.__subclasses__()]
+        return [c for c in cls.__subclasses__()]  # noqa
 
     @classmethod
     async def _run_task(

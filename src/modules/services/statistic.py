@@ -13,10 +13,10 @@ class StatisticService:
     def __init__(self, uow: SASessionUOW) -> None:
         self._uow = uow
 
-    async def get_app_statistics(self, owner_id: int = 1) -> AppStatistics:
+    async def get_app_statistics(self, owner_id: int) -> AppStatistics:
         """Build application-wide statistics (podcasts count, episodes agg, recent activity)."""
-        podcast_repo = PodcastRepository(session=self._uow.session)
-        episode_repo = EpisodeRepository(session=self._uow.session)
+        podcast_repo = PodcastRepository(session=self._uow.session, user_id=owner_id)
+        episode_repo = EpisodeRepository(session=self._uow.session, user_id=owner_id)
         podcasts = await podcast_repo.all(owner_id=owner_id)
         episodes_agg = await episode_repo.get_aggregated()
 
@@ -39,9 +39,9 @@ class StatisticService:
             recent_activity=RecentActivity(text=recent_text, time=recent_time),
         )
 
-    async def get_podcast_statistics(self, podcast_id: int) -> PodcastStatistics:
+    async def get_podcast_statistics(self, podcast_id: int, user_id: int) -> PodcastStatistics:
         """Build statistics for a single podcast from its episodes aggregation."""
-        episode_repo = EpisodeRepository(session=self._uow.session)
+        episode_repo = EpisodeRepository(session=self._uow.session, user_id=user_id)
         agg = await episode_repo.get_aggregated(podcast_id=podcast_id)
         return PodcastStatistics(
             episodes_count=agg.total_count,

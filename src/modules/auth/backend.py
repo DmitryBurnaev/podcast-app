@@ -1,5 +1,4 @@
 import logging
-from typing import NamedTuple
 
 from jwt import InvalidTokenError, ExpiredSignatureError
 from litestar.connection import ASGIConnection
@@ -7,11 +6,12 @@ from litestar.exceptions import PermissionDeniedException
 from litestar.handlers import BaseRouteHandler
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from src.modules.auth.types import AuthenticatedUserResult, ByTokenData, TokenData
 from src.modules.db import SASessionUOW
 from src.settings.app import AppSettings, get_app_settings
 from src.exceptions import (
-    AuthenticationFailedError,
-    AuthenticationRequiredError,
+    AuthCredentialsInvalidError,
+    AuthMissingCredentialsError,
     SignatureExpiredError,
 )
 from src.modules.db.repositories import (
@@ -20,21 +20,14 @@ from src.modules.db.repositories import (
     UserRepository,
 )
 from src.utils import hash_string
-from src.modules.db.models import User
 from src.modules.auth.utils import decode_jwt
 from src.modules.auth.constants import LENGTH_USER_ACCESS_TOKEN, AuthTokenType
 
 logger = logging.getLogger(__name__)
 
 
-class ByTokenData(NamedTuple):
-    user_id: int
-    session_id: str = ""
-    payload: dict | None = None
-
-
 def admin_user_guard(connection: ASGIConnection, _: BaseRouteHandler) -> None:
-    if not connection.user.is_admin:
+    if not connection.user.is_superuser:
         raise PermissionDeniedException()
 
 
@@ -48,34 +41,36 @@ class AuthBackend:
         self.settings: AppSettings = get_app_settings()
         self.header_keyword: str = header_keyword if header_keyword else self.keyword
 
-    async def authenticate(self) -> tuple[User, str | None]:
+    async def authenticate(self) -> AuthenticatedUserResult:
         headers = self.connection.headers
         auth_header = headers.get("Authorization") or headers.get("authorization")
         if not auth_header:
-            raise AuthenticationRequiredError("Invalid token header. No credentials provided.")
+            raise AuthMissingCredentialsError("Invalid token header. No credentials provided.")
 
         auth = auth_header.split()
         if len(auth) != 2:
             logger.warning("Trying to authenticate with header %s", auth_header)
-            raise AuthenticationFailedError("Invalid token header. Token should be format as JWT.")
+            raise AuthCredentialsInvalidError(
+                "Invalid token header. Token should be format as JWT."
+            )
 
         if auth[0] != self.header_keyword:
-            raise AuthenticationFailedError("Invalid token header. Keyword mismatch.")
+            raise AuthCredentialsInvalidError("Invalid token header. Keyword mismatch.")
 
         async with SASessionUOW() as uow:
-            user, _, session_id = await self.authenticate_user(
+            auth_result = await self._authenticate_user(
                 jwt_token=auth[1],
                 db_session=uow.session,
             )
 
-        return user, session_id
+        return auth_result
 
-    async def authenticate_user(
+    async def _authenticate_user(
         self,
         jwt_token: str,
         db_session: AsyncSession,
         token_type: AuthTokenType = AuthTokenType.ACCESS,
-    ) -> tuple[User, dict | None, str | None]:
+    ) -> AuthenticatedUserResult:
         """Allows to find active user by provided jwt_token"""
 
         if self._seems_like_user_access_token(jwt_token):
@@ -90,23 +85,23 @@ class AuthBackend:
         if not user:
             msg = "Couldn't found active user with id=%s."
             logger.warning(msg, user_id)
-            raise AuthenticationFailedError(details=(msg % (user_id,)))
+            raise AuthCredentialsInvalidError(details=(msg % (user_id,)))
 
         if token_type in (AuthTokenType.RESET_PASSWORD, AuthTokenType.USER_ACCESS):
-            return user, by_token_data.payload, None
+            return AuthenticatedUserResult(user, by_token_data.payload, None)
 
         session_id = by_token_data.session_id
         if not session_id:
-            raise AuthenticationFailedError("Incorrect data in JWT: session_id is missed")
+            raise AuthCredentialsInvalidError("Incorrect data in JWT: session_id is missed")
 
         user_session_repo = AuthUserSessionRepository(session=db_session)
         user_session = await user_session_repo.get_active_by_public_id(session_id)
         if not user_session:
-            raise AuthenticationFailedError(
+            raise AuthCredentialsInvalidError(
                 f"Couldn't found active session: {user_id=} | {session_id=}."
             )
 
-        return user, by_token_data.payload, session_id
+        return AuthenticatedUserResult(user, by_token_data.payload, session_id)
 
     def _decode_jwt(self, token: str, token_type: AuthTokenType) -> ByTokenData:
         """
@@ -117,31 +112,31 @@ class AuthBackend:
         """
         logger.debug("Logging via JWT auth. Got token: %s", token)
         try:
-            jwt_payload = decode_jwt(token, settings=self.settings)
+            jwt_payload: TokenData = decode_jwt(token, settings=self.settings)
         except ExpiredSignatureError as exc:
             logger.debug("JWT signature has been expired for %s token", token_type)
             exception_class = (
                 SignatureExpiredError
                 if token_type == AuthTokenType.ACCESS
-                else AuthenticationFailedError
+                else AuthCredentialsInvalidError
             )
             raise exception_class("JWT signature has been expired for token") from exc
 
         except InvalidTokenError as exc:
             msg = "Token could not be decoded: %s"
             logger.exception(msg, exc)
-            raise AuthenticationFailedError(msg % (exc,)) from exc
+            raise AuthCredentialsInvalidError(msg % (exc,)) from exc
 
         expected_token_type = str(token_type).lower()
         if jwt_payload["token_type"].lower() != expected_token_type:
-            raise AuthenticationFailedError(
+            raise AuthCredentialsInvalidError(
                 f"Token type '{expected_token_type}' expected, "
                 f"got '{jwt_payload['token_type'].lower()}' instead."
             )
 
         session_id: str | None = jwt_payload.get("session_id")
         if not session_id:
-            raise AuthenticationFailedError("Incorrect data in JWT: session_id is missed")
+            raise AuthCredentialsInvalidError("Incorrect data in JWT: session_id is missed")
 
         return ByTokenData(
             user_id=jwt_payload["user_id"],
@@ -162,7 +157,7 @@ class AuthBackend:
         user_token_repo = UserAccessTokenRepository(session=db_session)
         user_access_token = await user_token_repo.get_active_by_token(hash_string(token))
         if not user_access_token:
-            raise AuthenticationFailedError("Provided access token is unknown.")
+            raise AuthCredentialsInvalidError("Provided access token is unknown.")
 
         return ByTokenData(user_id=user_access_token.user_id)
 
@@ -171,24 +166,26 @@ class AuthBackend:
         return len(token) == LENGTH_USER_ACCESS_TOKEN and len(token.split(".")) == 1
 
 
-class APIAuthBackend(AuthBackend): ...
+class APIAuthBackend(AuthBackend):
+    """Header based authentication backend"""
 
 
 class WebAuthBackend(AuthBackend):
+    """Cookies + JWT based authentication backend"""
 
-    async def authenticate(self) -> tuple[User, str | None]:
+    async def authenticate(self) -> AuthenticatedUserResult:
         cookie_jwt = self.connection.cookies.get(self.settings.auth.session_cookie_name)
         if not cookie_jwt:
-            raise AuthenticationRequiredError("Auth: unable to resolve token from session cookie")
+            raise AuthMissingCredentialsError("Auth: unable to resolve token from session cookie")
 
         async with SASessionUOW() as uow:
-            user, _, session_id = await self.authenticate_user(
+            auth_result = await self._authenticate_user(
                 jwt_token=cookie_jwt,
                 db_session=uow.session,
                 token_type=AuthTokenType.COOKIE_ACCESS,
             )
 
-        return user, session_id
+        return auth_result
 
 
 #

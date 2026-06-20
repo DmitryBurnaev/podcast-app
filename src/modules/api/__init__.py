@@ -3,7 +3,6 @@ from src.modules.schemas.podcasts import PodcastResponse
 
 from .auth import (
     AuthAccessTokenAPIController,
-    AuthAPIController,
     AuthCoreAPIController,
     AuthInviteAPIController,
     AuthProfileAPIController,
@@ -17,7 +16,6 @@ from .misc import PlaylistAPIController, ProgressAPIController, SystemAPIControl
 from .podcasts import PodcastAPIController
 
 __all__ = (
-    "AuthAPIController",
     "BaseAuthAPIController",
     "AuthAccessTokenAPIController",
     "AuthCoreAPIController",

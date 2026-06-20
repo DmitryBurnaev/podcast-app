@@ -2,6 +2,7 @@ import logging
 from datetime import timedelta
 
 from litestar import Request, delete, get, patch, post
+from litestar.datastructures import Address
 from litestar.status_codes import HTTP_201_CREATED, HTTP_204_NO_CONTENT
 
 from src.constants import AuthSkip
@@ -48,6 +49,7 @@ from src.modules.schemas.auth import (
 )
 from src.modules.schemas.common import LimitOffsetPagination, OKResponse
 from src.modules.services.email import _send_invitation_email, _send_reset_password_email
+from src.modules.views.base import AppRequest
 from src.settings.app import AppSettings
 from src.utils import hash_string, utcnow
 
@@ -61,12 +63,14 @@ class BaseAuthAPIController(BaseApiController):
     tags = ["Auth"]
 
     @classmethod
-    async def _register_user_ip(cls, request: Request, user: User, settings: AppSettings) -> None:
+    async def _register_user_ip(cls, request: AppRequest, settings: AppSettings) -> None:
         """Best-effort IP history registration used by sign-in and profile requests."""
         address = request.headers.get(settings.request_ip_header)
-        if not address and request.client:
-            address = request.client.host
+        if not address:
+            client: Address = request.client or Address(host=settings.default_request_user_ip)
+            address = client.host
 
+        user = request.user
         hashed_address = hash_string(address or settings.default_request_user_ip)
         try:
             async with SASessionUOW() as uow:
@@ -244,9 +248,28 @@ class AuthExtendedAPIController(BaseAuthAPIController):
 
 
 class AuthInviteAPIController(BaseAuthAPIController):
+    @get("/invites/", guards=[admin_user_guard])
+    async def get_invites(
+        self,
+        limit: int = 10,
+        offset: int = 0,
+    ) -> LimitOffsetPagination[UserInviteResponse]:
+        """Return paginated user invitations."""
+        async with SASessionUOW() as uow:
+            user_invite_repo = UserInviteRepository(uow.session)
+            invites, total = await user_invite_repo.all_paginated(limit=limit, offset=offset)
+
+        return LimitOffsetPagination[UserInviteResponse](
+            items=[
+                UserInviteResponse.model_validate(invite, from_attributes=True)
+                for invite in invites
+            ],
+            offset=offset,
+            total=total,
+        )
 
     @post("/invites/", status_code=HTTP_201_CREATED, guards=[admin_user_guard])
-    async def invite_user(
+    async def create_invite(
         self,
         data: InviteUserRequest,
         current_user: User,
@@ -259,9 +282,9 @@ class AuthInviteAPIController(BaseAuthAPIController):
                 raise StateConflictAPIError(details=f"User with email '{email}' already exists.")
 
             invite_repository = UserInviteRepository(uow.session)
-            invite = await invite_repository.first(email=email)
             token: str = UserInvite.generate_token()
             expired_at = utcnow() + timedelta(seconds=settings.invite_link_expires_in)
+            invite = await invite_repository.first(email=email)
             if invite is None:
                 invite = await invite_repository.create(
                     email=email,
@@ -282,9 +305,8 @@ class AuthInviteAPIController(BaseAuthAPIController):
 
             await uow.session.flush()
             response = UserInviteResponse.model_validate(invite, from_attributes=True)
-            uow.mark_for_commit()
 
-        await _send_invitation_email(response, settings=settings)
+        await _send_invitation_email(email, token, settings=settings)
         return response
 
 
@@ -292,19 +314,18 @@ class AuthProfileAPIController(BaseAuthAPIController):
     @get("/me/")
     async def me(
         self,
-        request: Request,
-        current_user: User,
+        request: AppRequest,
         settings: AppSettings,
     ) -> UserResponse:
         """Return the current authenticated user."""
-        await self._register_user_ip(request, current_user, settings=settings)
-        return UserResponse.model_validate(current_user, from_attributes=True)
+        await self._register_user_ip(request, settings=settings)
+        return UserResponse.model_validate(request.user, from_attributes=True)
 
     @patch("/me/")
-    async def update_me(self, data: ProfileUpdateRequest, current_user: User) -> UserResponse:
+    async def update_me(self, data: ProfileUpdateRequest, request: AppRequest) -> UserResponse:
         """Update the authenticated user's email or password."""
         update_data: dict[str, str] = {}
-        if data.email is not None and str(data.email) != current_user.email:
+        if data.email is not None and str(data.email) != request.user.email:
             update_data["email"] = str(data.email)
         if data.password_1 is not None:
             update_data["password"] = User.make_password(data.password_1)
@@ -314,14 +335,15 @@ class AuthProfileAPIController(BaseAuthAPIController):
                 user_repository = UserRepository(uow.session)
                 if email := update_data.get("email"):
                     existing_user = await user_repository.get_by_email(email)
-                    if existing_user is not None and existing_user.id != current_user.id:
+                    if existing_user is not None and existing_user.id != request.user.id:
                         raise StateConflictAPIError(
                             details=f"User with email '{email}' already exists."
                         )
-                await user_repository.update(current_user, **update_data)
+
+                await user_repository.update(request.user, **update_data)
                 uow.mark_for_commit()
 
-        return UserResponse.model_validate(current_user, from_attributes=True)
+        return UserResponse.model_validate(request.user, from_attributes=True)
 
     @get("/user-ips/")
     async def get_user_ips(
@@ -337,6 +359,7 @@ class AuthProfileAPIController(BaseAuthAPIController):
                 limit=limit,
                 offset=offset,
             )
+
         return LimitOffsetPagination[UserIPResponse](
             items=[UserIPResponse.model_validate(ip, from_attributes=True) for ip in ips],
             offset=offset,
@@ -348,14 +371,15 @@ class AuthProfileAPIController(BaseAuthAPIController):
         self,
         data: DeleteUserIPsRequest,
         current_user: User,
-    ) -> dict[str, bool]:
+    ) -> OKResponse:
         """Delete selected registered-address history entries."""
         async with SASessionUOW() as uow:
             repository = UserIPRepository(uow.session)
             ips = await repository.all(ids=data.ids, user_id=current_user.id)
             await repository.delete_by_ids([ip.id for ip in ips])
             uow.mark_for_commit()
-        return {"ok": True}
+
+        return OKResponse()
 
 
 class AuthAccessTokenAPIController(BaseAuthAPIController):
@@ -373,6 +397,7 @@ class AuthAccessTokenAPIController(BaseAuthAPIController):
                 limit=limit,
                 offset=offset,
             )
+
         return LimitOffsetPagination[UserAccessTokenResponse](
             items=[
                 UserAccessTokenResponse.model_validate(token, from_attributes=True)
@@ -405,7 +430,7 @@ class AuthAccessTokenAPIController(BaseAuthAPIController):
                 ).model_dump(),
                 token=raw_token,
             )
-            uow.mark_for_commit()
+
         return response
 
     @patch("/access-tokens/{token_id:int}/")
@@ -434,9 +459,5 @@ class AuthAccessTokenAPIController(BaseAuthAPIController):
             access_token = await repository.first(id=token_id, user_id=current_user.id)
             if access_token is None:
                 raise InvalidParametersAPIError(details=f"Access token #{token_id} not found.")
+
             await repository.delete(access_token)
-            uow.mark_for_commit()
-
-
-# Backward-compatible alias for tests and imports.
-AuthAPIController = AuthCoreAPIController

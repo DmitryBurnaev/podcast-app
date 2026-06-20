@@ -6,7 +6,11 @@ import pytest
 from litestar.testing import TestClient
 
 from src.main import PodcastApp
-from src.modules.api.auth import AuthAccessTokenAPIController, AuthAPIController
+from src.modules.api.auth import (
+    AuthAccessTokenAPIController,
+    AuthCoreAPIController,
+    AuthInviteAPIController,
+)
 from src.modules.services.email import _send_invitation_email
 from src.modules.schemas.auth import (
     ChangePasswordRequest,
@@ -161,7 +165,7 @@ class TestAuthSessionAPI:
             lambda session: session_repository,
         )
 
-        response = await AuthAPIController.sign_out.fn(None, current_user, request)
+        response = await AuthCoreAPIController.sign_out.fn(None, current_user, request)
 
         assert response == {"ok": True}
         session_repository.deactivate_by_public_id.assert_awaited_once_with("session-public-id")
@@ -211,7 +215,7 @@ class TestAuthAccountManagementAPI:
         monkeypatch.setattr("src.modules.api.auth.create_user_session", create_user_session)
         monkeypatch.setattr("src.modules.api.auth.User.make_password", Mock(return_value="hashed"))
 
-        response = await AuthAPIController.sign_up.fn(
+        response = await AuthCoreAPIController.sign_up.fn(
             None,
             SignUpRequest(
                 email="new@podcast.dev",
@@ -240,7 +244,7 @@ class TestAuthAccountManagementAPI:
         monkeypatch.setattr("src.modules.api.auth.UserRepository", lambda session: repository)
         monkeypatch.setattr("src.modules.api.auth._send_reset_password_email", send_reset_email)
 
-        response = await AuthAPIController.reset_password.fn(
+        response = await AuthCoreAPIController.reset_password.fn(
             None,
             SimpleNamespace(email="user@podcast.dev"),
             app_settings,
@@ -273,7 +277,7 @@ class TestAuthAccountManagementAPI:
         )
         monkeypatch.setattr("src.modules.api.auth.User.make_password", Mock(return_value="hashed"))
 
-        response = await AuthAPIController.change_password.fn(
+        response = await AuthCoreAPIController.change_password.fn(
             None,
             ChangePasswordRequest(token="reset-token", password_1="new", password_2="new"),
             app_settings,
@@ -316,6 +320,37 @@ class TestAuthAccountManagementAPI:
         assert repository.create.await_args.kwargs["token"] == hash_string(raw_token)
 
 
+class TestAuthInviteAPI:
+    async def test_get_invites__ok(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        now = utcnow()
+        invite = SimpleNamespace(
+            id=1,
+            email="new@podcast.dev",
+            is_applied=False,
+            expired_at=now + timedelta(days=1),
+            created_at=now,
+        )
+        invite_repository = SimpleNamespace(
+            all_paginated=AsyncMock(return_value=([invite], 1)),
+        )
+        monkeypatch.setattr("src.modules.api.auth.SASessionUOW", lambda: MockUOW())
+        monkeypatch.setattr(
+            "src.modules.api.auth.UserInviteRepository",
+            lambda session: invite_repository,
+        )
+
+        response = await AuthInviteAPIController.get_invites.fn(None, limit=10, offset=0)
+
+        assert response.total == 1
+        assert response.offset == 0
+        assert len(response.items) == 1
+        assert response.items[0].email == "new@podcast.dev"
+        invite_repository.all_paginated.assert_awaited_once_with(limit=10, offset=0)
+
+
 class TestAuthEmail:
     async def test_send_invitation_email__contains_encoded_signup_link(
         self,
@@ -327,12 +362,16 @@ class TestAuthEmail:
         invite = UserInviteResponse(
             id=1,
             email="new@podcast.dev",
-            token="invite-token",
             is_applied=False,
             expired_at=utcnow() + timedelta(days=1),
+            created_at=utcnow(),
         )
 
-        await _send_invitation_email(invite, settings=app_settings)
+        await _send_invitation_email(
+            str(invite.email),
+            "invite-token",
+            settings=app_settings,
+        )
 
         kwargs = send_email.await_args.kwargs
         assert kwargs["recipient_email"] == "new@podcast.dev"

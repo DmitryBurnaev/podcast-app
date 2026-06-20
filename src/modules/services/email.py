@@ -4,18 +4,21 @@ from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 
 import aiosmtplib
-from exceptions import ImproperlyConfiguredError, EmailSendingError
-from settings.app import get_app_settings
+
+from src.exceptions import EmailSendingError, ImproperlyConfiguredError
 
 from src.modules.db.models import User
-from src.modules.schemas.auth import UserInviteResponse
-from src.settings.app import AppSettings
-from utils import logger
+from src.settings.app import AppSettings, get_app_settings
+from src.utils import logger
 
 
-async def _send_invitation_email(invite: UserInviteResponse, settings: AppSettings) -> None:
+async def _send_invitation_email(
+    email: str,
+    token: str,
+    settings: AppSettings,
+) -> None:
     invite_data = base64.urlsafe_b64encode(
-        json.dumps({"token": invite.token, "email": str(invite.email)}).encode()
+        json.dumps({"token": token, "email": email}).encode()
     ).decode()
     link = f"{settings.site_url.rstrip('/')}/sign-up/?i={invite_data}"
     body = (
@@ -23,7 +26,7 @@ async def _send_invitation_email(invite: UserInviteResponse, settings: AppSettin
         f"<p>Please follow the link:</p><p><a href='{link}'>{link}</a></p>"
     )
     await send_email(
-        recipient_email=str(invite.email),
+        recipient_email=email,
         subject=f"Welcome to {settings.site_url}",
         html_content=body,
     )
