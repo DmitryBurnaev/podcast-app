@@ -8,12 +8,13 @@ from litestar.status_codes import HTTP_201_CREATED, HTTP_204_NO_CONTENT
 
 from src.constants import SourceType
 from src.modules.api.base import BaseApiController
-from exceptions import InvalidParametersAPIError, NotFoundAPIAPIError, StateConflictAPIError
+from src.exceptions import InvalidParametersAPIError, NotFoundAPIAPIError, StateConflictAPIError
 from src.modules.db import User
 from src.modules.db.models.podcasts import Cookie
 from src.modules.db.repositories import CookieRepository, EpisodeRepository
 from src.modules.db.services import SASessionUOW
 from src.modules.schemas.cookies import CookieResponse
+from src.modules.views.base import AppRequest
 from src.utils import utcnow
 
 
@@ -25,7 +26,9 @@ class CookieAPIController(BaseApiController):
     async def get_list(self, current_user: User) -> list[CookieResponse]:
         """Return the latest cookie for each source type owned by the current user."""
         async with SASessionUOW() as uow:
-            cookies = await CookieRepository(uow.session).all(owner_id=current_user.id)
+            cookie_repository = CookieRepository(uow.session, user_id=current_user.id)
+            # TODO: paginate response
+            cookies = await cookie_repository.all()
 
         latest_by_source: dict[SourceType, Cookie] = {}
         for cookie in sorted(cookies, key=lambda item: item.created_at, reverse=True):
@@ -45,10 +48,9 @@ class CookieAPIController(BaseApiController):
         """Create an encrypted cookie file record."""
         source_type, encrypted_data = await self._parse_cookie_form(data)
         async with SASessionUOW() as uow:
-            cookie = await CookieRepository(uow.session).create(
+            cookie = await CookieRepository(uow.session, user_id=current_user.id).create(
                 source_type=source_type,
                 data=encrypted_data,
-                owner_id=current_user.id,
                 created_at=utcnow(),
                 updated_at=utcnow(),
             )
@@ -60,10 +62,9 @@ class CookieAPIController(BaseApiController):
     async def get_details(self, cookie_id: int, current_user: User) -> CookieResponse:
         """Return details for a cookie owned by the current user."""
         async with SASessionUOW() as uow:
-            cookie = await CookieRepository(uow.session).first(
-                id=cookie_id,
-                owner_id=current_user.id,
-            )
+            cookie_repository = CookieRepository(uow.session, user_id=current_user.id)
+            cookie = await cookie_repository.first(id=cookie_id)
+
         if cookie is None:
             raise NotFoundAPIAPIError()
 
@@ -73,14 +74,14 @@ class CookieAPIController(BaseApiController):
     async def update(
         self,
         cookie_id: int,
-        current_user: User,
+        request: AppRequest,
         data: Annotated[dict[str, object], Body(media_type=RequestEncodingType.MULTI_PART)],
     ) -> CookieResponse:
         """Replace an encrypted cookie file record."""
         source_type, encrypted_data = await self._parse_cookie_form(data)
         async with SASessionUOW() as uow:
-            cookie_repository = CookieRepository(uow.session)
-            cookie = await cookie_repository.first(id=cookie_id, owner_id=current_user.id)
+            cookie_repository = CookieRepository(uow.session, user_id=request.user.id)
+            cookie = await cookie_repository.first(id=cookie_id, owner_id=request.user.id)
             if cookie is None:
                 raise NotFoundAPIAPIError()
 
@@ -94,17 +95,17 @@ class CookieAPIController(BaseApiController):
         return CookieResponse.model_validate(cookie)
 
     @delete("/{cookie_id:int}/", status_code=HTTP_204_NO_CONTENT)
-    async def delete(self, cookie_id: int, current_user: User) -> None:
+    async def delete(self, cookie_id: int, request: AppRequest) -> None:
         """Delete a cookie owned by the current user."""
         async with SASessionUOW() as uow:
-            cookie_repository = CookieRepository(uow.session)
-            cookie = await cookie_repository.first(id=cookie_id, owner_id=current_user.id)
+            cookie_repository = CookieRepository(uow.session, user_id=request.user.id)
+            cookie = await cookie_repository.first(id=cookie_id)
             if cookie is None:
                 raise NotFoundAPIAPIError()
 
             linked_episodes = await EpisodeRepository(uow.session).get_total_count(
                 cookie_id=cookie_id,
-                owner_id=current_user.id,
+                owner_id=request.user.id,
             )
             if linked_episodes:
                 raise StateConflictAPIError(message="There are episodes related to this cookie.")

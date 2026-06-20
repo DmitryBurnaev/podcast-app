@@ -29,12 +29,12 @@ from sqlalchemy import (
     and_,
     ColumnElement,
 )
-from sqlalchemy.exc import NoResultFound
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql.elements import SQLCoreOperations
 from sqlalchemy.sql.operators import isnot
 from sqlalchemy.sql.roles import ColumnsClauseRole
 
+from src.exceptions import NotFoundError
 from src.modules.db.models import BaseModel, User, UserSession, File
 from src.modules.db.models.users import UserAccessToken, UserIP, UserInvite
 from src.modules.db.models.podcasts import Episode, Podcast, Cookie
@@ -90,15 +90,16 @@ class BaseRepository(Generic[ModelT]):
 
     model: type[ModelT]
 
-    def __init__(self, session: AsyncSession) -> None:
+    def __init__(self, session: AsyncSession, user_id: int | None = None) -> None:
         self.session: AsyncSession = session
+        self.user_id: int | None = user_id
 
     async def get(self, instance_id: int, **filters: FilterT) -> ModelT:
         """Selects instance by provided ID"""
         # TODO: research and encapsulate checking on owner
         instance: ModelT | None = await self.first(**(filters | {"id": instance_id}))
         if not instance:
-            raise NoResultFound
+            raise NotFoundError(f"No instance with id {instance_id} found")
 
         return instance
 
@@ -140,11 +141,12 @@ class BaseRepository(Generic[ModelT]):
         """
         logger.debug("[DB] Getting paginated %s (offset=%i, limit=%i)", self.model, offset, limit)
 
+        # TODO: recheck and remove commented
         # Prepare base statement for count
-        count_filters = filters.copy()
-        count_filters_stmts: list[BinaryExpression[bool]] = []
-        if (ids := count_filters.pop("ids", None)) and isinstance(ids, list):
-            count_filters_stmts.append(self.model.id.in_(ids))
+        # count_filters = filters.copy() | self._get_owner_kwarg()
+        # count_filters_stmts: list[BinaryExpression[bool]] = []
+        # if (ids := count_filters.pop("ids", None)) and isinstance(ids, list):
+        #     count_filters_stmts.append(self.model.id.in_(ids))
 
         # Get paginated releases
         statement = self._prepare_statement(filters=filters)
@@ -152,7 +154,7 @@ class BaseRepository(Generic[ModelT]):
         objects = await self.session.scalars(
             statement.order_by(oder_by_criteria).offset(offset).limit(limit)
         )
-        total: int = await self.get_total_count(**filters)
+        total: int = await self.get_total_count(**filters | self._get_owner_kwarg())
         instances: list[ModelT] = list(objects.all())
         logger.debug("[DB] Found %i instances, total: %i", len(instances), total)
         return instances, total
@@ -160,17 +162,9 @@ class BaseRepository(Generic[ModelT]):
     async def create(self, **value: CreateT) -> ModelT:
         """Creates new instance"""
         logger.debug("[DB] Creating [%s]: %s", self.model.__name__, value)
+        value |= self._get_owner_kwarg()
         instance = self.model(**value)
         self.session.add(instance)
-        return instance
-
-    async def get_or_create(self, id_: int, value: dict[str, Any]) -> ModelT:
-        """Tries to find an instance by ID and create if it wasn't found"""
-        instance = await self.first(id=id_)
-        if instance is None:
-            await self.create(**(value | {"id": id_}))
-            instance = await self.get(id_)
-
         return instance
 
     async def update(self, instance: ModelT, **value: UpdateT) -> None:
@@ -191,8 +185,21 @@ class BaseRepository(Generic[ModelT]):
 
     async def update_by_ids(self, updating_ids: Sequence[int], value: dict[str, Any]) -> None:
         """Update the instances by their IDs"""
-        logger.info("[DB] Updating %i instances: %r", len(updating_ids), updating_ids)
+        by_owners_filter = self._get_owner_kwarg()
+        by_owners_filter_msg = (
+            f" | for owner #{by_owners_filter['owner_id']}" if by_owners_filter else ""
+        )
+        logger.info(
+            "[DB] Updating %i instances: %r%s",
+            len(updating_ids),
+            updating_ids,
+            by_owners_filter_msg,
+        )
+
         statement = update(self.model).filter(self.model.id.in_(updating_ids))
+        if by_owners_filter:
+            statement = statement.filter_by(**by_owners_filter)
+
         result: CursorResult[Any] = cast(
             CursorResult[Any], await self.session.execute(statement, value)
         )
@@ -201,6 +208,7 @@ class BaseRepository(Generic[ModelT]):
 
     async def update_by_filters(self, filters: dict[str, FilterT], value: dict[str, Any]) -> None:
         """Update the instances by some filters"""
+        filters |= self._get_owner_kwarg()
         logger.info("[DB] Updating instances by filter: %s", filters)
 
         statement = update(self.model).filter_by(**filters)
@@ -225,6 +233,7 @@ class BaseRepository(Generic[ModelT]):
         if (ids := filters.pop("ids", None)) and isinstance(ids, list):
             filters_stmts.append(self.model.id.in_(ids))
 
+        filters |= self._get_owner_kwarg()
         statement = select(*entities) if entities is not None else select(self.model)
         statement = statement.filter_by(**filters)
         if filters_stmts:
@@ -262,6 +271,12 @@ class BaseRepository(Generic[ModelT]):
         field_name: str = sort_by.removeprefix("-")
         field = getattr(self.model, field_name)
         return field.desc() if sort_by.startswith("-") else field.asc()
+
+    def _get_owner_kwarg(self) -> dict[str, int]:
+        if self.user_id and hasattr(self.model, "user_id"):
+            return {"owner_id": self.user_id}
+
+        return {}
 
 
 class UserRepository(BaseRepository[User]):
@@ -359,7 +374,7 @@ class PodcastRepository(BaseRepository[Podcast]):
         - last_download_date: datetime | None
         """
         logger.debug("[DB] Getting podcasts with aggregations: %s", filters)
-        filters_dict = dict(filters)
+        filters_dict = dict(filters) | self._get_owner_kwarg()
 
         # Build aggregation query with LEFT JOINs to include podcasts without episodes
         statement = (
@@ -741,10 +756,6 @@ class AuthUserSessionRepository(BaseRepository[UserSession]):
     async def get_active_by_public_id(self, public_id: str) -> UserSession | None:
         """Get active user session by public ID."""
         return await self.first(public_id=public_id, is_active=True)
-
-    async def create(self, user_id: int, public_id: str, is_active: bool = True) -> UserSession:
-        """Create a user session."""
-        return await self.create(user_id=user_id, public_id=public_id, is_active=is_active)
 
 
 class UserAccessTokenRepository(BaseRepository[UserAccessToken]):

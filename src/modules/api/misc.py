@@ -23,6 +23,7 @@ from src.modules.schemas.progress import (
     ProgressPodcastResponse,
 )
 from src.modules.schemas.system import HealthCheck, SystemInfo
+from src.modules.views.base import AppRequest
 from src.settings.app import AppSettings
 from src.utils import cut_string, utcnow
 
@@ -106,17 +107,14 @@ class ProgressAPIController(BaseApiController):
     ) -> dict[str, list[ProgressItemResponse]]:
         """Return active processing progress for the current user."""
         async with SASessionUOW() as uow:
-            episode_repository = EpisodeRepository(uow.session)
-            podcast_repository = PodcastRepository(uow.session)
-            podcasts = {
-                podcast.id: podcast
-                for podcast in await podcast_repository.all(owner_id=current_user.id)
-            }
+            episode_repository = EpisodeRepository(uow.session, user_id=current_user.id)
+            podcast_repository = PodcastRepository(uow.session, user_id=current_user.id)
+            podcasts = {podcast.id: podcast for podcast in await podcast_repository.all()}
             if episode_id:
-                episode = await episode_repository.first(id=episode_id, owner_id=current_user.id)
+                episode = await episode_repository.first(id=episode_id)
                 episodes = [episode] if episode else []
             else:
-                episodes = await Episode.get_in_progress(uow.session, current_user.id)
+                episodes = await Episode.get_in_progress(uow.session)
 
             states = await check_state(episodes)
 

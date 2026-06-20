@@ -1,4 +1,5 @@
 import logging
+from typing import TYPE_CHECKING
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 
@@ -7,10 +8,15 @@ from jwt import InvalidTokenError
 from litestar import Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from src.modules.auth.types import TokenData
 from src.modules.db.repositories import UserIPRepository
 from src.settings.app import AppSettings
 from src.utils import hash_string, utcnow
 from src.modules.auth.constants import AuthTokenType
+
+if TYPE_CHECKING:
+    from src.modules.views.base import AppRequest
+    from src.modules.db.models import User
 
 logger = logging.getLogger(__name__)
 
@@ -44,13 +50,15 @@ def encode_jwt(
     return token, expired_at
 
 
-def decode_jwt(encoded_jwt: str, settings: AppSettings) -> dict:
+def decode_jwt(encoded_jwt: str, settings: AppSettings) -> TokenData:
     """Allows to decode received JWT token to payload"""
     parts_count = len(encoded_jwt.split("."))
     if parts_count != 3:
         raise InvalidTokenError("Not enough segments")
 
-    return jwt.decode(encoded_jwt, settings.app_secret_key, algorithms=[settings.jwt_algorithm])
+    raw_data = jwt.decode(encoded_jwt, settings.app_secret_key, algorithms=[settings.jwt_algorithm])
+    # TODO: ensure that returns TokenData
+    return TokenData(**raw_data)
 
 
 def extract_ip_address(request: Request, settings: AppSettings) -> str | None:
@@ -89,3 +97,11 @@ async def register_ip(request: Request, db_session: AsyncSession, settings: AppS
     else:
         await user_ip_repo.create(**user_ip_data)
         logger.debug("Created NEW UserIP record for: %s | ip: %s", user_ip_data, ip_address)
+
+
+def provide_current_user(request: "AppRequest") -> "User":
+    """
+    Simple dependency for getting current user from request object
+    Provides by `src.modules.auth.middlewares.APIAuthMiddleware.authenticate_request`
+    """
+    return request.user

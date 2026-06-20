@@ -52,6 +52,7 @@ class RefreshAuthentication(NamedTuple):
     refresh_token: str
 
 
+# TODO: deduplicate typing with `src.modules.auth.types`
 @dataclasses.dataclass
 class TokenPayload:
     user_id: int

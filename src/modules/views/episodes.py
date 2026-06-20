@@ -10,7 +10,6 @@ from litestar.status_codes import HTTP_201_CREATED
 from pydantic import ValidationError
 
 from src.constants import EpisodeStatus
-from src.modules.auth.load_user import get_current_user
 from src.modules import tasks
 from src.modules.db import SASessionUOW
 from src.modules.db.models import File as MediaFile
@@ -18,8 +17,8 @@ from src.modules.db.repositories import EpisodeRepository, PodcastRepository
 from src.modules.schemas.episodes import EpisodeCreateSchema
 from src.modules.services.cover import CoverService
 from src.modules.services.episodes import EpisodeCreator
-from src.modules.views.base import BaseViewController, TaskQueueApp
-from src.settings.app import get_app_settings
+from src.modules.views.base import BaseViewController, TaskQueueApp, AppRequest
+from src.settings.app import get_app_settings, AppSettings
 from src.utils import cut_string
 
 logger = logging.getLogger(__name__)
@@ -31,7 +30,7 @@ class EpisodesController(BaseViewController):
     """
 
     @post("/episodes/", status_code=HTTP_201_CREATED)
-    async def post(self, request: Request) -> dict:
+    async def post(self, request: AppRequest) -> dict:
         """
         Create episode from source URL (JSON body: sourceURL). Returns { id }.
 
@@ -49,9 +48,6 @@ class EpisodesController(BaseViewController):
         episode_create_schema = await self._validate_create_episode_request(request)
         podcast_id = episode_create_schema.podcast_id
         source_url = episode_create_schema.normalized_source_url
-        current_user = get_current_user(request)
-        user_id = current_user.id
-
         logger.info(
             "Creating episode from source_url (podcast_id=%s, source_url=%s)",
             podcast_id,
@@ -59,17 +55,14 @@ class EpisodesController(BaseViewController):
         )
 
         async with SASessionUOW() as uow:
-            podcast_repository = PodcastRepository(session=uow.session)
+            podcast_repository = PodcastRepository(session=uow.session, user_id=request.user.id)
             podcast = await podcast_repository.first(podcast_id)
             if not podcast:
                 raise NotFoundException(f"Podcast with id {podcast_id} not found")
 
-            creator = EpisodeCreator(db_session=uow.session, user_id=user_id)
+            creator = EpisodeCreator(db_session=uow.session, user_id=request.user.id)
             try:
-                episode = await creator.create(
-                    podcast_id=podcast_id,
-                    source_url=source_url,
-                )
+                episode = await creator.create(podcast_id=podcast_id, source_url=source_url)
             except ValueError as e:
                 logger.warning("Episode creation failed: %s", e)
                 raise HTTPException(status_code=400, detail=str(e)) from e
@@ -82,10 +75,10 @@ class EpisodesController(BaseViewController):
                 await episode_repository.update(episode, status=EpisodeStatus.DOWNLOADING)
 
         if podcast.download_automatically:
-            app = cast(TaskQueueApp, request.app)
+            app = cast(TaskQueueApp, cast(object, request.app))
             await self._run_task(app, tasks.DownloadEpisodeTask, episode_id=episode.id)
 
-        app = cast(TaskQueueApp, request.app)
+        app = cast(TaskQueueApp, cast(object, request.app))
         await self._run_task(app, tasks.DownloadEpisodeImageTask, episode_id=episode.id)
 
         if logger.isEnabledFor(logging.DEBUG):
@@ -96,7 +89,7 @@ class EpisodesController(BaseViewController):
         return {"id": episode.id}
 
     @get("/episodes/")
-    async def get(self, request: Request) -> Template:
+    async def get(self, request: AppRequest, settings: AppSettings) -> Template:
         """Render the episode list page with optional filters."""
         query_params = request.query_params
         filters: dict = {}
@@ -116,10 +109,16 @@ class EpisodesController(BaseViewController):
             filters["audio__size__lte"] = int(size_max)
 
         async with SASessionUOW() as uow:
-            episodes_repository = EpisodeRepository(session=uow.session)
-            episodes = await episodes_repository.all(**filters)
-            podcast_repository = PodcastRepository(session=uow.session)
-            podcasts = await podcast_repository.all(**filters)
+            podcast_repository = PodcastRepository(session=uow.session, user_id=request.user.id)
+            podcasts = await podcast_repository.all_paginated(
+                limit=settings.default_pagination_limit,
+                **filters,
+            )
+            episodes_repository = EpisodeRepository(session=uow.session, user_id=request.user.id)
+            episodes = await episodes_repository.all_paginated(
+                limit=settings.default_pagination_limit,
+                **filters,
+            )
 
         return self.get_response_template(
             template_name="episodes.html",
@@ -147,20 +146,16 @@ class EpisodesController(BaseViewController):
 
 class EpisodeDetailsController(BaseViewController):
     @get("/episodes/{episode_id:int}/")
-    async def get_detail(self, episode_id: int, request: Request) -> Template:
+    async def get_detail(self, episode_id: int, request: AppRequest) -> Template:
         """Get episode detail page with edit form"""
         async with SASessionUOW() as uow:
-            episode_repository = EpisodeRepository(session=uow.session)
+            episode_repository = EpisodeRepository(session=uow.session, user_id=request.user.id)
             episode = await episode_repository.first(episode_id)
             if not episode:
                 raise NotFoundException(f"Episode with id {episode_id} not found")
 
-            # Get related podcast
-            podcast = episode.podcast
-
-            audio_url = episode.audio_url
-
             # Debug: episode audio player (enable DEBUG on src.modules.views.episodes for url_len)
+            audio_url = episode.audio_url
             logger.info(
                 "[episode_player] detail episode_id=%s audio_id=%s has_audio_url=%s",
                 episode.id,
@@ -175,10 +170,6 @@ class EpisodeDetailsController(BaseViewController):
                     episode.status,
                 )
 
-            # Prepare source URL (watch_url)
-            source_url = episode.watch_url
-
-            # Calculate episode size
             episode_size = 0
             if episode.audio and hasattr(episode.audio, "size") and episode.audio.size:
                 episode_size = episode.audio.size
@@ -187,9 +178,9 @@ class EpisodeDetailsController(BaseViewController):
             template_name="episodes_detail.html",
             context={
                 "episode": episode,
-                "podcast": podcast,
+                "podcast": episode.podcast,
                 "audio_url": audio_url,
-                "source_url": source_url,
+                "source_url": episode.watch_url,
                 "episode_size": episode_size,
                 "current": "episodes",
                 "title": cut_string(episode.title, max_length=32),
@@ -203,10 +194,10 @@ class EpisodeCoverController(BaseViewController):
     cache_file_prefix: ClassVar[str] = "episode_cover"
 
     @get("/episodes/{episode_id:int}/cover/")
-    async def get_cover(self, episode_id: int) -> File:
+    async def get_cover(self, episode_id: int, request: AppRequest) -> File:
         """Return episode cover image; download from S3 or source_url and cache."""
         async with SASessionUOW() as uow:
-            episode_repository = EpisodeRepository(session=uow.session)
+            episode_repository = EpisodeRepository(session=uow.session, user_id=request.user.id)
             episode = await episode_repository.first(episode_id)
             if not episode:
                 raise NotFoundException(f"Episode with id {episode_id} not found")
@@ -216,10 +207,11 @@ class EpisodeCoverController(BaseViewController):
 
             image = episode.image
 
-        cover_service = CoverService()
         try:
-            cached_path = await cover_service.get_or_download(
-                image, self.cache_dir_prefix, self.cache_file_prefix
+            cached_path = await CoverService().get_or_download(
+                file_obj=image,
+                cache_dir_prefix=self.cache_dir_prefix,
+                cache_file_prefix=self.cache_file_prefix,
             )
         except NotFoundException:
             settings = get_app_settings()

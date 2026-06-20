@@ -5,8 +5,8 @@ import logging
 from litestar import get
 from litestar.exceptions import NotFoundException
 from litestar.response import Redirect
-from litestar.status_codes import HTTP_307_TEMPORARY_REDIRECT
 
+from src.constants import AuthSkip
 from src.exceptions import NotSupportedError
 from src.modules.db import SASessionUOW
 from src.modules.db.models.media import MediaType
@@ -23,8 +23,8 @@ class MediaByTokenController(BaseViewController):
     """
 
     opt = {
-        "auth_api_skip": True,
-        "auth_web_skip": True,
+        AuthSkip.SKIP_AUTH_WEB: True,
+        AuthSkip.SKIP_AUTH_API: True,
     }
 
     @get("/m/{access_token:str}/")
@@ -73,4 +73,4 @@ class MediaByTokenController(BaseViewController):
             raise NotFoundException("Media not found") from exc
 
         logger.info("[media_token] redirect file_id=%s type=%s", media_file.id, media_file.type)
-        return Redirect(path=url, status_code=HTTP_307_TEMPORARY_REDIRECT)
+        return Redirect(path=url, status_code=307)  # HTTP_307_TEMPORARY_REDIRECT

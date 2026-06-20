@@ -18,7 +18,7 @@ type SessionPayloadT = Optional[dict[str, Any]]
 #     state.update(values)
 
 
-class APIAuthenticationMiddleware(AbstractAuthenticationMiddleware):
+class APIAuthMiddleware(AbstractAuthenticationMiddleware):
 
     async def authenticate_request(self, connection: ASGIConnection) -> AuthenticationResult:
         """
@@ -26,8 +26,8 @@ class APIAuthenticationMiddleware(AbstractAuthenticationMiddleware):
         the user correlating to the token from the DB
         """
         auth_backend = APIAuthBackend(connection=connection, header_keyword="Bearer")
-        user, session_id = await auth_backend.authenticate()
-        return AuthenticationResult(user=user, auth=session_id)
+        auth_result = await auth_backend.authenticate()
+        return AuthenticationResult(user=auth_result, auth=auth_result.token_data)
 
 
 #         authenticated = await authenticate_bearer_request(
@@ -42,7 +42,7 @@ class APIAuthenticationMiddleware(AbstractAuthenticationMiddleware):
 #         return AuthenticationResult(user=authenticated.user, auth=authenticated.session_id)
 
 
-class WebAppAuthenticationMiddleware(AbstractAuthenticationMiddleware):
+class WebAuthMiddleware(AbstractAuthenticationMiddleware):
 
     async def authenticate_request(self, connection: ASGIConnection) -> AuthenticationResult:
         """
@@ -50,9 +50,9 @@ class WebAppAuthenticationMiddleware(AbstractAuthenticationMiddleware):
         the user correlating to the token from the DB
         """
         auth_backend = WebAuthBackend(connection=connection)
-        user, session_id = await auth_backend.authenticate()
+        auth_result = await auth_backend.authenticate()
         # _set_request_state(connection, current_user=user)
-        return AuthenticationResult(user=user, auth=session_id)
+        return AuthenticationResult(user=auth_result, auth=auth_result.token_data)
 
 
 #
