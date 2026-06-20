@@ -2,11 +2,11 @@ import logging
 from datetime import timedelta
 
 from litestar import Request, delete, get, patch, post
-from litestar.status_codes import HTTP_200_OK, HTTP_201_CREATED, HTTP_204_NO_CONTENT
+from litestar.status_codes import HTTP_201_CREATED, HTTP_204_NO_CONTENT
 
+from src.constants import AuthSkip
 from src.modules.api.base import BaseApiController
-from exceptions import AuthInvalidAPIError, InvalidParametersAPIError, StateConflictAPIError
-
+from src.exceptions import AuthInvalidAPIError, InvalidParametersAPIError, StateConflictAPIError
 from src.modules.auth.backend import admin_user_guard
 from src.modules.auth.tokens import (
     AuthTokenType,
@@ -46,7 +46,7 @@ from src.modules.schemas.auth import (
     UserIPResponse,
     UserResponse,
 )
-from src.modules.schemas.common import LimitOffsetPagination
+from src.modules.schemas.common import LimitOffsetPagination, OKResponse
 from src.modules.services.email import _send_invitation_email, _send_reset_password_email
 from src.settings.app import AppSettings
 from src.utils import hash_string, utcnow
@@ -79,13 +79,19 @@ class BaseAuthAPIController(BaseApiController):
                     )
                     uow.mark_for_commit()
 
-        except Exception:
-            logger.exception("[API] Failed to register IP for user #%s", user.id)
+        except Exception as exc:
+            logger.exception("[API] Failed to register IP for user #%s (%r)", user.id, exc)
 
 
 class AuthCoreAPIController(BaseAuthAPIController):
+    """Auth controllers for non-authenticated users"""
 
-    @post("/sign-in/", auth_api_skip=True)
+    opt = {
+        AuthSkip.SKIP_AUTH_API: True,
+        AuthSkip.SKIP_AUTH_WEB: True,
+    }
+
+    @post("/sign-in/")
     async def sign_in(self, request: Request, settings: AppSettings) -> TokenResponse:
         """Authenticate a user and issue a token pair."""
         try:
@@ -105,32 +111,7 @@ class AuthCoreAPIController(BaseAuthAPIController):
         logger.info("[API] User signed in: #%s", user.id)
         return TokenResponse(access_token=tokens.access_token, refresh_token=tokens.refresh_token)
 
-    @post("/refresh-token/", auth_api_skip=True)
-    async def refresh_token(self, request: Request, settings: AppSettings) -> TokenResponse:
-        """Refresh an access and refresh token pair."""
-        try:
-            data = RefreshTokenRequest.model_validate(await request.json())
-        except Exception as exc:
-            raise InvalidParametersAPIError(details=str(exc)) from exc
-
-        tokens = await refresh_user_session(data.refresh_token, settings=settings)
-        return TokenResponse(access_token=tokens.access_token, refresh_token=tokens.refresh_token)
-
-    @delete("/sign-out/", status_code=HTTP_200_OK)
-    async def sign_out(self, current_user: User, request: Request) -> dict[str, bool]:
-        """Deactivate the current authenticated API session."""
-        api_auth = getattr(request.state, "api_auth", None)
-        session_id: str | None = getattr(api_auth, "session_id", None)
-        if session_id is not None:
-            async with SASessionUOW() as uow:
-                session_repo = UserSessionRepository(uow.session)
-                await session_repo.deactivate_by_public_id(session_id)
-                uow.mark_for_commit()
-
-        logger.info("[API] User signed out: #%s", current_user.id)
-        return {"ok": True}
-
-    @post("/sign-up/", auth_api_skip=True, status_code=HTTP_201_CREATED)
+    @post("/sign-up/", status_code=HTTP_201_CREATED)
     async def sign_up(self, data: SignUpRequest, settings: AppSettings) -> TokenResponse:
         """Create an invited user and issue a token pair."""
         async with SASessionUOW() as uow:
@@ -170,12 +151,19 @@ class AuthCoreAPIController(BaseAuthAPIController):
         logger.info("[API] User signed up: #%s", user.id)
         return TokenResponse(access_token=tokens.access_token, refresh_token=tokens.refresh_token)
 
-    @post("/reset-password/", auth_api_skip=True)
-    async def reset_password(
-        self,
-        data: ResetPasswordRequest,
-        settings: AppSettings,
-    ) -> dict[str, bool]:
+    @post("/refresh-token/")
+    async def refresh_token(self, request: Request, settings: AppSettings) -> TokenResponse:
+        """Refresh an access and refresh token pair."""
+        try:
+            data = RefreshTokenRequest.model_validate(await request.json())
+        except Exception as exc:
+            raise InvalidParametersAPIError(details=str(exc)) from exc
+
+        tokens = await refresh_user_session(data.refresh_token, settings=settings)
+        return TokenResponse(access_token=tokens.access_token, refresh_token=tokens.refresh_token)
+
+    @post("/reset-password/")
+    async def reset_password(self, data: ResetPasswordRequest, settings: AppSettings) -> OKResponse:
         """Send a password reset link without exposing account existence."""
         async with SASessionUOW() as uow:
             user = await UserRepository(uow.session).get_by_email(str(data.email))
@@ -188,14 +176,14 @@ class AuthCoreAPIController(BaseAuthAPIController):
             )
             await _send_reset_password_email(user, token, settings=settings)
 
-        return {"ok": True}
+        return OKResponse()
 
     @post("/change-password/")
     async def change_password(
         self,
         data: ChangePasswordRequest,
         settings: AppSettings,
-    ) -> dict[str, bool]:
+    ) -> OKResponse:
         """Apply a password reset token and invalidate existing sessions."""
         payload = decode_jwt(
             data.token,
@@ -218,7 +206,41 @@ class AuthCoreAPIController(BaseAuthAPIController):
             await UserSessionRepository(uow.session).deactivate_for_user(user.id)
             uow.mark_for_commit()
 
-        return {"ok": True}
+        return OKResponse()
+
+
+class AuthExtendedAPIController(BaseAuthAPIController):
+    """Auth controllers which requires authentication."""
+
+    @delete("/sign-out/")
+    async def sign_out(self, current_user: User, request: Request) -> OKResponse:
+        """Deactivate the current authenticated API session."""
+        api_auth = getattr(request.state, "api_auth", None)
+        session_id: str | None = getattr(api_auth, "session_id", None)
+        if session_id is not None:
+            async with SASessionUOW() as uow:
+                session_repo = UserSessionRepository(uow.session)
+                await session_repo.deactivate_by_public_id(session_id)
+                uow.mark_for_commit()
+
+        logger.info("[API] User signed out: #%s", current_user.id)
+        return OKResponse()
+
+    @post("/reset-password/", guards=[admin_user_guard])
+    async def reset_password(self, data: ResetPasswordRequest, settings: AppSettings) -> OKResponse:
+        """Send a password reset link without exposing account existence."""
+        async with SASessionUOW() as uow:
+            user = await UserRepository(uow.session).get_by_email(str(data.email))
+
+        if user is not None and user.is_active:
+            token, _ = encode_jwt(
+                TokenPayload(user_id=user.id, token_type=AuthTokenType.RESET_PASSWORD),
+                settings=settings,
+                expires_in=settings.reset_password_link_expires_in,
+            )
+            await _send_reset_password_email(user, token, settings=settings)
+
+        return OKResponse()
 
 
 class AuthInviteAPIController(BaseAuthAPIController):

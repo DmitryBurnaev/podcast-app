@@ -1,17 +1,18 @@
 import asyncio
 import logging
 from functools import lru_cache
-from typing import Any, Protocol, TypedDict
+from typing import Any, Protocol
 
 from litestar import Controller
 from litestar.connection import Request
 from litestar.response import Template
 
 from src import constants as const
+from src.constants import AuthSkip
 from src.modules.auth.load_user import get_current_user_or_none
 from src.modules.tasks.base import RQTask
 
-__all__ = ("BaseController",)
+__all__ = ("BaseViewController",)
 logger = logging.getLogger(__name__)
 
 
@@ -19,16 +20,11 @@ class TaskQueueApp(Protocol):
     rq_queue: Any
 
 
-class ControllerOpt(TypedDict, total=False):
-    auth_api_skip: bool
-    auth_web_skip: bool
-
-
-class BaseController(Controller):
+class BaseViewController(Controller):
     include_in_schema = False
     default_template_name = "base.html"
     login_template_name = "login.html"
-    opt: ControllerOpt = {"auth_api_skip": True}
+    opt = {AuthSkip.SKIP_AUTH_API: True}
 
     def get_response_template(
         self,
@@ -71,7 +67,7 @@ class BaseController(Controller):
 
     @classmethod
     @lru_cache
-    def get_controllers(cls) -> list[type["BaseController"]]:
+    def get_controllers(cls) -> list[type["BaseViewController"]]:
         """Return concrete HTML controllers registered under this base controller."""
         return [c for c in cls.__subclasses__()]
 

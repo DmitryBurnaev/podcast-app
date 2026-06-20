@@ -11,12 +11,12 @@ from src.exceptions import NotSupportedError
 from src.modules.db import SASessionUOW
 from src.modules.db.models.media import MediaType
 from src.modules.db.repositories import FileRepository
-from src.modules.views.base import BaseController
+from src.modules.views.base import BaseViewController
 
 logger = logging.getLogger(__name__)
 
 
-class MediaByTokenController(BaseController):
+class MediaByTokenController(BaseViewController):
     """
     Resolve /m/ and /r/ token links to presigned S3 GET URLs.
     Covers stay on dedicated episode/podcast cover routes with local cache.

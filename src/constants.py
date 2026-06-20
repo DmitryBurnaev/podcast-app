@@ -46,6 +46,13 @@ class StringEnumMixin:
         return [str(status) for status in cls.__members__]
 
 
+class AuthSkip(enum.StrEnum):
+    """Just specified enum for controllers' auth configure"""
+
+    SKIP_AUTH_API = "SKIP_AUTH_API"
+    SKIP_AUTH_WEB = "SKIP_AUTH_WEB"
+
+
 class SourceType(StringEnumMixin, enum.StrEnum):
     """Episode source type enumeration"""
 

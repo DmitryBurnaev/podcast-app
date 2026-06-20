@@ -5,10 +5,10 @@ import pytest
 from litestar.response import Template
 
 from src import constants as const
-from src.modules.views.base import BaseController
+from src.modules.views.base import BaseViewController
 
 
-class ChildControllerForTest(BaseController):
+class ChildControllerForTest(BaseViewController):
     pass
 
 
@@ -18,8 +18,8 @@ class QueueTaskForTest:
         return "queue-job-id"
 
 
-def _controller() -> BaseController:
-    return BaseController.__new__(BaseController)
+def _controller() -> BaseViewController:
+    return BaseViewController.__new__(BaseViewController)
 
 
 class TestBaseControllerContext:
@@ -64,7 +64,7 @@ class TestBaseControllerContext:
             Mock(return_value=user),
         )
 
-        result = BaseController.get_base_context(request)
+        result = BaseViewController.get_base_context(request)
 
         assert result == {
             "current": "home",
@@ -117,9 +117,9 @@ class TestBaseControllerContext:
 
 class TestBaseControllerHelpers:
     def test_get_controllers__includes_subclasses(self) -> None:
-        BaseController.get_controllers.cache_clear()
+        BaseViewController.get_controllers.cache_clear()
 
-        result = BaseController.get_controllers()
+        result = BaseViewController.get_controllers()
 
         assert ChildControllerForTest in result
 
@@ -127,7 +127,7 @@ class TestBaseControllerHelpers:
         enqueue = Mock(return_value=None)
         app = SimpleNamespace(rq_queue=SimpleNamespace(enqueue=enqueue))
 
-        await BaseController._run_task(app, QueueTaskForTest, 10, force=True)
+        await BaseViewController._run_task(app, QueueTaskForTest, 10, force=True)
 
         enqueue.assert_called_once()
         task, episode_id = enqueue.call_args.args

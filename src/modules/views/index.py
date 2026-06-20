@@ -4,10 +4,10 @@ from litestar.response import Template
 from src.modules.db import SASessionUOW
 from src.modules.db.repositories import EpisodeRepository, PodcastRepository
 from src.modules.services.statistic import StatisticService
-from src.modules.views.base import BaseController
+from src.modules.views.base import BaseViewController
 
 
-class IndexController(BaseController):
+class IndexController(BaseViewController):
     @get("/")
     async def get(self, request: Request) -> Template:
         """Render the application dashboard."""

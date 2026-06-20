@@ -2,10 +2,10 @@ from litestar import Request, get
 from litestar.response import Template
 
 from src.modules.auth.load_user import get_current_user
-from src.modules.views.base import BaseController
+from src.modules.views.base import BaseViewController
 
 
-class ProfileController(BaseController):
+class ProfileController(BaseViewController):
 
     @get("/profile")
     async def get(self, request: Request) -> Template:

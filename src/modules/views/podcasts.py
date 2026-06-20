@@ -12,11 +12,11 @@ from src.modules.db.models import File as MediaFile
 from src.modules.db.repositories import EpisodeRepository, PodcastRepository
 from src.modules.services.cover import CoverService
 from src.modules.services.statistic import StatisticService
-from src.modules.views.base import BaseController
+from src.modules.views.base import BaseViewController
 from src.utils import cut_string
 
 
-class PodcastsController(BaseController):
+class PodcastsController(BaseViewController):
     @get("/podcasts/")
     async def get(self, request: Request) -> Template:
         """Render the podcast list page."""
@@ -37,7 +37,7 @@ class PodcastsController(BaseController):
         )
 
 
-class PodcastsDetailsController(BaseController):
+class PodcastsDetailsController(BaseViewController):
     @get("/podcasts/{podcast_id:int}/")
     async def get_detail(self, podcast_id: int, request: Request) -> Template:
         """Get podcast detail page with episodes list"""
@@ -65,7 +65,7 @@ class PodcastsDetailsController(BaseController):
         )
 
 
-class PodcastCoverController(BaseController):
+class PodcastCoverController(BaseViewController):
     """Serves podcast cover image from local cache or S3, caching on first request."""
 
     cache_dir_prefix: ClassVar[str] = "podcasts"
