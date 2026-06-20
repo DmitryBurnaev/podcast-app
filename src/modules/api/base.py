@@ -2,8 +2,14 @@ from functools import lru_cache
 
 from litestar import Controller
 
+from src.constants import AuthSkip
+
 
 class BaseApiController(Controller):
+    opt = {
+        AuthSkip.SKIP_AUTH_WEB: True,
+    }
+
     @classmethod
     @lru_cache
     def get_controllers(cls) -> list[type["BaseApiController"]]:

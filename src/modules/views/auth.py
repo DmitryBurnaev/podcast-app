@@ -11,10 +11,10 @@ from src.modules.auth.load_user import get_current_user_or_none
 from src.settings.app import get_app_settings
 from src.modules.db.repositories import UserRepository, UserSessionRepository
 from src.modules.db.services import SASessionUOW
-from src.modules.views.base import BaseController
+from src.modules.views.base import BaseViewController
 
 
-class AuthController(BaseController):
+class AuthController(BaseViewController):
     """Session cookie auth (UserSession.public_id)."""
 
     @get("/login", auth_web_skip=True)

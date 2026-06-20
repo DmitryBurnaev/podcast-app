@@ -18,14 +18,14 @@ from src.modules.db.repositories import EpisodeRepository, PodcastRepository
 from src.modules.schemas.episodes import EpisodeCreateSchema
 from src.modules.services.cover import CoverService
 from src.modules.services.episodes import EpisodeCreator
-from src.modules.views.base import BaseController, TaskQueueApp
+from src.modules.views.base import BaseViewController, TaskQueueApp
 from src.settings.app import get_app_settings
 from src.utils import cut_string
 
 logger = logging.getLogger(__name__)
 
 
-class EpisodesController(BaseController):
+class EpisodesController(BaseViewController):
     """
     Allows to create episode from source URL (JSON body: sourceURL) and retrieve all episodes.
     """
@@ -145,7 +145,7 @@ class EpisodesController(BaseController):
             raise HTTPException(status_code=400, detail=str(e)) from e
 
 
-class EpisodeDetailsController(BaseController):
+class EpisodeDetailsController(BaseViewController):
     @get("/episodes/{episode_id:int}/")
     async def get_detail(self, episode_id: int, request: Request) -> Template:
         """Get episode detail page with edit form"""
@@ -198,7 +198,7 @@ class EpisodeDetailsController(BaseController):
         )
 
 
-class EpisodeCoverController(BaseController):
+class EpisodeCoverController(BaseViewController):
     cache_dir_prefix: ClassVar[str] = "episodes"
     cache_file_prefix: ClassVar[str] = "episode_cover"
 

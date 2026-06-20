@@ -1,11 +1,11 @@
 from litestar import Request, get
 from litestar.response import Template
 
-from src.modules.views.base import BaseController
+from src.modules.views.base import BaseViewController
 from src.settings.app import AppSettings
 
 
-class AboutController(BaseController):
+class AboutController(BaseViewController):
 
     @get("/about")
     async def get(self, request: Request, settings: AppSettings) -> Template:

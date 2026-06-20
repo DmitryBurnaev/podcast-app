@@ -1,7 +1,7 @@
 import logging
-from typing import Any, Optional, cast
+from typing import Any, Optional
 
-from litestar.connection import ASGIConnection, Request
+from litestar.connection import ASGIConnection
 from litestar.middleware import AbstractAuthenticationMiddleware, AuthenticationResult
 
 from src.modules.auth.backend import WebAuthBackend, APIAuthBackend

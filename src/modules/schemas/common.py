@@ -1,4 +1,4 @@
-from typing import Generic, TypeVar
+from typing import Generic, TypeVar, Literal
 
 from pydantic import BaseModel, Field
 
@@ -13,3 +13,9 @@ class LimitOffsetPagination(BaseModel, Generic[ResponseModelT]):
         default_factory=list, description="List of items for requested limit and offset"
     )
     total: int = Field(default=0, description="Total number of items in the database")
+
+
+class OKResponse(BaseModel):
+    """API response with successful answer."""
+
+    status: Literal["ok"] = "ok"
