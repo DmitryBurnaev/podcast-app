@@ -23,7 +23,6 @@ from src.modules.schemas.progress import (
     ProgressPodcastResponse,
 )
 from src.modules.schemas.system import HealthCheck, SystemInfo
-from src.modules.views.base import AppRequest
 from src.settings.app import AppSettings
 from src.utils import cut_string, utcnow
 

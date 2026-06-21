@@ -42,7 +42,7 @@ async def _login_page(controller: AuthController, request: SimpleNamespace) -> o
 
 
 async def _login_submit(controller: AuthController, request: SimpleNamespace) -> Redirect:
-    return await AuthController.login_submit.fn(controller, request)
+    return await AuthController.login.fn(controller, request)
 
 
 async def _logout(controller: AuthController, request: SimpleNamespace) -> Redirect:
