@@ -1,13 +1,16 @@
 import logging
+import uuid
+from datetime import timedelta
 
 from jwt import InvalidTokenError, ExpiredSignatureError
 from litestar.connection import ASGIConnection
+from litestar.datastructures import Cookie
 from litestar.exceptions import PermissionDeniedException
 from litestar.handlers import BaseRouteHandler
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.modules.auth.types import AuthenticatedUserResult, ByTokenData, TokenData
-from src.modules.db import SASessionUOW
+from src.modules.db import SASessionUOW, User
 from src.settings.app import AppSettings, get_app_settings
 from src.exceptions import (
     AuthCredentialsInvalidError,
@@ -18,8 +21,9 @@ from src.modules.db.repositories import (
     AuthUserSessionRepository,
     UserAccessTokenRepository,
     UserRepository,
+    UserSessionRepository,
 )
-from src.utils import hash_string
+from src.utils import hash_string, utcnow
 from src.modules.auth.utils import decode_jwt
 from src.modules.auth.constants import LENGTH_USER_ACCESS_TOKEN, AuthTokenType
 
@@ -186,6 +190,63 @@ class WebAuthBackend(AuthBackend):
             )
 
         return auth_result
+
+    async def login(self, email: str, password: str) -> tuple[User, Cookie]:
+        if not all([email, password]):
+            raise AuthCredentialsInvalidError("Email or password is required.")
+
+        async with SASessionUOW() as uow:
+            user_repo = UserRepository(session=uow.session)
+            user = await user_repo.get_by_email(email)
+            if not user:
+                raise AuthCredentialsInvalidError("Unable to find user with provided email")
+
+            if not user.verify_password(password):
+                raise AuthCredentialsInvalidError("Incorrect password")
+
+            public_id = str(uuid.uuid4())
+            now = utcnow()
+            expired_at = now + timedelta(seconds=self.settings.auth.session_ttl_seconds)
+            session_repo = UserSessionRepository(session=uow.session)
+            await session_repo.create(
+                public_id=public_id,
+                user_id=user.id,
+                refresh_token=None,
+                is_active=True,
+                expired_at=expired_at,
+                created_at=now,
+                refreshed_at=now,
+            )
+            uow.mark_for_commit()
+
+        session_cookie = Cookie(
+            key=self.settings.auth.session_cookie_name,
+            value=public_id,
+            max_age=self.settings.auth.session_ttl_seconds,
+            httponly=True,
+            secure=self.settings.auth_cookie_secure_effective(),
+            samesite="lax",
+            path="/",
+        )
+        return user, session_cookie
+
+    async def logout(self) -> Cookie:
+        public_id = self.connection.cookies.get(self.settings.auth.session_cookie_name)
+        if public_id:
+            async with SASessionUOW() as uow:
+                repo = UserSessionRepository(session=uow.session)
+                await repo.deactivate_by_public_id(public_id)
+
+        clear_cookie = Cookie(
+            key=self.settings.auth.session_cookie_name,
+            value="",
+            max_age=0,
+            httponly=True,
+            secure=self.settings.auth_cookie_secure_effective(),
+            samesite="lax",
+            path="/",
+        )
+        return clear_cookie
 
 
 #

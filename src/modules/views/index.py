@@ -1,4 +1,4 @@
-from litestar import Request, get
+from litestar import get
 from litestar.response import Template
 
 from src.modules.db import SASessionUOW
