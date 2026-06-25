@@ -9,6 +9,7 @@ from litestar.exceptions import PermissionDeniedException
 from litestar.handlers import BaseRouteHandler
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from modules.auth.tokens import issue_token_pair
 from src.modules.auth.types import AuthenticatedUserResult, ByTokenData, TokenData
 from src.modules.db import SASessionUOW, User
 from src.settings.app import AppSettings, get_app_settings
@@ -24,7 +25,7 @@ from src.modules.db.repositories import (
     UserSessionRepository,
 )
 from src.utils import hash_string, utcnow
-from src.modules.auth.utils import decode_jwt
+from src.modules.auth.utils import decode_jwt, TokenCollection
 from src.modules.auth.constants import LENGTH_USER_ACCESS_TOKEN, AuthTokenType
 
 logger = logging.getLogger(__name__)
@@ -172,6 +173,25 @@ class AuthBackend:
 
 class APIAuthBackend(AuthBackend):
     """Header based authentication backend"""
+
+    @classmethod
+    async def _create_user_session(cls, user: User, settings: AppSettings) -> TokenCollection:
+        session_id = str(uuid.uuid4())
+        tokens = issue_token_pair(user_id=user.id, session_id=session_id, settings=settings)
+        async with SASessionUOW() as uow:
+            session_repo = UserSessionRepository(uow.session)
+            await session_repo.create(
+                public_id=session_id,
+                user_id=user.id,
+                refresh_token=tokens.refresh_token,
+                is_active=True,
+                expired_at=tokens.refresh_token_expired_at,
+                created_at=utcnow(),
+                refreshed_at=utcnow(),
+            )
+            uow.mark_for_commit()
+
+        return tokens
 
 
 class WebAuthBackend(AuthBackend):
