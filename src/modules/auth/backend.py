@@ -1,15 +1,16 @@
 import logging
 import uuid
 from datetime import timedelta
+from typing import NamedTuple
 
 from jwt import InvalidTokenError, ExpiredSignatureError
 from litestar.connection import ASGIConnection
-from litestar.datastructures import Cookie
+from litestar.datastructures import Cookie, Address
 from litestar.exceptions import PermissionDeniedException
 from litestar.handlers import BaseRouteHandler
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from modules.auth.tokens import issue_token_pair
+from src.modules.auth.tokens import issue_token_pair
 from src.modules.auth.types import AuthenticatedUserResult, ByTokenData, TokenData
 from src.modules.db import SASessionUOW, User
 from src.settings.app import AppSettings, get_app_settings
@@ -23,6 +24,7 @@ from src.modules.db.repositories import (
     UserAccessTokenRepository,
     UserRepository,
     UserSessionRepository,
+    UserIPRepository,
 )
 from src.utils import hash_string, utcnow
 from src.modules.auth.utils import decode_jwt, TokenCollection
@@ -34,6 +36,12 @@ logger = logging.getLogger(__name__)
 def admin_user_guard(connection: ASGIConnection, _: BaseRouteHandler) -> None:
     if not connection.user.is_superuser:
         raise PermissionDeniedException()
+
+
+class SuccessLoginData(NamedTuple):
+    user: User
+    cookie: Cookie | None = None
+    tokens: TokenCollection | None = None
 
 
 class AuthBackend:
@@ -69,6 +77,9 @@ class AuthBackend:
             )
 
         return auth_result
+
+    async def login(self, email: str, password: str) -> SuccessLoginData:
+        raise NotImplementedError
 
     async def _authenticate_user(
         self,
@@ -170,14 +181,53 @@ class AuthBackend:
     def _seems_like_user_access_token(token: str) -> bool:
         return len(token) == LENGTH_USER_ACCESS_TOKEN and len(token.split(".")) == 1
 
+    async def _register_user_ip(self) -> None:
+        """Best-effort IP history registration used by sign-in and profile requests."""
+        # TODO: move to middleware?
+        request, settings = self.connection, self.settings
+        address = request.headers.get(settings.request_ip_header)
+        if not address:
+            client: Address = request.client or Address(settings.default_request_user_ip, port=0)
+            address = client.host
+
+        user = request.user
+        hashed_address = hash_string(address or settings.default_request_user_ip)
+        try:
+            async with SASessionUOW() as uow:
+                repository = UserIPRepository(uow.session)
+                if await repository.first(user_id=user.id, hashed_address=hashed_address) is None:
+                    await repository.create(
+                        user_id=user.id,
+                        hashed_address=hashed_address,
+                        registered_by="",
+                    )
+                    uow.mark_for_commit()
+
+        except Exception as exc:
+            logger.exception("[API] Failed to register IP for user #%s (%r)", user.id, exc)
+
 
 class APIAuthBackend(AuthBackend):
     """Header based authentication backend"""
 
-    @classmethod
-    async def _create_user_session(cls, user: User, settings: AppSettings) -> TokenCollection:
+    async def login(self, email: str, password: str) -> SuccessLoginData:
+        async with SASessionUOW() as uow:
+            user_repo = UserRepository(uow.session)
+            user = await user_repo.get_by_email(email)
+
+        if user is None or not user.is_active:
+            raise AuthCredentialsInvalidError(details="Active user not found")
+
+        if not user.verify_password(password):
+            raise AuthCredentialsInvalidError(details="Unable to authenticate user")
+
+        tokens = await self._create_user_session(user)
+        await self._register_user_ip()
+        return SuccessLoginData(user=user, tokens=tokens, cookie=None)
+
+    async def _create_user_session(self, user: User) -> TokenCollection:
         session_id = str(uuid.uuid4())
-        tokens = issue_token_pair(user_id=user.id, session_id=session_id, settings=settings)
+        tokens = issue_token_pair(user_id=user.id, session_id=session_id, settings=self.settings)
         async with SASessionUOW() as uow:
             session_repo = UserSessionRepository(uow.session)
             await session_repo.create(
@@ -211,7 +261,7 @@ class WebAuthBackend(AuthBackend):
 
         return auth_result
 
-    async def login(self, email: str, password: str) -> tuple[User, Cookie]:
+    async def login(self, email: str, password: str) -> SuccessLoginData:
         if not all([email, password]):
             raise AuthCredentialsInvalidError("Email or password is required.")
 
@@ -248,7 +298,8 @@ class WebAuthBackend(AuthBackend):
             samesite="lax",
             path="/",
         )
-        return user, session_cookie
+        await self._register_user_ip()
+        return SuccessLoginData(user=user, cookie=session_cookie)
 
     async def logout(self) -> Cookie:
         public_id = self.connection.cookies.get(self.settings.auth.session_cookie_name)
