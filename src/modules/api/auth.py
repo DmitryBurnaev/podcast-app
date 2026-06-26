@@ -7,8 +7,13 @@ from litestar.status_codes import HTTP_201_CREATED, HTTP_204_NO_CONTENT
 
 from src.constants import AuthSkip
 from src.modules.api.base import BaseApiController
-from src.exceptions import AuthInvalidAPIError, InvalidParametersAPIError, StateConflictAPIError
-from src.modules.auth.backend import admin_user_guard
+from src.exceptions import (
+    AuthInvalidAPIError,
+    InvalidParametersAPIError,
+    StateConflictAPIError,
+    AuthenticationError,
+)
+from src.modules.auth.backend import admin_user_guard, APIAuthBackend
 from src.modules.auth.tokens import (
     AuthTokenType,
     TokenPayload,
@@ -96,24 +101,30 @@ class AuthCoreAPIController(BaseAuthAPIController):
     }
 
     @post("/sign-in/")
-    async def sign_in(self, request: Request, settings: AppSettings) -> TokenResponse:
+    async def sign_in(
+        self,
+        request: Request,
+        sign_in_data: SignInRequest,
+    ) -> TokenResponse:
         """Authenticate a user and issue a token pair."""
         try:
-            data = SignInRequest.model_validate(await request.json())
-        except Exception as exc:
-            raise InvalidParametersAPIError(details=str(exc)) from exc
+            auth_backend = APIAuthBackend(request)
+            success_login = await auth_backend.login(
+                email=sign_in_data.email,
+                password=sign_in_data.password,
+            )
+        except AuthenticationError as err:
+            raise AuthInvalidAPIError(details=err.details) from err
 
-        async with SASessionUOW() as uow:
-            user_repo = UserRepository(uow.session)
-            user = await user_repo.get_by_email(str(data.email))
+        tokens = success_login.tokens
+        if not tokens:
+            raise AuthInvalidAPIError(details="Unable to continue: no token calculated")
 
-        if user is None or not user.is_active or not user.verify_password(data.password):
-            raise AuthInvalidAPIError(details="Email or password is invalid.")
-
-        tokens = await create_user_session(user, settings=settings)
-        await self._register_user_ip(request, user, settings=settings)
-        logger.info("[API] User signed in: #%s", user.id)
-        return TokenResponse(access_token=tokens.access_token, refresh_token=tokens.refresh_token)
+        logger.info("[API] User signed in: #%s", success_login.user.id)
+        return TokenResponse(
+            access_token=tokens.access_token,
+            refresh_token=tokens.refresh_token,
+        )
 
     @post("/sign-up/", status_code=HTTP_201_CREATED)
     async def sign_up(self, data: SignUpRequest, settings: AppSettings) -> TokenResponse:
@@ -318,7 +329,7 @@ class AuthProfileAPIController(BaseAuthAPIController):
         settings: AppSettings,
     ) -> UserResponse:
         """Return the current authenticated user."""
-        await self._register_user_ip(request, settings=settings)
+        # await self._register_user_ip(request, settings=settings)
         return UserResponse.model_validate(request.user, from_attributes=True)
 
     @patch("/me/")
