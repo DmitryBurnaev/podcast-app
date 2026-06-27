@@ -1,0 +1,63 @@
+{% extends "sqladmin/layout.html" %}
+{% block content %}
+<div class="col-sm-6 col-lg-3">
+  <div class="card">
+    <div class="card-body">
+      <div class="subheader">Total users</div>
+      <div class="h1 mb-0">{{ stats.total_users }}</div>
+    </div>
+  </div>
+</div>
+<div class="col-sm-6 col-lg-3">
+  <div class="card">
+    <div class="card-body">
+      <div class="subheader">Active users</div>
+      <div class="h1 mb-0">{{ stats.active_users }}</div>
+    </div>
+  </div>
+</div>
+<div class="col-sm-6 col-lg-3">
+  <div class="card">
+    <div class="card-body">
+      <div class="subheader">Podcasts</div>
+      <div class="h1 mb-0">{{ stats.podcasts }}</div>
+    </div>
+  </div>
+</div>
+<div class="col-sm-6 col-lg-3">
+  <div class="card">
+    <div class="card-body">
+      <div class="subheader">Episodes</div>
+      <div class="h1 mb-0">{{ stats.episodes }}</div>
+    </div>
+  </div>
+</div>
+<div class="col-lg-8">
+  <div class="card">
+    <div class="card-header">
+      <h3 class="card-title">Episodes by status</h3>
+    </div>
+    <div class="table-responsive">
+      <table class="table table-vcenter card-table">
+        <tbody>
+        {% for status, count in stats.episodes_by_status.items() %}
+          <tr>
+            <td>{{ status }}</td>
+            <td class="text-end text-secondary">{{ count }}</td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+<div class="col-lg-4">
+  <div class="card">
+    <div class="card-body">
+      <div class="subheader">Media storage</div>
+      <div class="h1 mb-2">{{ stats.media_storage_usage_label }}</div>
+      <div class="text-secondary">{{ stats.media_storage_usage }} bytes</div>
+    </div>
+  </div>
+</div>
+{% endblock %}

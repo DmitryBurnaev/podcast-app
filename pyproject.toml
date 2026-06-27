@@ -21,6 +21,7 @@ dependencies = [
     "pyjwt==2.13.0",
     "sentry-sdk[litestar,rq]==2.61.1",
     "aiosmtplib==5.1.1",
+    "sqladmin[full]==0.27.2",
 ]
 
 [dependency-groups]
@@ -29,6 +30,7 @@ dev = [
     "types-yt-dlp==2026.3.17.20260605",
     "types-aioboto3==15.*",
     "botocore-stubs==1.43.14",
+    "types-WTForms==3.2.1.20260518",
     # testing
     "pytest>=9,<10",
     "pytest-asyncio==1.4.0",

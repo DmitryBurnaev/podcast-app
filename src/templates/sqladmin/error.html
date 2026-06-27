@@ -1,0 +1,14 @@
+{% extends "sqladmin/layout.html" %}
+{% block body %}
+<div class="page page-center">
+  <div class="container-tight py-4">
+    <div class="empty">
+      <div class="empty-header">{{ status_code }}</div>
+      <p class="empty-title">{{ message }}</p>
+      <div class="empty-action">
+        <a href="{{ url_for('admin:index') }}" class="btn btn-primary">Back to dashboard</a>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

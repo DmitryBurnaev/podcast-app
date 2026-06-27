@@ -22,6 +22,7 @@ from src.constants import AuthSkip
 from src.exceptions import BaseApplicationError, StartupError, StorageConfigurationError, APIError
 from src.modules.auth.middlewares import APIAuthMiddleware, WebAuthMiddleware
 from src.modules.auth.utils import provide_current_user
+from src.modules.admin import create_admin_route
 from src.modules.db import close_database, initialize_database, verify_database_reachable
 from src.modules.services.redis import check_redis_connection, close_async_redis_connection
 from src.modules.services.storage import validate_s3_settings
@@ -131,6 +132,7 @@ def make_app(settings: AppSettings | None = None) -> PodcastApp:
         route_handlers=[
             *BaseApiController.get_controllers(),
             *BaseViewController.get_controllers(),
+            create_admin_route(app_settings),
         ],
         middleware=[
             DefineMiddleware(APIAuthMiddleware, exclude_from_auth_key=AuthSkip.SKIP_AUTH_API),
