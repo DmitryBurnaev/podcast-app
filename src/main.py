@@ -147,7 +147,7 @@ def make_app(settings: AppSettings | None = None) -> PodcastApp:
                 },
             ),
         ],
-        lifespan=[lambda: lifespan(app_settings)],
+        lifespan=[lambda _: lifespan(app_settings)],
         debug=app_settings.flags.debug_mode,
         exception_handlers={
             APIError: api_error_handler,

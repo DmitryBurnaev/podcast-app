@@ -1,12 +1,11 @@
 import logging
 from typing import Any, cast
 
-from exceptions import APIError
 from litestar.connection import Request
 from litestar.exceptions import HTTPException, ValidationException
 from litestar.response import Response
 
-from src.exceptions import BaseApplicationError
+from src.exceptions import APIError, BaseApplicationError
 from src.modules.schemas.errors import ErrorCode, ErrorPayload, ErrorResponse
 
 logger = logging.getLogger(__name__)

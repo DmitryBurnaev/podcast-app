@@ -1,4 +1,5 @@
 import logging
+import json
 from functools import lru_cache
 from typing import Annotated, TypedDict, Any
 
@@ -36,6 +37,23 @@ class LoggingRequestForStaticsFilter(logging.Filter):
         return "statics" not in record.getMessage().lower()
 
 
+class JsonFormatter(logging.Formatter):
+    """Format log records as compact JSON lines."""
+
+    def format(self, record: logging.LogRecord) -> str:
+        payload = {
+            "timestamp": self.formatTime(record, self.datefmt),
+            "level": record.levelname,
+            "logger": record.name,
+            "module": record.module,
+            "line": record.lineno,
+            "message": record.getMessage(),
+        }
+        if record.exc_info:
+            payload["exception"] = self.formatException(record.exc_info)
+        return json.dumps(payload, ensure_ascii=False)
+
+
 class LogSettings(BaseSettings):
     """Implements settings which are loaded from environment variables"""
 
@@ -54,14 +72,23 @@ class LogSettings(BaseSettings):
         if self.skip_static_access:
             filters.append(LoggingRequestForStaticsFilter("skip-static-access"))
 
+        formatter: dict[str, str]
+        if self.format.lower() == "json":
+            formatter = {
+                "()": "src.settings.log.JsonFormatter",
+                "datefmt": self.datefmt,
+            }
+        else:
+            formatter = {
+                "format": self.format,
+                "datefmt": self.datefmt,
+            }
+
         return {
             "version": 1,
             "disable_existing_loggers": False,
             "formatters": {
-                "standard": {
-                    "format": self.format,
-                    "datefmt": self.datefmt,
-                },
+                "standard": formatter,
             },
             "handlers": {
                 "console": {

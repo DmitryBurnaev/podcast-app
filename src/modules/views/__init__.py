@@ -3,7 +3,7 @@ from .media import MediaByTokenController
 from .podcasts import PodcastsController, PodcastCoverController, PodcastsDetailsController
 from .episodes import EpisodesController, EpisodeCoverController, EpisodeDetailsController
 from .system import AboutController
-from .auth import AuthController
+from .auth import AuthLoginController, AuthLogoutController
 from .users import ProfileController
 
 __all__ = (
@@ -15,7 +15,8 @@ __all__ = (
     "PodcastsController",
     "PodcastsDetailsController",
     "PodcastCoverController",
-    "AuthController",
+    "AuthLoginController",
+    "AuthLogoutController",
     "ProfileController",
     "AboutController",
 )
