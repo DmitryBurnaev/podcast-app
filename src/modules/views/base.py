@@ -14,10 +14,16 @@ from src.modules.auth.backend import TokenData
 from src.modules.db import User
 from src.modules.tasks.base import RQTask
 
-__all__ = ("BaseViewController",)
+__all__ = ("BaseViewController", "get_optional_user")
 logger = logging.getLogger(__name__)
 type AppRequest = Request[User, TokenData, State]
 type AppRequestMayBeAuthenticated = Request[User | None, TokenData | None, State]
+
+
+def get_optional_user(request: Request) -> User | None:
+    """Return authenticated user when auth middleware populated the request scope."""
+    user = request.scope.get("user")
+    return user if isinstance(user, User) else None
 
 
 class TaskQueueApp(Protocol):
@@ -44,7 +50,7 @@ class BaseViewController(Controller):
     @staticmethod
     def get_base_context(request: AppRequestMayBeAuthenticated) -> dict[str, Any]:
         """Return context values shared by all HTML views."""
-        current_user = request.user
+        current_user = get_optional_user(request)
         user_data: dict[str, Any] = {
             "name": None,
             "email": None,
@@ -60,7 +66,7 @@ class BaseViewController(Controller):
         return {
             "current": "home",
             "navigation": const.NAVIGATION,
-            "is_authenticated": request.user is not None,
+            "is_authenticated": current_user is not None,
             "user_data": user_data,
             "get_episode_status_color": const.get_episode_status_color,
             "get_episode_status_label": const.get_episode_status_label,

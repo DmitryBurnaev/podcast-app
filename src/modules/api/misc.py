@@ -6,6 +6,7 @@ from typing import Any, Iterable, cast
 import yt_dlp
 from litestar import get
 
+from src.constants import AuthSkip
 from src.modules.api.base import BaseApiController
 from src.exceptions import InvalidParametersAPIError
 from src.modules.db import User
@@ -31,6 +32,7 @@ logger = logging.getLogger(__name__)
 
 class SystemAPIController(BaseApiController):
     tags = ["System"]
+    opt = BaseApiController.opt | {AuthSkip.SKIP_AUTH_API: True}
 
     @get("/api/system/info/")
     async def system_info(self, settings: AppSettings) -> SystemInfo:
@@ -113,7 +115,7 @@ class ProgressAPIController(BaseApiController):
                 episode = await episode_repository.first(id=episode_id)
                 episodes = [episode] if episode else []
             else:
-                episodes = await Episode.get_in_progress(uow.session)
+                episodes = await Episode.get_in_progress(uow.session, user_id=current_user.id)
 
             states = await check_state(episodes)
 

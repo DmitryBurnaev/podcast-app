@@ -134,48 +134,6 @@ def cut_string(value: str | None, max_length: int = 128, placeholder: str = "...
     return value[:max_length] + placeholder if len(value) > max_length else value
 
 
-def custom_exception_handler(_, exc):
-    """
-    Returns the response that should be used for any given exception.
-    Response will be formatted by our format: {"error": "text", "detail": details}
-    """
-
-    def log_message(data, level=logging.ERROR):
-        """
-        Helps to log caught errors by exception handler
-        """
-        error_details = {
-            "error": data.get("error", "Unbound exception"),
-            "details": data.get("details", str(exc)),
-        }
-        message = "{exc.__class__.__name__} '{error}': [{details}]".format(exc=exc, **error_details)
-        logger.log(level, message, exc_info=(level == logging.ERROR))
-
-    error_message = "Something went wrong!"
-    error_details = f"Raised Error: {exc.__class__.__name__}"
-    status_code = getattr(exc, "status_code", status.HTTP_500_INTERNAL_SERVER_ERROR)
-    response_status = ResponseStatus.INTERNAL_ERROR
-    if isinstance(exc, BaseApplicationError):
-        error_message = exc.message
-        error_details = exc.details
-        response_status = exc.response_status
-
-    elif isinstance(exc, WebargsHTTPException):
-        error_message = "Requested data is not valid."
-        error_details = exc.messages.get("json") or exc.messages.get("form") or exc.messages
-        status_code = status.HTTP_400_BAD_REQUEST
-        response_status = ResponseStatus.INVALID_PARAMETERS
-
-    payload = {"error": error_message}
-    if settings.APP_DEBUG or response_status == ResponseStatus.INVALID_PARAMETERS:
-        payload["details"] = error_details
-
-    response_data = {"status": response_status, "payload": payload}
-    log_level = logging.ERROR if httpx.codes.is_server_error(status_code) else logging.WARNING
-    log_message(data=response_data["payload"], level=log_level)
-    return JSONResponse(response_data, status_code=status_code)
-
-
 def hash_string(source_string: str) -> str:
     """
     Allows to limit source_string and append required sequence

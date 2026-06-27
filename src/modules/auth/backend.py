@@ -27,7 +27,8 @@ from src.modules.db.repositories import (
     UserIPRepository,
 )
 from src.utils import hash_string, utcnow
-from src.modules.auth.utils import decode_jwt, TokenCollection
+from src.modules.auth.tokens import TokenCollection
+from src.modules.auth.utils import decode_jwt
 from src.modules.auth.constants import LENGTH_USER_ACCESS_TOKEN, AuthTokenType
 
 logger = logging.getLogger(__name__)

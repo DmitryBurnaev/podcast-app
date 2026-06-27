@@ -1,7 +1,7 @@
 import logging
-from typing import TYPE_CHECKING
 from dataclasses import dataclass
 from datetime import datetime, timedelta
+from typing import cast
 
 import jwt
 from jwt import InvalidTokenError
@@ -14,9 +14,9 @@ from src.settings.app import AppSettings
 from src.utils import hash_string, utcnow
 from src.modules.auth.constants import AuthTokenType
 
-if TYPE_CHECKING:
-    from src.modules.views.base import AppRequest
-    from src.modules.db.models import User
+# if TYPE_CHECKING:
+#     from src.modules.views.base import AppRequest
+#     from src.modules.db.models import User
 
 logger = logging.getLogger(__name__)
 
@@ -46,7 +46,11 @@ def encode_jwt(
     payload["exp"] = expired_at
     payload["exp_iso"] = expired_at.isoformat()
     payload["token_type"] = str(token_type).lower()
-    token = jwt.encode(payload, settings.app_secret_key, algorithm=settings.jwt_algorithm)
+    token = jwt.encode(
+        payload,
+        settings.app_secret_key.get_secret_value(),
+        algorithm=settings.jwt_algorithm,
+    )
     return token, expired_at
 
 
@@ -56,9 +60,12 @@ def decode_jwt(encoded_jwt: str, settings: AppSettings) -> TokenData:
     if parts_count != 3:
         raise InvalidTokenError("Not enough segments")
 
-    raw_data = jwt.decode(encoded_jwt, settings.app_secret_key, algorithms=[settings.jwt_algorithm])
-    # TODO: ensure that returns TokenData
-    return TokenData(**raw_data)
+    raw_data = jwt.decode(
+        encoded_jwt,
+        settings.app_secret_key.get_secret_value(),
+        algorithms=[settings.jwt_algorithm],
+    )
+    return cast(TokenData, raw_data)
 
 
 def extract_ip_address(request: Request, settings: AppSettings) -> str | None:
@@ -99,7 +106,7 @@ async def register_ip(request: Request, db_session: AsyncSession, settings: AppS
         logger.debug("Created NEW UserIP record for: %s | ip: %s", user_ip_data, ip_address)
 
 
-def provide_current_user(request: "AppRequest") -> "User":
+def provide_current_user(request: Request):
     """
     Simple dependency for getting current user from request object
     Provides by `src.modules.auth.middlewares.APIAuthMiddleware.authenticate_request`

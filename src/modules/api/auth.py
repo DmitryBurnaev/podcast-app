@@ -3,7 +3,7 @@ from datetime import timedelta
 
 from litestar import Request, delete, get, patch, post
 from litestar.datastructures import Address
-from litestar.status_codes import HTTP_201_CREATED, HTTP_204_NO_CONTENT
+from litestar.status_codes import HTTP_200_OK, HTTP_201_CREATED, HTTP_204_NO_CONTENT
 
 from src.constants import AuthSkip
 from src.modules.api.base import BaseApiController
@@ -72,7 +72,9 @@ class BaseAuthAPIController(BaseApiController):
         """Best-effort IP history registration used by sign-in and profile requests."""
         address = request.headers.get(settings.request_ip_header)
         if not address:
-            client: Address = request.client or Address(host=settings.default_request_user_ip)
+            client: Address = request.client or Address(
+                host=settings.default_request_user_ip, port=0
+            )
             address = client.host
 
         user = request.user
@@ -227,7 +229,7 @@ class AuthCoreAPIController(BaseAuthAPIController):
 class AuthExtendedAPIController(BaseAuthAPIController):
     """Auth controllers which requires authentication."""
 
-    @delete("/sign-out/")
+    @delete("/sign-out/", status_code=HTTP_200_OK)
     async def sign_out(self, current_user: User, request: Request) -> OKResponse:
         """Deactivate the current authenticated API session."""
         api_auth = getattr(request.state, "api_auth", None)
@@ -239,22 +241,6 @@ class AuthExtendedAPIController(BaseAuthAPIController):
                 uow.mark_for_commit()
 
         logger.info("[API] User signed out: #%s", current_user.id)
-        return OKResponse()
-
-    @post("/reset-password/", guards=[admin_user_guard])
-    async def reset_password(self, data: ResetPasswordRequest, settings: AppSettings) -> OKResponse:
-        """Send a password reset link without exposing account existence."""
-        async with SASessionUOW() as uow:
-            user = await UserRepository(uow.session).get_by_email(str(data.email))
-
-        if user is not None and user.is_active:
-            token, _ = encode_jwt(
-                TokenPayload(user_id=user.id, token_type=AuthTokenType.RESET_PASSWORD),
-                settings=settings,
-                expires_in=settings.reset_password_link_expires_in,
-            )
-            await _send_reset_password_email(user, token, settings=settings)
-
         return OKResponse()
 
 
