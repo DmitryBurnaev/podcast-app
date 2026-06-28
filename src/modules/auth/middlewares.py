@@ -6,9 +6,6 @@ from litestar.middleware import AbstractAuthenticationMiddleware, Authentication
 
 from src.modules.auth.backend import WebAuthBackend, APIAuthBackend
 
-# from src.modules.auth.tokens import authenticate_bearer_request
-# from src.settings.app import get_app_settings
-
 logger = logging.getLogger(__name__)
 type SessionPayloadT = Optional[dict[str, Any]]
 

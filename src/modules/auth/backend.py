@@ -182,7 +182,7 @@ class AuthBackend:
     def _seems_like_user_access_token(token: str) -> bool:
         return len(token) == LENGTH_USER_ACCESS_TOKEN and len(token.split(".")) == 1
 
-    async def _register_user_ip(self) -> None:
+    async def register_user_ip(self) -> None:
         """Best-effort IP history registration used by sign-in and profile requests."""
         # TODO: move to middleware?
         request, settings = self.connection, self.settings
@@ -223,7 +223,7 @@ class APIAuthBackend(AuthBackend):
             raise AuthCredentialsInvalidError(details="Unable to authenticate user")
 
         tokens = await self._create_user_session(user)
-        await self._register_user_ip()
+        await self.register_user_ip()
         return SuccessLoginData(user=user, tokens=tokens, cookie=None)
 
     async def _create_user_session(self, user: User) -> TokenCollection:
@@ -299,7 +299,7 @@ class WebAuthBackend(AuthBackend):
             samesite="lax",
             path="/",
         )
-        await self._register_user_ip()
+        await self.register_user_ip()
         return SuccessLoginData(user=user, cookie=session_cookie)
 
     async def logout(self) -> Cookie:
