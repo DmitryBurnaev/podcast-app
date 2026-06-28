@@ -2,7 +2,6 @@ import logging
 from datetime import timedelta
 
 from litestar import Request, delete, get, patch, post
-from litestar.datastructures import Address
 from litestar.status_codes import HTTP_200_OK, HTTP_201_CREATED, HTTP_204_NO_CONTENT
 
 from src.constants import AuthSkip
@@ -66,32 +65,6 @@ class BaseAuthAPIController(BaseApiController):
 
     path = "/api/auth"
     tags = ["Auth"]
-
-    @classmethod
-    async def _register_user_ip(cls, request: AppRequest, settings: AppSettings) -> None:
-        """Best-effort IP history registration used by sign-in and profile requests."""
-        address = request.headers.get(settings.request_ip_header)
-        if not address:
-            client: Address = request.client or Address(
-                host=settings.default_request_user_ip, port=0
-            )
-            address = client.host
-
-        user = request.user
-        hashed_address = hash_string(address or settings.default_request_user_ip)
-        try:
-            async with SASessionUOW() as uow:
-                repository = UserIPRepository(uow.session)
-                if await repository.first(user_id=user.id, hashed_address=hashed_address) is None:
-                    await repository.create(
-                        user_id=user.id,
-                        hashed_address=hashed_address,
-                        registered_by="",
-                    )
-                    uow.mark_for_commit()
-
-        except Exception as exc:
-            logger.exception("[API] Failed to register IP for user #%s (%r)", user.id, exc)
 
 
 class AuthCoreAPIController(BaseAuthAPIController):
@@ -309,13 +282,9 @@ class AuthInviteAPIController(BaseAuthAPIController):
 
 class AuthProfileAPIController(BaseAuthAPIController):
     @get("/me/")
-    async def me(
-        self,
-        request: AppRequest,
-        settings: AppSettings,
-    ) -> UserResponse:
+    async def me(self, request: AppRequest) -> UserResponse:
         """Return the current authenticated user."""
-        # await self._register_user_ip(request, settings=settings)
+        await APIAuthBackend(connection=request).register_user_ip()
         return UserResponse.model_validate(request.user, from_attributes=True)
 
     @patch("/me/")
