@@ -11,6 +11,7 @@ from src.exceptions import (
     InvalidParametersAPIError,
     StateConflictAPIError,
     AuthenticationError,
+    APIError,
 )
 from src.modules.auth.backend import admin_user_guard, APIAuthBackend
 from src.modules.auth.tokens import (
@@ -203,15 +204,14 @@ class AuthExtendedAPIController(BaseAuthAPIController):
     """Auth controllers which requires authentication."""
 
     @delete("/sign-out/", status_code=HTTP_200_OK)
-    async def sign_out(self, current_user: User, request: Request) -> OKResponse:
+    async def sign_out(self, current_user: User, request: AppRequest) -> OKResponse:
         """Deactivate the current authenticated API session."""
-        api_auth = getattr(request.state, "api_auth", None)
-        session_id: str | None = getattr(api_auth, "session_id", None)
-        if session_id is not None:
-            async with SASessionUOW() as uow:
-                session_repo = UserSessionRepository(uow.session)
-                await session_repo.deactivate_by_public_id(session_id)
-                uow.mark_for_commit()
+        try:
+            auth_backend = APIAuthBackend(request)
+            await auth_backend.logout()
+        except AuthenticationError as err:
+            logger.info("[API] User unable to signed out: %r", err)
+            raise APIError(details=err.details) from err
 
         logger.info("[API] User signed out: #%s", current_user.id)
         return OKResponse()

@@ -35,6 +35,9 @@ logger = logging.getLogger(__name__)
 
 
 def admin_user_guard(connection: ASGIConnection, _: BaseRouteHandler) -> None:
+    """
+    Guard for admin user authentication (protects some admin views/ API endpoints).
+    """
     if not connection.user.is_superuser:
         raise PermissionDeniedException()
 
@@ -56,30 +59,12 @@ class AuthBackend:
         self.header_keyword: str = header_keyword if header_keyword else self.keyword
 
     async def authenticate(self) -> AuthenticatedUserResult:
-        headers = self.connection.headers
-        auth_header = headers.get("Authorization") or headers.get("authorization")
-        if not auth_header:
-            raise AuthMissingCredentialsError("Invalid token header. No credentials provided.")
-
-        auth = auth_header.split()
-        if len(auth) != 2:
-            logger.warning("Trying to authenticate with header %s", auth_header)
-            raise AuthCredentialsInvalidError(
-                "Invalid token header. Token should be format as JWT."
-            )
-
-        if auth[0] != self.header_keyword:
-            raise AuthCredentialsInvalidError("Invalid token header. Keyword mismatch.")
-
-        async with SASessionUOW() as uow:
-            auth_result = await self._authenticate_user(
-                jwt_token=auth[1],
-                db_session=uow.session,
-            )
-
-        return auth_result
+        raise NotImplementedError
 
     async def login(self, email: str, password: str) -> SuccessLoginData:
+        raise NotImplementedError
+
+    async def logout(self) -> Cookie | None:
         raise NotImplementedError
 
     async def _authenticate_user(
@@ -211,6 +196,38 @@ class AuthBackend:
 class APIAuthBackend(AuthBackend):
     """Header based authentication backend"""
 
+    async def authenticate(self) -> AuthenticatedUserResult:
+        headers = self.connection.headers
+        auth_header = headers.get("Authorization") or headers.get("authorization")
+        if not auth_header:
+            raise AuthMissingCredentialsError("Invalid token header. No credentials provided.")
+
+        auth = auth_header.split()
+        if len(auth) != 2:
+            logger.warning("Trying to authenticate with header %s", auth_header)
+            raise AuthCredentialsInvalidError(
+                "Invalid token header. Token should be format as JWT."
+            )
+
+        if auth[0] != self.header_keyword:
+            raise AuthCredentialsInvalidError("Invalid token header. Keyword mismatch.")
+
+        async with SASessionUOW() as uow:
+            auth_result = await self._authenticate_user(
+                jwt_token=auth[1],
+                db_session=uow.session,
+            )
+
+        return auth_result
+
+    async def logout(self) -> None:
+        # TODO: recheck logic against the authenticate method in this backend!
+        session_id: str | None = self.connection.session.get("id")
+        if session_id is not None:
+            async with SASessionUOW() as uow:
+                session_repo = UserSessionRepository(uow.session)
+                await session_repo.deactivate_by_public_id(session_id)
+
     async def login(self, email: str, password: str) -> SuccessLoginData:
         async with SASessionUOW() as uow:
             user_repo = UserRepository(uow.session)
@@ -319,29 +336,3 @@ class WebAuthBackend(AuthBackend):
             path="/",
         )
         return clear_cookie
-
-
-#
-# class LoginRequiredAuthBackend(BaseAuthBackend):
-#     """Each request must have filled `user` attribute"""
-#
-#
-# class AdminRequiredAuthBackend(BaseAuthBackend):
-#     """Login-ed used must have `is_superuser` attribute"""
-#
-#     async def authenticate_user(
-#         self,
-#         jwt_token: str,
-#         token_type: AuthTokenType = AuthTokenType.ACCESS,
-#     ) -> tuple[User, dict | None, str | None]:
-#         """
-#         Authenticate user by jwt_token and check that current user is superuser
-#
-#         :param jwt_token: Currently detected JWT token
-#         :param token_type: expected token's type (access or refresh)
-#         """
-#         user, jwt_payload, session_id = await super().authenticate_user(jwt_token)
-#         if not user.is_superuser:
-#             raise PermissionDeniedError("You don't have an admin privileges.")
-#
-#         return user, jwt_payload, session_id
