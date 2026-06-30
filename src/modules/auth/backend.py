@@ -167,7 +167,7 @@ class AuthBackend:
     def _seems_like_user_access_token(token: str) -> bool:
         return len(token) == LENGTH_USER_ACCESS_TOKEN and len(token.split(".")) == 1
 
-    async def register_user_ip(self) -> None:
+    async def register_user_ip(self, user: User | None = None) -> None:
         """Best-effort IP history registration used by sign-in and profile requests."""
         # TODO: move to middleware?
         request, settings = self.connection, self.settings
@@ -176,14 +176,14 @@ class AuthBackend:
             client: Address = request.client or Address(settings.default_request_user_ip, port=0)
             address = client.host
 
-        user = request.user
+        _user: User = user or request.user
         hashed_address = hash_string(address or settings.default_request_user_ip)
         try:
             async with SASessionUOW() as uow:
                 repository = UserIPRepository(uow.session)
-                if await repository.first(user_id=user.id, hashed_address=hashed_address) is None:
+                if await repository.first(user_id=_user.id, hashed_address=hashed_address) is None:
                     await repository.create(
-                        user_id=user.id,
+                        user_id=_user.id,
                         hashed_address=hashed_address,
                         registered_by="",
                     )
@@ -240,7 +240,7 @@ class APIAuthBackend(AuthBackend):
             raise AuthCredentialsInvalidError(details="Unable to authenticate user")
 
         tokens = await self._create_user_session(user)
-        await self.register_user_ip()
+        await self.register_user_ip(user)
         return SuccessLoginData(user=user, tokens=tokens, cookie=None)
 
     async def _create_user_session(self, user: User) -> TokenCollection:
@@ -272,6 +272,7 @@ class WebAuthBackend(AuthBackend):
 
         async with SASessionUOW() as uow:
             auth_result = await self._authenticate_user(
+                # TODO: store JWT in cookie instead of plain uuid
                 jwt_token=cookie_jwt,
                 db_session=uow.session,
                 token_type=AuthTokenType.COOKIE_ACCESS,
@@ -316,7 +317,7 @@ class WebAuthBackend(AuthBackend):
             samesite="lax",
             path="/",
         )
-        await self.register_user_ip()
+        await self.register_user_ip(user)
         return SuccessLoginData(user=user, cookie=session_cookie)
 
     async def logout(self) -> Cookie:
