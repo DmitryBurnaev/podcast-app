@@ -12,10 +12,8 @@
             <div class="max-w-md mx-auto">
                 <div class="bg-slate-800 border border-slate-700 rounded-xl p-8 shadow-lg">
                     <h2 class="text-xl font-semibold text-white mb-6">Sign in</h2>
-                    {% if login_error == 'invalid' %}
-                    <p class="text-red-400 text-sm mb-4">Invalid email or password.</p>
-                    {% elif login_error == 'missing' %}
-                    <p class="text-red-400 text-sm mb-4">Please enter email and password.</p>
+                    {% if login_error %}
+                    <p class="text-red-400 text-sm mb-4">{{ login_error }}</p>
                     {% endif %}
                     <form method="post" action="/login" class="space-y-4">
                         <div>
