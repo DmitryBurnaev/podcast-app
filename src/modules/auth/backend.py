@@ -294,15 +294,15 @@ class WebAuthBackend(AuthBackend):
                 raise AuthCredentialsInvalidError("Incorrect password")
 
             public_id = str(uuid.uuid4())
+            tokens = issue_token_pair(user_id=user.id, session_id=public_id, settings=self.settings)
             now = utcnow()
-            expired_at = now + timedelta(seconds=self.settings.auth.session_ttl_seconds)
             session_repo = UserSessionRepository(session=uow.session)
             await session_repo.create(
                 public_id=public_id,
                 user_id=user.id,
                 refresh_token=None,
                 is_active=True,
-                expired_at=expired_at,
+                expired_at=tokens.access_token_expired_at,
                 created_at=now,
                 refreshed_at=now,
             )
@@ -310,7 +310,7 @@ class WebAuthBackend(AuthBackend):
 
         session_cookie = Cookie(
             key=self.settings.auth.session_cookie_name,
-            value=public_id,
+            value=tokens.access_token,
             max_age=self.settings.auth.session_ttl_seconds,
             httponly=True,
             secure=self.settings.auth_cookie_secure_effective(),

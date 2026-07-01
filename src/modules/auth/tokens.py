@@ -30,6 +30,7 @@ class AuthTokenType(StrEnum):
     REFRESH = "REFRESH"
     RESET_PASSWORD = "RESET_PASSWORD"
     USER_ACCESS = "USER_ACCESS"
+    COOKIE = "COOKIE"
 
 
 class TokenCollection(NamedTuple):
