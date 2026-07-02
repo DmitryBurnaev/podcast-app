@@ -19,7 +19,13 @@ from litestar.template import TemplateConfig
 from redis import Redis
 
 from src.constants import AuthSkip
-from src.exceptions import BaseApplicationError, StartupError, StorageConfigurationError, APIError
+from src.exceptions import (
+    BaseApplicationError,
+    StartupError,
+    StorageConfigurationError,
+    APIError,
+    AuthMissingCredentialsError,
+)
 from src.modules.auth.middlewares import APIAuthMiddleware, WebAuthMiddleware
 from src.modules.auth.utils import provide_current_user
 from src.modules.admin import create_admin_route
@@ -32,6 +38,7 @@ from src.modules.api.errors import (
     app_error_handler,
     http_error_handler,
     validation_error_handler,
+    http_redirect_handler,
 )
 from src.modules.views.base import BaseViewController
 from src.settings.app import APP_DIR, AppSettings, get_app_settings
@@ -156,6 +163,7 @@ def make_app(settings: AppSettings | None = None) -> PodcastApp:
             BaseApplicationError: app_error_handler,
             ValidationException: validation_error_handler,
             HTTPException: http_error_handler,
+            AuthMissingCredentialsError: http_redirect_handler,
         },
         dependencies={
             "settings": Provide(provide_settings, sync_to_thread=False),

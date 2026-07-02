@@ -268,7 +268,7 @@ class WebAuthBackend(AuthBackend):
     async def authenticate(self) -> AuthenticatedUserResult:
         cookie_jwt = self.connection.cookies.get(self.settings.auth.session_cookie_name)
         if not cookie_jwt:
-            raise AuthMissingCredentialsError("Auth: unable to resolve token from session cookie")
+            raise AuthMissingCredentialsError("Missing token from session cookie")
 
         async with SASessionUOW() as uow:
             auth_result = await self._authenticate_user(
