@@ -3,9 +3,9 @@ from typing import Any, cast
 
 from litestar.connection import Request
 from litestar.exceptions import HTTPException, ValidationException
-from litestar.response import Response
+from litestar.response import Response, Redirect
 
-from src.exceptions import APIError, BaseApplicationError
+from src.exceptions import APIError, BaseApplicationError, AuthenticationError
 from src.modules.schemas.errors import ErrorCode, ErrorPayload, ErrorResponse
 
 logger = logging.getLogger(__name__)
@@ -70,6 +70,12 @@ def validation_error_handler(_: Request, exc: ValidationException) -> Response[d
         details=getattr(exc, "extra", None) or getattr(exc, "detail", None),
         status_code=400,
     )
+
+
+def http_redirect_handler(_: Request, exc: AuthenticationError) -> Response[dict[str, Any]]:
+    logger.log(exc.log_level, "HTTP redirect occurred: %s", exc)
+    url = "/login"
+    return Redirect(path=url, status_code=302)
 
 
 def http_error_handler(_: Request, exc: HTTPException) -> Response[dict[str, Any]]:
