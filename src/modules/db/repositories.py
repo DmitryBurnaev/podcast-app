@@ -273,8 +273,11 @@ class BaseRepository(Generic[ModelT]):
         return field.desc() if sort_by.startswith("-") else field.asc()
 
     def _get_owner_kwarg(self) -> dict[str, int]:
-        if self.user_id and hasattr(self.model, "user_id"):
-            return {"owner_id": self.user_id}
+        if self.user_id:
+            if hasattr(self.model, "user_id"):
+                return {"user_id": self.user_id}
+            elif hasattr(self.model, "owner_id"):
+                return {"owner_id": self.user_id}
 
         return {}
 
@@ -398,6 +401,7 @@ class PodcastRepository(BaseRepository[Podcast]):
         if (ids := filters_dict.pop("ids", None)) and isinstance(ids, list):
             filters_stmts.append(Podcast.id.in_(ids))
 
+        filters_dict |= self._get_owner_kwarg()
         statement = statement.filter_by(**filters_dict)
         if filters_stmts:
             statement = statement.filter(*filters_stmts)

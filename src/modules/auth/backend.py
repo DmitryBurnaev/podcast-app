@@ -1,6 +1,5 @@
 import logging
 import uuid
-from datetime import timedelta
 from typing import NamedTuple
 
 from jwt import InvalidTokenError, ExpiredSignatureError
@@ -10,7 +9,12 @@ from litestar.exceptions import PermissionDeniedException
 from litestar.handlers import BaseRouteHandler
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.modules.auth.tokens import issue_token_pair
+from src.modules.auth.tokens import (
+    issue_token_pair,
+    encode_jwt,
+    TokenPayload,
+    AuthTokenType,
+)
 from src.modules.auth.types import AuthenticatedUserResult, ByTokenData, TokenData
 from src.modules.db import SASessionUOW, User
 from src.settings.app import AppSettings, get_app_settings
@@ -28,8 +32,10 @@ from src.modules.db.repositories import (
 )
 from src.utils import hash_string, utcnow
 from src.modules.auth.tokens import TokenCollection
+
+# TODO: use single point: src.modules.auth.utils + src.modules.auth.tokens -> src.modules.auth.utils
 from src.modules.auth.utils import decode_jwt
-from src.modules.auth.constants import LENGTH_USER_ACCESS_TOKEN, AuthTokenType
+from src.modules.auth.constants import LENGTH_USER_ACCESS_TOKEN
 
 logger = logging.getLogger(__name__)
 
@@ -190,7 +196,7 @@ class AuthBackend:
                     uow.mark_for_commit()
 
         except Exception as exc:
-            logger.exception("[API] Failed to register IP for user #%s (%r)", user.id, exc)
+            logger.exception("[API] Failed to register IP for user '%s': %r", user, exc)
 
 
 class APIAuthBackend(AuthBackend):
@@ -275,7 +281,7 @@ class WebAuthBackend(AuthBackend):
                 # TODO: store JWT in cookie instead of plain uuid
                 jwt_token=cookie_jwt,
                 db_session=uow.session,
-                token_type=AuthTokenType.COOKIE_ACCESS,
+                token_type=AuthTokenType.COOKIE,
             )
 
         return auth_result
@@ -294,7 +300,16 @@ class WebAuthBackend(AuthBackend):
                 raise AuthCredentialsInvalidError("Incorrect password")
 
             public_id = str(uuid.uuid4())
-            tokens = issue_token_pair(user_id=user.id, session_id=public_id, settings=self.settings)
+            access_token, access_exp = encode_jwt(
+                TokenPayload(
+                    user_id=user.id,
+                    session_id=public_id,
+                    token_type=AuthTokenType.COOKIE,
+                ),
+                settings=self.settings,
+                expires_in=self.settings.auth.session_ttl_seconds,
+            )
+            # tokens = issue_token_pair(user_id=user.id, session_id=public_id, settings=self.settings)
             now = utcnow()
             session_repo = UserSessionRepository(session=uow.session)
             await session_repo.create(
@@ -302,7 +317,7 @@ class WebAuthBackend(AuthBackend):
                 user_id=user.id,
                 refresh_token=None,
                 is_active=True,
-                expired_at=tokens.access_token_expired_at,
+                expired_at=access_exp,
                 created_at=now,
                 refreshed_at=now,
             )
@@ -310,7 +325,7 @@ class WebAuthBackend(AuthBackend):
 
         session_cookie = Cookie(
             key=self.settings.auth.session_cookie_name,
-            value=tokens.access_token,
+            value=access_token,
             max_age=self.settings.auth.session_ttl_seconds,
             httponly=True,
             secure=self.settings.auth_cookie_secure_effective(),

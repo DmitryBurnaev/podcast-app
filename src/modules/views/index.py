@@ -12,11 +12,12 @@ class IndexController(BaseViewController):
     async def get(self, request: AppRequest) -> Template:
         """Render the application dashboard."""
         async with SASessionUOW() as uow:
-            podcast_repository = PodcastRepository(session=uow.session, user_id=request.user.id)
+            user = request.user
+            podcast_repository = PodcastRepository(session=uow.session, user_id=user.id)
             podcasts, _ = await podcast_repository.all_with_aggregations()
-            episodes_repository = EpisodeRepository(session=uow.session, user_id=request.user.id)
+            episodes_repository = EpisodeRepository(session=uow.session, user_id=user.id)
             recent_episodes, _ = await episodes_repository.all_paginated(limit=7)
-            stats = await StatisticService(uow).get_app_statistics(owner_id=request.user.id)
+            stats = await StatisticService(uow).get_app_statistics(owner_id=user.id)
 
         return self.get_response_template(
             template_name="index.html",

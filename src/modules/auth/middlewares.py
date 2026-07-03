@@ -24,7 +24,7 @@ class APIAuthMiddleware(AbstractAuthenticationMiddleware):
         """
         auth_backend = APIAuthBackend(connection=connection, header_keyword="Bearer")
         auth_result = await auth_backend.authenticate()
-        return AuthenticationResult(user=auth_result, auth=auth_result.token_data)
+        return AuthenticationResult(user=auth_result.user, auth=auth_result.token_data)
 
 
 #         authenticated = await authenticate_bearer_request(
@@ -48,8 +48,7 @@ class WebAuthMiddleware(AbstractAuthenticationMiddleware):
         """
         auth_backend = WebAuthBackend(connection=connection)
         auth_result = await auth_backend.authenticate()
-        # _set_request_state(connection, current_user=user)
-        return AuthenticationResult(user=auth_result, auth=auth_result.token_data)
+        return AuthenticationResult(user=auth_result.user, auth=auth_result.token_data)
 
 
 #
