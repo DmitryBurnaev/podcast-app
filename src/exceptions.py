@@ -4,6 +4,8 @@ from typing import TYPE_CHECKING
 
 from http import HTTPStatus
 
+from litestar.types import Logger, Scope
+
 from src.modules.schemas.errors import ErrorCode
 from src.constants import ResponseCode
 
@@ -14,6 +16,7 @@ sys.modules.setdefault("exceptions", sys.modules[__name__])
 sys.modules.setdefault("src.exceptions", sys.modules[__name__])
 
 
+# TODO: optimize and rework using exceptions
 class BaseApplicationError(Exception):
     """Base application error"""
 
@@ -96,6 +99,7 @@ class AuthenticationError(BaseApplicationError):
     status_code = 401
     response_code = ResponseCode.AUTH_FAILED
     message = "Authentication failed."
+    log_level = logging.WARNING
 
 
 class AuthCredentialsInvalidError(AuthenticationError):
@@ -262,3 +266,16 @@ class StateConflictAPIError(APIError):
     code = ErrorCode.CONFLICT
     message = "Requested operation conflicts with the current state."
     status_code = 409
+
+
+def exception_logging_handler(logger: Logger, scope: Scope, tb: list[str]) -> None:
+    last_record_in_tb = tb[-1] if tb else ""
+    if AuthMissingCredentialsError.__name__ in last_record_in_tb:
+        logger.info("Unauthorized access to '%s'. Redirecting to login page...", scope["path"])
+        return
+
+    logger.exception(
+        "Root level's application error occurred | connection %s | path %r",
+        scope["type"],
+        scope["path"],
+    )

@@ -1,5 +1,4 @@
 import logging
-import logging.config
 from collections.abc import Awaitable, Callable
 from contextlib import asynccontextmanager
 from enum import StrEnum
@@ -12,6 +11,7 @@ from litestar import Litestar
 from litestar.contrib.jinja import JinjaTemplateEngine
 from litestar.di import Provide
 from litestar.exceptions import HTTPException, ValidationException
+from litestar.logging import LoggingConfig
 from litestar.middleware import DefineMiddleware
 from litestar.static_files import StaticFilesConfig
 from litestar.template import TemplateConfig
@@ -25,6 +25,7 @@ from src.exceptions import (
     StorageConfigurationError,
     APIError,
     AuthMissingCredentialsError,
+    exception_logging_handler,
 )
 from src.modules.auth.middlewares import APIAuthMiddleware, WebAuthMiddleware
 from src.modules.auth.utils import provide_current_user
@@ -128,8 +129,12 @@ async def lifespan(
 def make_app(settings: AppSettings | None = None) -> PodcastApp:
     """Forming Application instance with required settings and dependencies"""
     app_settings: AppSettings = settings or get_app_settings()
-    logging.config.dictConfig(app_settings.log.dict_config_any)
-    logging.captureWarnings(capture=True)
+    logging_config = LoggingConfig(
+        root={"level": "INFO", "handlers": [app_settings.log.default_handler]},
+        formatters=app_settings.log.dict_config["formatters"],
+        exception_logging_handler=exception_logging_handler,
+        log_exceptions="always",
+    )
 
     def provide_settings(_: Any) -> AppSettings:
         return app_settings
@@ -158,6 +163,7 @@ def make_app(settings: AppSettings | None = None) -> PodcastApp:
         ],
         lifespan=[lambda _: lifespan(app_settings)],
         debug=app_settings.flags.debug_mode,
+        logging_config=logging_config,
         exception_handlers={
             APIError: api_error_handler,
             BaseApplicationError: app_error_handler,
@@ -171,10 +177,6 @@ def make_app(settings: AppSettings | None = None) -> PodcastApp:
         },
         settings=app_settings,
     )
-
-    # logger.info("Setting up routes...")
-    # app.include_router(system_router, prefix="/api", dependencies=[Depends(verify_api_token)])
-    # app.include_router(proxy_router, prefix="/api", dependencies=[Depends(verify_api_token)])
 
     logger.info("Application configured!")
     return podcast_app

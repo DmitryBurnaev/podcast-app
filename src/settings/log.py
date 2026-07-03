@@ -64,6 +64,7 @@ class LogSettings(BaseSettings):
     skip_static_access: bool = False
     format: str = "[%(asctime)s] %(levelname)s [%(filename)s:%(lineno)s] %(message)s"
     datefmt: str = "%d.%m.%Y %H:%M:%S"
+    default_handler: str = "console"
 
     @property
     def dict_config(self) -> LogDictConfig:
@@ -91,7 +92,7 @@ class LogSettings(BaseSettings):
                 "standard": formatter,
             },
             "handlers": {
-                "console": {
+                self.default_handler: {
                     "class": "logging.StreamHandler",
                     "formatter": "standard",
                     "filters": filters,

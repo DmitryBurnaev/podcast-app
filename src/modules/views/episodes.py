@@ -110,12 +110,12 @@ class EpisodesController(BaseViewController):
 
         async with SASessionUOW() as uow:
             podcast_repository = PodcastRepository(session=uow.session, user_id=request.user.id)
-            podcasts = await podcast_repository.all_paginated(
+            podcasts, _ = await podcast_repository.all_paginated(
                 limit=settings.default_pagination_limit,
                 **filters,
             )
             episodes_repository = EpisodeRepository(session=uow.session, user_id=request.user.id)
-            episodes = await episodes_repository.all_paginated(
+            episodes, _ = await episodes_repository.all_paginated(
                 limit=settings.default_pagination_limit,
                 **filters,
             )
