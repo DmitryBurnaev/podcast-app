@@ -54,8 +54,7 @@
         {% if filters.size_min or filters.size_max %}
         <span
             class="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-slate-700 text-slate-300">
-            Size: {% if filters.size_min %}{{ filters.size_min }}{% endif %}-{% if filters.size_max %}{{
-            filters.size_max }}{% endif %} MB
+            Size: {% if filters.size_min %}{{ filters.size_min }}{% endif %}-{% if filters.size_max %}{{filters.size_max }}{% endif %} MB
             <button onclick="removeFilter('size_min'); removeFilter('size_max')"
                 class="ml-2 hover:text-white">×</button>
         </span>
