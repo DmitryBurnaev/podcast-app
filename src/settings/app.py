@@ -86,7 +86,7 @@ class AppSettings(BaseSettings):
 
     # other settings
     api_docs_enabled: bool = False
-    admin_base_url: str = "/admin"
+    admin_base_url: str = "/padm"
     admin_title: str = "Podcast App Admin"
     admin_session_expiration_time: int = Field(
         default=8 * 3600,
