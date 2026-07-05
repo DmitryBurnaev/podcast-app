@@ -1,7 +1,7 @@
 from litestar import get
 from litestar.response import Template
 
-from src.modules.auth.backend import WebAuthBackend
+from src.modules.auth.backends import WebAuthBackend
 from src.modules.views.base import BaseViewController, AppRequest
 
 

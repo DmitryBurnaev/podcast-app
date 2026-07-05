@@ -10,7 +10,7 @@ from litestar.response import Template
 
 from src import constants as const
 from src.constants import AuthSkip
-from src.modules.auth.backend import TokenData
+from src.modules.auth.backends import TokenData
 from src.modules.db import User
 from src.modules.tasks.base import RQTask
 
