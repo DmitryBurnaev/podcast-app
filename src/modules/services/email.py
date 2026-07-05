@@ -1,5 +1,6 @@
 import base64
 import json
+import logging
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 
@@ -9,40 +10,8 @@ from src.exceptions import EmailSendingError, ImproperlyConfiguredError
 
 from src.modules.db.models import User
 from src.settings.app import AppSettings, get_app_settings
-from src.utils import logger
 
-
-async def _send_invitation_email(
-    email: str,
-    token: str,
-    settings: AppSettings,
-) -> None:
-    invite_data = base64.urlsafe_b64encode(
-        json.dumps({"token": token, "email": email}).encode()
-    ).decode()
-    link = f"{settings.site_url.rstrip('/')}/sign-up/?i={invite_data}"
-    body = (
-        f"<p>Hello! You have been invited to {settings.site_url}</p>"
-        f"<p>Please follow the link:</p><p><a href='{link}'>{link}</a></p>"
-    )
-    await send_email(
-        recipient_email=email,
-        subject=f"Welcome to {settings.site_url}",
-        html_content=body,
-    )
-
-
-async def _send_reset_password_email(user: User, token: str, settings: AppSettings) -> None:
-    link = f"{settings.site_url.rstrip('/')}/change-password/?t={token}"
-    body = (
-        f"<p>You can reset your password for {settings.site_url}</p>"
-        f"<p>Please follow the link:</p><p><a href='{link}'>{link}</a></p>"
-    )
-    await send_email(
-        recipient_email=user.email,
-        subject=f"Welcome back to {settings.site_url}",
-        html_content=body,
-    )
+logger = logging.getLogger(__name__)
 
 
 async def send_email(recipient_email: str, subject: str, html_content: str) -> None:
@@ -84,3 +53,36 @@ async def send_email(recipient_email: str, subject: str, html_content: str) -> N
         raise EmailSendingError(details=details)
 
     logger.info("Email sent to %s | subject: %s", recipient_email, subject)
+
+
+async def _send_invitation_email(
+    email: str,
+    token: str,
+    settings: AppSettings,
+) -> None:
+    invite_data = base64.urlsafe_b64encode(
+        json.dumps({"token": token, "email": email}).encode()
+    ).decode()
+    link = f"{settings.site_url.rstrip('/')}/sign-up/?i={invite_data}"
+    body = (
+        f"<p>Hello! You have been invited to {settings.site_url}</p>"
+        f"<p>Please follow the link:</p><p><a href='{link}'>{link}</a></p>"
+    )
+    await send_email(
+        recipient_email=email,
+        subject=f"Welcome to {settings.site_url}",
+        html_content=body,
+    )
+
+
+async def _send_reset_password_email(user: User, token: str, settings: AppSettings) -> None:
+    link = f"{settings.site_url.rstrip('/')}/change-password/?t={token}"
+    body = (
+        f"<p>You can reset your password for {settings.site_url}</p>"
+        f"<p>Please follow the link:</p><p><a href='{link}'>{link}</a></p>"
+    )
+    await send_email(
+        recipient_email=user.email,
+        subject=f"Welcome back to {settings.site_url}",
+        html_content=body,
+    )

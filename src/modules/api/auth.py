@@ -13,7 +13,7 @@ from src.exceptions import (
     AuthenticationError,
     APIError,
 )
-from src.modules.auth.backend import admin_user_guard, APIAuthBackend
+from src.modules.auth.backends import admin_user_guard, APIAuthBackend
 from src.modules.auth.tokens import (
     AuthTokenType,
     TokenPayload,
