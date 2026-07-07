@@ -9,6 +9,7 @@ import jwt
 from jwt import ExpiredSignatureError, InvalidTokenError
 from litestar.connection import Request
 
+from modules.auth.types import TokenData
 from src.exceptions import (
     AuthMissingAPIError,
     AuthInvalidAPIError,
@@ -98,12 +99,7 @@ def encode_jwt(
     return token, expired_at
 
 
-def decode_jwt(
-    token: str,
-    *,
-    expected_type: AuthTokenType,
-    settings: AppSettings,
-) -> dict[str, Any]:
+def decode_jwt(token: str, expected_type: AuthTokenType, settings: AppSettings) -> TokenData:
     """
     Decodes JWT token and returns decoded data
 

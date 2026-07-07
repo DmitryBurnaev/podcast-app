@@ -7,7 +7,7 @@ from typing import Any, AsyncGenerator
 import rq
 
 import uvicorn
-from litestar import Litestar
+from litestar import Litestar, Request
 from litestar.contrib.jinja import JinjaTemplateEngine
 from litestar.di import Provide
 from litestar.exceptions import HTTPException, ValidationException
@@ -28,7 +28,6 @@ from src.exceptions import (
     exception_logging_handler,
 )
 from src.modules.auth.middlewares import APIAuthMiddleware, WebAuthMiddleware
-from src.modules.auth.utils import provide_current_user
 from src.modules.admin import create_admin_route
 from src.modules.db import close_database, initialize_database, verify_database_reachable
 from src.modules.services.redis import check_redis_connection, close_async_redis_connection
@@ -124,6 +123,14 @@ async def lifespan(
         logger.debug("Async Redis shutdown: %r", exc)
 
     logger.info("=====")
+
+
+def provide_current_user(request: Request):
+    """
+    Simple dependency for getting current user from request object
+    Provides by `src.modules.auth.middlewares.APIAuthMiddleware.authenticate_request`
+    """
+    return request.user
 
 
 def make_app(settings: AppSettings | None = None) -> PodcastApp:
