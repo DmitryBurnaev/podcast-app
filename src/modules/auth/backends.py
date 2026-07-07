@@ -31,10 +31,9 @@ from src.modules.db.repositories import (
     UserIPRepository,
 )
 from src.utils import hash_string, utcnow
-from src.modules.auth.tokens import TokenCollection
+from src.modules.auth.tokens import TokenCollection, decode_jwt
 
 # TODO: use single point: src.modules.auth.utils + src.modules.auth.tokens -> src.modules.auth.utils
-from src.modules.auth.utils import decode_jwt
 from src.modules.auth.constants import LENGTH_USER_ACCESS_TOKEN
 
 logger = logging.getLogger(__name__)
@@ -120,7 +119,7 @@ class AuthBackend:
         """
         logger.debug("Logging via JWT auth. Got token: %s", token)
         try:
-            jwt_payload: TokenData = decode_jwt(token, settings=self.settings)
+            jwt_payload: TokenData = decode_jwt(token, token_type, settings=self.settings)
         except ExpiredSignatureError as exc:
             logger.debug("JWT signature has been expired for %s token", token_type)
             exception_class = (
