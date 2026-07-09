@@ -53,10 +53,10 @@ ModelT = TypeVar("ModelT", bound=BaseModel)
 logger = logging.getLogger(__name__)
 P = ParamSpec("P")
 RT = TypeVar("RT")
-type FilterT = int | str | bool | datetime | list[dict] | None
+type FilterT = int | str | bool | datetime | list[dict] | list[int] | None
 type UpdateT = int | str | datetime | None
 type GetOrCreateT = int | str | bool | datetime | list[dict] | None
-type CreateT = int | str | bool | datetime | dict[str, Any] | list[dict] | None
+type CreateT = int | str | bool | datetime | dict[str, Any] | list[dict] | list[int] | None
 type BaseOrderT = Literal[
     "id", "name", "title", "created_at", "updated_at", "-created_at", "-updated_at"
 ]
