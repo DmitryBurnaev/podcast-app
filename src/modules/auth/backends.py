@@ -258,7 +258,6 @@ class APIAuthBackend(AuthBackend):
                 created_at=utcnow(),
                 refreshed_at=utcnow(),
             )
-            uow.mark_for_commit()
 
         return tokens
 
@@ -315,7 +314,6 @@ class WebAuthBackend(AuthBackend):
                 created_at=now,
                 refreshed_at=now,
             )
-            uow.mark_for_commit()
 
         session_cookie = Cookie(
             key=self.settings.auth.session_cookie_name,

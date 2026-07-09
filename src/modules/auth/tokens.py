@@ -170,7 +170,6 @@ async def create_user_session(user: User, settings: AppSettings) -> TokenCollect
             created_at=utcnow(),
             refreshed_at=utcnow(),
         )
-        uow.mark_for_commit()
 
     return tokens
 
@@ -261,7 +260,6 @@ async def refresh_user_session(refresh_token: str, settings: AppSettings) -> Tok
             refreshed_at=utcnow(),
             is_active=True,
         )
-        uow.mark_for_commit()
 
     return tokens
 

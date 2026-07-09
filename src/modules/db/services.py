@@ -27,7 +27,6 @@ class SASessionUOW:
 
             user = await user_repo.create(user_data)
             token = await token_repo.create(token_data)
-            uow.mark_for_commit()
 
         # Dependency mode
         async def endpoint(uow: SASessionUOW = Depends(get_uow_with_session)):
