@@ -136,7 +136,6 @@ class AuthCoreAPIController(BaseAuthAPIController):
                 ),
                 owner_id=user.id,
             )
-            uow.mark_for_commit()
 
         tokens = await create_user_session(user, settings=settings)
         logger.info("[API] User signed up: #%s", user.id)
@@ -195,7 +194,6 @@ class AuthCoreAPIController(BaseAuthAPIController):
 
             await user_repository.update(user, password=User.make_password(data.password_1))
             await UserSessionRepository(uow.session).deactivate_for_user(user.id)
-            uow.mark_for_commit()
 
         return OKResponse()
 
@@ -307,7 +305,6 @@ class AuthProfileAPIController(BaseAuthAPIController):
                         )
 
                 await user_repository.update(request.user, **update_data)
-                uow.mark_for_commit()
 
         return UserResponse.model_validate(request.user, from_attributes=True)
 
@@ -343,7 +340,6 @@ class AuthProfileAPIController(BaseAuthAPIController):
             repository = UserIPRepository(uow.session)
             ips = await repository.all(ids=data.ids, user_id=current_user.id)
             await repository.delete_by_ids([ip.id for ip in ips])
-            uow.mark_for_commit()
 
         return OKResponse()
 
@@ -413,7 +409,6 @@ class AuthAccessTokenAPIController(BaseAuthAPIController):
             if access_token is None:
                 raise InvalidParametersAPIError(details=f"Access token #{token_id} not found.")
             await repository.update(access_token, **data.model_dump(exclude_unset=True))
-            uow.mark_for_commit()
 
         return UserAccessTokenResponse.model_validate(access_token, from_attributes=True)
 
