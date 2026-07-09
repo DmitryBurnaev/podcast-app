@@ -32,8 +32,6 @@ from src.modules.db.repositories import (
 )
 from src.utils import hash_string, utcnow
 from src.modules.auth.tokens import TokenCollection, decode_jwt
-
-# TODO: use single point: src.modules.auth.utils + src.modules.auth.tokens -> src.modules.auth.utils
 from src.modules.auth.constants import LENGTH_USER_ACCESS_TOKEN
 
 logger = logging.getLogger(__name__)
@@ -174,7 +172,6 @@ class AuthBackend:
 
     async def register_user_ip(self, user: User | None = None) -> None:
         """Best-effort IP history registration used by sign-in and profile requests."""
-        # TODO: move to middleware?
         request, settings = self.connection, self.settings
         address = request.headers.get(settings.request_ip_header)
         if not address:
@@ -186,13 +183,12 @@ class AuthBackend:
         try:
             async with SASessionUOW() as uow:
                 repository = UserIPRepository(uow.session)
-                if await repository.first(user_id=_user.id, hashed_address=hashed_address) is None:
-                    await repository.create(
-                        user_id=_user.id,
-                        hashed_address=hashed_address,
-                        registered_by="",
-                    )
-                    uow.mark_for_commit()
+                await repository.get_or_create(
+                    index_fields=["user_id", "hashed_address"],
+                    user_id=_user.id,
+                    hashed_address=hashed_address,
+                    registered_by="",
+                )
 
         except Exception as exc:
             logger.exception("[API] Failed to register IP for user '%s': %r", user, exc)
@@ -277,7 +273,6 @@ class WebAuthBackend(AuthBackend):
 
         async with SASessionUOW() as uow:
             auth_result = await self._authenticate_user(
-                # TODO: store JWT in cookie instead of plain uuid
                 jwt_token=cookie_jwt,
                 db_session=uow.session,
                 token_type=AuthTokenType.COOKIE,

@@ -53,8 +53,9 @@ ModelT = TypeVar("ModelT", bound=BaseModel)
 logger = logging.getLogger(__name__)
 P = ParamSpec("P")
 RT = TypeVar("RT")
-type FilterT = int | str | list[int] | None
+type FilterT = int | str | bool | datetime | list[dict] | None
 type UpdateT = int | str | datetime | None
+type GetOrCreateT = int | str | bool | datetime | list[dict] | None
 type CreateT = int | str | bool | datetime | dict[str, Any] | list[dict] | None
 type BaseOrderT = Literal[
     "id", "name", "title", "created_at", "updated_at", "-created_at", "-updated_at"
@@ -114,6 +115,15 @@ class BaseRepository(Generic[ModelT]):
             return None
 
         return row[0]
+
+    async def get_or_create(self, index_fields: list[str], **instance_data: FilterT) -> ModelT:
+        """Finds instance by provided search filters or create the new one"""
+        filters: dict[str, FilterT] = {k: v for k, v in instance_data.items() if k in index_fields}
+        instance = await self.first(**filters)
+        if not instance:
+            instance = await self.create(**instance_data)
+
+        return instance
 
     async def all(self, **filters: FilterT) -> list[ModelT]:
         """Selects instances from DB"""
