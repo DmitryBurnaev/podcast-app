@@ -12,6 +12,7 @@ from src.constants import ResponseCode
 if TYPE_CHECKING:
     from src.modules.tasks.base import TaskResultCode
 
+# TODO: resolve import problem without this ugly hack :)
 sys.modules.setdefault("exceptions", sys.modules[__name__])
 sys.modules.setdefault("src.exceptions", sys.modules[__name__])
 
@@ -113,7 +114,7 @@ class AuthMissingCredentialsError(AuthenticationError):
     message = "Authentication is required."
 
 
-class SignatureExpiredError(BaseApplicationError):
+class SignatureExpiredError(AuthenticationError):
     status_code = 401
     response_code = ResponseCode.SIGNATURE_EXPIRED
     message = "Authentication credentials are invalid."

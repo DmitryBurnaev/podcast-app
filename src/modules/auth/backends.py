@@ -14,6 +14,7 @@ from src.modules.auth.tokens import (
     encode_jwt,
     TokenPayload,
     AuthTokenType,
+    RefreshAuthentication,
 )
 from src.modules.auth.types import AuthenticatedUserResult, ByTokenData, TokenData
 from src.modules.db import SASessionUOW, User
@@ -22,6 +23,8 @@ from src.exceptions import (
     AuthCredentialsInvalidError,
     AuthMissingCredentialsError,
     SignatureExpiredError,
+    SessionInactiveAPIError,
+    AuthInvalidAPIError,
 )
 from src.modules.db.repositories import (
     AuthUserSessionRepository,
@@ -240,11 +243,32 @@ class APIAuthBackend(AuthBackend):
         if not user.verify_password(password):
             raise AuthCredentialsInvalidError(details="Unable to authenticate user")
 
-        tokens = await self._create_user_session(user)
+        tokens = await self.create_user_session(user)
         await self.register_user_ip(user)
         return SuccessLoginData(user=user, tokens=tokens, cookie=None)
 
-    async def _create_user_session(self, user: User) -> TokenCollection:
+    async def refresh_user_session(self, refresh_token: str) -> TokenCollection:
+        auth = await self._authenticate_refresh_token(refresh_token)
+        tokens = issue_token_pair(
+            user_id=auth.user.id,
+            session_id=auth.session.public_id,
+            settings=self.settings,
+        )
+        async with SASessionUOW() as uow:
+            session_repo = UserSessionRepository(uow.session)
+            user_session = await session_repo.get(auth.session.id)
+            await session_repo.update(
+                user_session,
+                refresh_token=tokens.refresh_token,
+                expired_at=tokens.refresh_token_expired_at,
+                refreshed_at=utcnow(),
+                is_active=True,
+            )
+
+        return tokens
+
+    async def create_user_session(self, user: User) -> TokenCollection:
+        """Create a new user session"""
         session_id = str(uuid.uuid4())
         tokens = issue_token_pair(user_id=user.id, session_id=session_id, settings=self.settings)
         async with SASessionUOW() as uow:
@@ -260,6 +284,39 @@ class APIAuthBackend(AuthBackend):
             )
 
         return tokens
+
+    async def _authenticate_refresh_token(self, refresh_token: str) -> RefreshAuthentication:
+        """
+        Validate and authenticate the refresh token
+
+        :param refresh_token: requested JWT refresh token
+        :return: authenticated user's info
+        """
+        payload = decode_jwt(
+            refresh_token,
+            expected_type=AuthTokenType.REFRESH,
+            settings=self.settings,
+        )
+
+        async with SASessionUOW() as uow:
+            session_repo = UserSessionRepository(uow.session)
+            pair = await session_repo.get_active_with_user(payload["session_id"])
+            if pair is None:
+                raise SessionInactiveAPIError()
+
+            user_session, user = pair
+            if user_session.user_id != payload["user_id"] or not user.is_active:
+                raise AuthInvalidAPIError(details="Active user not found")
+
+            if user_session.refresh_token != refresh_token:
+                raise AuthInvalidAPIError(details="Refresh token does not match the session.")
+
+            return RefreshAuthentication(
+                user=user,
+                session=user_session,
+                payload=payload,
+                refresh_token=refresh_token,
+            )
 
 
 class WebAuthBackend(AuthBackend):
