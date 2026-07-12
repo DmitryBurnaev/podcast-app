@@ -14,15 +14,11 @@ from src.modules.auth.tokens import (
     AuthTokenType,
     AuthenticatedRequest,
     TokenPayload,
-    _seems_like_user_access_token,
     authenticate_bearer_request,
-    authenticate_refresh_token,
-    create_user_session,
     decode_jwt,
     encode_jwt,
     extract_bearer_token,
     issue_token_pair,
-    refresh_user_session,
 )
 from src.modules.db.models.users import LENGTH_USER_ACCESS_TOKEN
 from src.tests.factories import make_user

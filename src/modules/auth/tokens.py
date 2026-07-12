@@ -3,25 +3,18 @@ import datetime
 import logging
 from enum import StrEnum
 from typing import Any, NamedTuple
-from uuid import uuid4
 
 import jwt
-from jwt import ExpiredSignatureError, InvalidTokenError
-from litestar.connection import Request
 
-from modules.auth.types import TokenData
 from src.exceptions import (
-    AuthMissingAPIError,
-    AuthInvalidAPIError,
-    TokenExpiredAPIError,
     RefreshExpiredAPIError,
-    SessionInactiveAPIError,
+    SignatureExpiredError,
+    AuthCredentialsInvalidError,
 )
-from src.utils import hash_string, utcnow
-from src.modules.db.services import SASessionUOW
 from src.settings.app import AppSettings, get_app_settings
-from src.modules.db.repositories import UserRepository, UserSessionRepository, BaseRepository
-from src.modules.db.models.users import LENGTH_USER_ACCESS_TOKEN, User, UserAccessToken, UserSession
+from src.utils import utcnow
+from src.modules.auth.types import TokenData
+from src.modules.db.models.users import User, UserSession
 
 logger = logging.getLogger(__name__)
 
@@ -50,11 +43,10 @@ class AuthenticatedRequest(NamedTuple):
 class RefreshAuthentication(NamedTuple):
     user: User
     session: UserSession
-    payload: dict[str, Any]
+    payload: TokenData
     refresh_token: str
 
 
-# TODO: deduplicate typing with `src.modules.auth.types`
 @dataclasses.dataclass
 class TokenPayload:
     user_id: int
@@ -67,10 +59,6 @@ class TokenPayload:
         data = dataclasses.asdict(self)
         data["token_type"] = str(self.token_type)
         return data
-
-
-def _jwt_key(settings: AppSettings) -> str:
-    return settings.app_secret_key.get_secret_value()
 
 
 def encode_jwt(
@@ -95,7 +83,11 @@ def encode_jwt(
 
     expired_at = utcnow() + datetime.timedelta(seconds=(expires_in or 0))
     payload.exp = expired_at
-    token = jwt.encode(payload.as_dict(), _jwt_key(settings), algorithm=settings.jwt_algorithm)
+    token = jwt.encode(
+        payload.as_dict(),
+        key=settings.app_secret_key.get_secret_value(),
+        algorithm=settings.jwt_algorithm,
+    )
     return token, expired_at
 
 
@@ -107,30 +99,66 @@ def decode_jwt(token: str, expected_type: AuthTokenType, settings: AppSettings) 
     :param expected_type: expected token type
     :param settings: current app's settings
     :raises Errors, based on PyJWTError
-    :return: decoded data
+    :return: decoded and pre-validated data (see `modules.auth.types.TokenData` for details)
     """
     try:
-        payload = jwt.decode(token, _jwt_key(settings), algorithms=[settings.jwt_algorithm])
-    except ExpiredSignatureError as exc:
+        payload = jwt.decode(
+            token,
+            key=settings.app_secret_key.get_secret_value(),
+            algorithms=[settings.jwt_algorithm],
+        )
+    except jwt.ExpiredSignatureError as exc:
         if expected_type == AuthTokenType.REFRESH:
             raise RefreshExpiredAPIError() from exc
 
-        raise TokenExpiredAPIError() from exc
+        raise SignatureExpiredError() from exc
 
-    except InvalidTokenError as exc:
-        raise AuthInvalidAPIError(details=str(exc)) from exc
+    except jwt.InvalidTokenError as exc:
+        raise AuthCredentialsInvalidError(details=str(exc)) from exc
 
     token_type = str(payload.get("token_type", "")).upper()
     if token_type != expected_type.value:
-        raise AuthInvalidAPIError(
+        raise AuthCredentialsInvalidError(
             details=f"Expected {expected_type.value} token, got {token_type or 'unknown'}."
         )
 
-    return payload
+    try:
+        exp_iso: str = payload.get("exp") or ""
+        if not exp_iso:
+            raise ValueError("Missing expiration time")
+
+        _user_id: str | None = payload.get("user_id")
+        user_id: int | None = int(_user_id) if _user_id else None
+        if user_id is None:
+            raise ValueError("Missing user id")
+
+        session_id: str = payload.get("session_id") or ""
+        if not session_id:
+            raise ValueError("Missing session id")
+
+        token_data = TokenData(
+            token_type=expected_type.value,
+            exp=datetime.datetime.fromisoformat(exp_iso),
+            exp_iso=exp_iso,
+            user_id=user_id,
+            session_id=session_id,
+        )
+
+    except Exception as exc:
+        raise AuthCredentialsInvalidError(details=str(exc)) from exc
+
+    return token_data
 
 
 def issue_token_pair(user_id: int, session_id: str, settings: AppSettings) -> TokenCollection:
-    """Prepare collection: refresh + access tokens (and expirations)"""
+    """
+    Prepare collection: refresh + access tokens (and expirations)
+
+    :param user_id: current user in requested context
+    :param session_id: user's session id (usually - uuid)
+    :param settings: current app's settings
+    :return given collection (access + refresh tokens)
+    """
     settings = settings or get_app_settings()
     access_token, access_exp = encode_jwt(
         TokenPayload(
@@ -154,134 +182,3 @@ def issue_token_pair(user_id: int, session_id: str, settings: AppSettings) -> To
         access_token=access_token,
         access_token_expired_at=access_exp,
     )
-
-
-async def create_user_session(user: User, settings: AppSettings) -> TokenCollection:
-    session_id = str(uuid4())
-    tokens = issue_token_pair(user_id=user.id, session_id=session_id, settings=settings)
-    async with SASessionUOW() as uow:
-        session_repo = UserSessionRepository(uow.session)
-        await session_repo.create(
-            public_id=session_id,
-            user_id=user.id,
-            refresh_token=tokens.refresh_token,
-            is_active=True,
-            expired_at=tokens.refresh_token_expired_at,
-            created_at=utcnow(),
-            refreshed_at=utcnow(),
-        )
-
-    return tokens
-
-
-def extract_bearer_token(request: Request) -> str:
-    auth_header = request.headers.get("Authorization") or request.headers.get("authorization")
-    if not auth_header:
-        raise AuthMissingAPIError()
-
-    parts = auth_header.split()
-    if len(parts) != 2 or parts[0] != "Bearer":
-        raise AuthInvalidAPIError(details="Authorization header must be 'Bearer <token>'.")
-
-    return parts[1]
-
-
-async def authenticate_bearer_request(
-    request: Request,
-    settings: AppSettings,
-) -> AuthenticatedRequest:
-    token = extract_bearer_token(request)
-    async with SASessionUOW() as uow:
-        if _seems_like_user_access_token(token):
-            return await _authenticate_user_access_token(uow, token)
-
-        payload = decode_jwt(token, expected_type=AuthTokenType.ACCESS, settings=settings)
-        user_id = int(payload.get("user_id") or 0)
-        session_id = payload.get("session_id")
-        if not user_id or not session_id:
-            raise AuthInvalidAPIError(details="Token payload misses user_id or session_id.")
-
-        session_repo = UserSessionRepository(uow.session)
-        pair = await session_repo.get_active_with_user(str(session_id))
-        if pair is None:
-            raise SessionInactiveAPIError()
-
-        user_session, user = pair
-        if user_session.user_id != user_id or not user.is_active:
-            raise AuthInvalidAPIError()
-
-        return AuthenticatedRequest(user=user, session_id=str(session_id), payload=payload)
-
-
-async def authenticate_refresh_token(
-    refresh_token: str, settings: AppSettings
-) -> RefreshAuthentication:
-    payload = decode_jwt(refresh_token, expected_type=AuthTokenType.REFRESH, settings=settings)
-    user_id = int(payload.get("user_id") or 0)
-    session_id = payload.get("session_id")
-    if not user_id or not session_id:
-        raise AuthInvalidAPIError(details="Refresh token payload misses user_id or session_id.")
-
-    async with SASessionUOW() as uow:
-        session_repo = UserSessionRepository(uow.session)
-        pair = await session_repo.get_active_with_user(str(session_id))
-        if pair is None:
-            raise SessionInactiveAPIError()
-
-        user_session, user = pair
-        if user_session.user_id != user_id or not user.is_active:
-            raise AuthInvalidAPIError()
-
-        if user_session.refresh_token != refresh_token:
-            raise AuthInvalidAPIError(details="Refresh token does not match the session.")
-
-        return RefreshAuthentication(
-            user=user,
-            session=user_session,
-            payload=payload,
-            refresh_token=refresh_token,
-        )
-
-
-async def refresh_user_session(refresh_token: str, settings: AppSettings) -> TokenCollection:
-    auth = await authenticate_refresh_token(refresh_token, settings)
-    tokens = issue_token_pair(
-        user_id=auth.user.id,
-        session_id=auth.session.public_id,
-        settings=settings,
-    )
-    async with SASessionUOW() as uow:
-        session_repo = UserSessionRepository(uow.session)
-        user_session = await session_repo.get(auth.session.id)
-        await session_repo.update(
-            user_session,
-            refresh_token=tokens.refresh_token,
-            expired_at=tokens.refresh_token_expired_at,
-            refreshed_at=utcnow(),
-            is_active=True,
-        )
-
-    return tokens
-
-
-async def _authenticate_user_access_token(uow: SASessionUOW, token: str) -> AuthenticatedRequest:
-    token_repo: BaseRepository[UserAccessToken] = BaseRepository[UserAccessToken](uow.session)
-    token_repo.model = UserAccessToken
-    access_token = await token_repo.first(token=hash_string(token))
-    if access_token is None or not access_token.active:
-        raise AuthInvalidAPIError(details="Provided access token is unknown, disabled, or expired.")
-
-    user_repo = UserRepository(uow.session)
-    user = await user_repo.first(id=access_token.user_id, is_active=True)
-    if user is None:
-        raise AuthInvalidAPIError(details="Access token owner is inactive or missing.")
-
-    return AuthenticatedRequest(
-        user=user,
-        session_id=None,
-        payload={"user_id": user.id, "token_type": AuthTokenType.USER_ACCESS.value},
-    )
-
-
-def _seems_like_user_access_token(token: str) -> bool:
-    return len(token) == LENGTH_USER_ACCESS_TOKEN and "." not in token

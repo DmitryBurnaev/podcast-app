@@ -14,14 +14,7 @@ from src.exceptions import (
     APIError,
 )
 from src.modules.auth.backends import admin_user_guard, APIAuthBackend
-from src.modules.auth.tokens import (
-    AuthTokenType,
-    TokenPayload,
-    create_user_session,
-    decode_jwt,
-    encode_jwt,
-    refresh_user_session,
-)
+from src.modules.auth.tokens import AuthTokenType, TokenPayload, decode_jwt, encode_jwt
 from src.modules.db.models import User, UserInvite
 from src.modules.db.models.users import UserAccessToken
 from src.modules.db.models.podcasts import Podcast
@@ -103,7 +96,9 @@ class AuthCoreAPIController(BaseAuthAPIController):
         )
 
     @post("/sign-up/", status_code=HTTP_201_CREATED)
-    async def sign_up(self, data: SignUpRequest, settings: AppSettings) -> TokenResponse:
+    async def sign_up(
+        self, data: SignUpRequest, request: Request, settings: AppSettings
+    ) -> TokenResponse:
         """Create an invited user and issue a token pair."""
         async with SASessionUOW() as uow:
             user_repository = UserRepository(uow.session)
@@ -137,19 +132,31 @@ class AuthCoreAPIController(BaseAuthAPIController):
                 owner_id=user.id,
             )
 
-        tokens = await create_user_session(user, settings=settings)
+        try:
+            backend = APIAuthBackend(request)
+            tokens = await backend.create_user_session(user)
+        except AuthenticationError as err:
+            logger.error("[Auth] Unable to create user session: %s", err.details)
+            raise AuthInvalidAPIError(details=err.details) from err
+
         logger.info("[API] User signed up: #%s", user.id)
         return TokenResponse(access_token=tokens.access_token, refresh_token=tokens.refresh_token)
 
     @post("/refresh-token/")
-    async def refresh_token(self, request: Request, settings: AppSettings) -> TokenResponse:
+    async def refresh_token(self, request: Request) -> TokenResponse:
         """Refresh an access and refresh token pair."""
         try:
             data = RefreshTokenRequest.model_validate(await request.json())
         except Exception as exc:
             raise InvalidParametersAPIError(details=str(exc)) from exc
 
-        tokens = await refresh_user_session(data.refresh_token, settings=settings)
+        try:
+            backend = APIAuthBackend(request)
+            tokens = await backend.refresh_user_session(data.refresh_token)
+        except AuthenticationError as err:
+            logger.error("[Auth] Unable to refresh token: %s", err.details)
+            raise AuthInvalidAPIError(details=err.details) from err
+
         return TokenResponse(access_token=tokens.access_token, refresh_token=tokens.refresh_token)
 
     @post("/reset-password/")
