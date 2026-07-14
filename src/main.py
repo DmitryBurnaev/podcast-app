@@ -13,6 +13,8 @@ from litestar.di import Provide
 from litestar.exceptions import HTTPException, ValidationException
 from litestar.logging import LoggingConfig
 from litestar.middleware import DefineMiddleware
+from litestar.openapi import OpenAPIConfig
+from litestar.openapi.plugins import SwaggerRenderPlugin
 from litestar.static_files import StaticFilesConfig
 from litestar.template import TemplateConfig
 
@@ -40,7 +42,7 @@ from src.modules.api.errors import (
     validation_error_handler,
     http_redirect_handler,
 )
-from src.modules.views.base import BaseViewController
+from src.modules.views.base import BaseViewController, PodcastOpenAPIController
 from src.settings.app import APP_DIR, AppSettings, get_app_settings
 
 logger = logging.getLogger("app")
@@ -168,6 +170,15 @@ def make_app(settings: AppSettings | None = None) -> PodcastApp:
                 },
             ),
         ],
+        openapi_config=OpenAPIConfig(
+            path="/swagger/",
+            title="Podcast API",
+            version=app_settings.app_version,
+            description="Podcast API",
+            render_plugins=[SwaggerRenderPlugin()],
+            openapi_controller=PodcastOpenAPIController,
+            root_schema_site="swagger",
+        ),
         lifespan=[lambda _: lifespan(app_settings)],
         debug=app_settings.flags.debug_mode,
         logging_config=logging_config,

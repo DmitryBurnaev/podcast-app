@@ -123,7 +123,7 @@ def decode_jwt(token: str, expected_type: AuthTokenType, settings: AppSettings) 
         )
 
     try:
-        exp_iso: str = payload.get("exp") or ""
+        exp_iso: int | None = payload.get("exp") or 0
         if not exp_iso:
             raise ValueError("Missing expiration time")
 
@@ -136,10 +136,11 @@ def decode_jwt(token: str, expected_type: AuthTokenType, settings: AppSettings) 
         if not session_id:
             raise ValueError("Missing session id")
 
+        exp = datetime.datetime.fromtimestamp(exp_iso, tz=datetime.timezone.utc)
         token_data = TokenData(
             token_type=expected_type.value,
-            exp=datetime.datetime.fromisoformat(exp_iso),
-            exp_iso=exp_iso,
+            exp=exp,
+            exp_iso=exp.isoformat(),
             user_id=user_id,
             session_id=session_id,
         )

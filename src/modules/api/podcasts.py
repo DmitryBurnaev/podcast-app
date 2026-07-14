@@ -18,7 +18,7 @@ from src.modules.services.storage import StorageS3
 from src.modules.tasks import GenerateRSSTask
 from src.modules.tasks.base import RQTask
 from src.modules.utils.processing import get_file_size, save_uploaded_file
-from src.modules.schemas.common import LimitOffsetPagination
+from src.modules.schemas.common import Pagination
 from src.modules.schemas.podcasts import (
     PodcastCreateRequest,
     PodcastResponse,
@@ -72,7 +72,7 @@ class PodcastAPIController(BaseApiController):
         limit: int = 10,
         offset: int = 0,
         order_by: PodcastOrderT = "-created_at",
-    ) -> LimitOffsetPagination[PodcastResponse]:
+    ) -> Pagination[PodcastResponse]:
         """
         Get paginated list of podcasts (for current user) with pagination
 
@@ -101,7 +101,7 @@ class PodcastAPIController(BaseApiController):
             len(podcasts),
             total,
         )
-        return LimitOffsetPagination[PodcastResponse](
+        return Pagination[PodcastResponse](
             items=[PodcastResponse.model_validate(podcast) for podcast in podcasts],
             offset=offset,
             total=total,

@@ -5,7 +5,7 @@ from pydantic import BaseModel, Field
 ResponseModelT = TypeVar("ResponseModelT", bound=BaseModel)
 
 
-class LimitOffsetPagination(BaseModel, Generic[ResponseModelT]):
+class Pagination(BaseModel, Generic[ResponseModelT]):
     """Limit and offset pagination for API responses."""
 
     offset: int = Field(default=0, description="Offset of the first item to return")
