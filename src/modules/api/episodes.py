@@ -18,7 +18,7 @@ from src.modules.db.repositories import (
     PodcastRepository,
 )
 from src.modules.db.services import SASessionUOW
-from src.modules.schemas.common import LimitOffsetPagination
+from src.modules.schemas.common import Pagination
 from src.modules.schemas.episodes import (
     EpisodeCreateNestedSchema,
     EpisodePatchSchema,
@@ -84,7 +84,7 @@ class PodcastEpisodeAPIController(EpisodeTaskMixin, BaseApiController):
         limit: int = 10,
         offset: int = 0,
         order_by: EpisodeOrderT = "-created_at",
-    ) -> LimitOffsetPagination[EpisodeResponse]:
+    ) -> Pagination[EpisodeResponse]:
         """Return paginated episodes for a podcast owned by the current user."""
         logger.info(
             "[API] Getting podcast episodes | user #%i | podcast #%i",
@@ -103,7 +103,7 @@ class PodcastEpisodeAPIController(EpisodeTaskMixin, BaseApiController):
                 order_by=order_by,
             )
 
-        return LimitOffsetPagination[EpisodeResponse](
+        return Pagination[EpisodeResponse](
             items=[EpisodeResponse.model_validate(episode) for episode in episodes],
             offset=offset,
             total=total,
@@ -281,7 +281,7 @@ class EpisodeAPIController(EpisodeTaskMixin, BaseApiController):
         limit: int = 10,
         offset: int = 0,
         order_by: EpisodeOrderT = "-created_at",
-    ) -> LimitOffsetPagination[EpisodeResponse]:
+    ) -> Pagination[EpisodeResponse]:
         """Return paginated episodes owned by the current user."""
         logger.info("[API] Getting paginated list of episodes | user #%i", request.user.id)
         async with SASessionUOW() as uow:
@@ -293,7 +293,7 @@ class EpisodeAPIController(EpisodeTaskMixin, BaseApiController):
                 order_by=order_by,
             )
 
-        return LimitOffsetPagination[EpisodeResponse](
+        return Pagination[EpisodeResponse](
             items=[EpisodeResponse.model_validate(episode) for episode in episodes],
             offset=offset,
             total=total,

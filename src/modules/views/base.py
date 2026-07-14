@@ -6,6 +6,7 @@ from typing import Any, Protocol, Self
 from litestar import Controller
 from litestar.connection import Request
 from litestar.datastructures import State
+from litestar.openapi import OpenAPIController
 from litestar.response import Template
 
 from src import constants as const
@@ -90,3 +91,8 @@ class BaseViewController(Controller):
         task = task_class()
         kwargs["job_id"] = task_class.get_job_id(*args, **kwargs)
         await asyncio.to_thread(app.rq_queue.enqueue, task, *args, **kwargs)
+
+
+class PodcastOpenAPIController(OpenAPIController):
+    opt = {AuthSkip.SKIP_AUTH_WEB: True, AuthSkip.SKIP_AUTH_API: True}
+    favicon_url = "/static/img/favicon.ico"

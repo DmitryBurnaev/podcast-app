@@ -66,16 +66,16 @@ class AsyncDBConnectors:
         logger.info("[DB] Pinging connection to database...")
         if not self.engine:
             logger.error("[DB] Engine is not initialized, cannot ping database")
-            raise RuntimeError("Engine is not initialized, cannot ping database")
+            raise DatabaseError("Engine is not initialized, cannot ping database")
 
         try:
             async with self.engine.connect() as conn:
                 await conn.execute(sa.text("SELECT 1"))
 
         except Exception as exc:
-            logger.error("[DB] Failed to ping database: %r", exc)
+            logger.error("[DB] Failed to ping database '%s': %r", self.engine.url, exc)
             self.exc = exc
-            raise DatabaseError("Failed to ping database") from exc
+            raise DatabaseError(f"Failed to ping database '{self.engine.url}'") from exc
 
         else:
             logger.info("[DB] Connection to database pinged successfully")

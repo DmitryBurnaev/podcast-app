@@ -7,7 +7,7 @@ from src.modules.schemas.auth import (
     UserLoginPayload,
     UserResponse,
 )
-from src.modules.schemas.common import LimitOffsetPagination
+from src.modules.schemas.common import Pagination
 from src.modules.schemas.cookies import CookieResponse
 from src.modules.schemas.episodes import (
     EpisodeCreateNestedSchema,
@@ -41,7 +41,7 @@ __all__ = (
     "EpisodePatchSchema",
     "EpisodeResponse",
     "HealthCheck",
-    "LimitOffsetPagination",
+    "Pagination",
     "PlaylistEntryResponse",
     "PlaylistResponse",
     "PodcastCreateRequest",

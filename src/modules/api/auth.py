@@ -45,7 +45,7 @@ from src.modules.schemas.auth import (
     UserIPResponse,
     UserResponse,
 )
-from src.modules.schemas.common import LimitOffsetPagination, OKResponse
+from src.modules.schemas.common import Pagination, OKResponse
 from src.modules.services.email import _send_invitation_email, _send_reset_password_email
 from src.modules.views.base import AppRequest
 from src.settings.app import AppSettings
@@ -223,18 +223,16 @@ class AuthExtendedAPIController(BaseAuthAPIController):
 
 
 class AuthInviteAPIController(BaseAuthAPIController):
-    @get("/invites/", guards=[admin_user_guard])
-    async def get_invites(
-        self,
-        limit: int = 10,
-        offset: int = 0,
-    ) -> LimitOffsetPagination[UserInviteResponse]:
+    guards = [admin_user_guard]
+
+    @get("/invites/")
+    async def get_invites(self, limit: int = 10, offset: int = 0) -> Pagination[UserInviteResponse]:
         """Return paginated user invitations."""
         async with SASessionUOW() as uow:
             user_invite_repo = UserInviteRepository(uow.session)
             invites, total = await user_invite_repo.all_paginated(limit=limit, offset=offset)
 
-        return LimitOffsetPagination[UserInviteResponse](
+        return Pagination[UserInviteResponse](
             items=[
                 UserInviteResponse.model_validate(invite, from_attributes=True)
                 for invite in invites
@@ -243,7 +241,7 @@ class AuthInviteAPIController(BaseAuthAPIController):
             total=total,
         )
 
-    @post("/invites/", status_code=HTTP_201_CREATED, guards=[admin_user_guard])
+    @post("/invites/", status_code=HTTP_201_CREATED)
     async def create_invite(
         self,
         data: InviteUserRequest,
@@ -321,7 +319,7 @@ class AuthProfileAPIController(BaseAuthAPIController):
         current_user: User,
         limit: int = 10,
         offset: int = 0,
-    ) -> LimitOffsetPagination[UserIPResponse]:
+    ) -> Pagination[UserIPResponse]:
         """Return registered hashed addresses for the current user."""
         async with SASessionUOW() as uow:
             ips, total = await UserIPRepository(uow.session).all_paginated(
@@ -330,7 +328,7 @@ class AuthProfileAPIController(BaseAuthAPIController):
                 offset=offset,
             )
 
-        return LimitOffsetPagination[UserIPResponse](
+        return Pagination[UserIPResponse](
             items=[UserIPResponse.model_validate(ip, from_attributes=True) for ip in ips],
             offset=offset,
             total=total,
@@ -358,23 +356,20 @@ class AuthAccessTokenAPIController(BaseAuthAPIController):
         current_user: User,
         limit: int = 10,
         offset: int = 0,
-    ) -> LimitOffsetPagination[UserAccessTokenResponse]:
+    ) -> Pagination[UserAccessTokenResponse]:
         """Return long-lived API tokens without their stored hashes."""
         async with SASessionUOW() as uow:
-            tokens, total = await UserAccessTokenRepository(uow.session).all_paginated(
+            repository = UserAccessTokenRepository(uow.session)
+            tokens, total = await repository.all_paginated(
                 user_id=current_user.id,
                 limit=limit,
                 offset=offset,
             )
 
-        return LimitOffsetPagination[UserAccessTokenResponse](
-            items=[
-                UserAccessTokenResponse.model_validate(token, from_attributes=True)
-                for token in tokens
-            ],
-            offset=offset,
-            total=total,
-        )
+        access_tokens = [
+            UserAccessTokenResponse.model_validate(token, from_attributes=True) for token in tokens
+        ]
+        return Pagination[UserAccessTokenResponse](items=access_tokens, offset=offset, total=total)
 
     @post("/access-tokens/", status_code=HTTP_201_CREATED)
     async def create_access_token(

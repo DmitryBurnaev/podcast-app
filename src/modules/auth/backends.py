@@ -359,7 +359,6 @@ class WebAuthBackend(AuthBackend):
                 settings=self.settings,
                 expires_in=self.settings.auth.session_ttl_seconds,
             )
-            # tokens = issue_token_pair(user_id=user.id, session_id=public_id, settings=self.settings)
             now = utcnow()
             session_repo = UserSessionRepository(session=uow.session)
             await session_repo.create(
