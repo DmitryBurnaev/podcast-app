@@ -15,6 +15,7 @@ from litestar.logging import LoggingConfig
 from litestar.middleware import DefineMiddleware
 from litestar.openapi import OpenAPIConfig
 from litestar.openapi.plugins import SwaggerRenderPlugin
+from litestar.openapi.spec import Server
 from litestar.static_files import StaticFilesConfig
 from litestar.template import TemplateConfig
 
@@ -171,13 +172,20 @@ def make_app(settings: AppSettings | None = None) -> PodcastApp:
             ),
         ],
         openapi_config=OpenAPIConfig(
-            path="/swagger/",
+            path="/api/schema/",
             title="Podcast API",
             version=app_settings.app_version,
-            description="Podcast API",
-            render_plugins=[SwaggerRenderPlugin()],
+            description="CRUD and functional API for working with Podcast application",
+            # servers=[Server(url="/api/")],
+            render_plugins=[
+                # SwaggerRenderPlugin(
+                #     path="/",
+                #     css_url="/static/css/swagger-ui.css",
+                #     js_url="/static/js/swagger-ui-standalone-preset.js",
+                # )
+            ],
             openapi_controller=PodcastOpenAPIController,
-            root_schema_site="swagger",
+            # root_schema_site="swagger",
         ),
         lifespan=[lambda _: lifespan(app_settings)],
         debug=app_settings.flags.debug_mode,

@@ -1,7 +1,7 @@
 import asyncio
 import logging
-from functools import lru_cache
-from typing import Any, Protocol, Self
+from functools import lru_cache, cached_property
+from typing import Any, Protocol, Self, Literal, Callable
 
 from litestar import Controller
 from litestar.connection import Request
@@ -96,3 +96,20 @@ class BaseViewController(Controller):
 class PodcastOpenAPIController(OpenAPIController):
     opt = {AuthSkip.SKIP_AUTH_WEB: True, AuthSkip.SKIP_AUTH_API: True}
     favicon_url = "/static/img/favicon.ico"
+    swagger_css_url = "/static/css/swagger-ui.css"
+    swagger_ui_bundle_js_url = "/static/js/swagger-ui-bundle.js"
+    swagger_ui_standalone_preset_js_url = "/static/js/swagger-ui-standalone-preset.js"
+
+    @cached_property
+    def render_methods_map(
+        self,
+    ) -> dict[Literal["redoc", "swagger", "elements", "rapidoc"], Callable[[Request], bytes]]:
+        """Map render method names to render methods.
+
+        Returns:
+            A mapping of string keys to render methods.
+        """
+        return {
+            "redoc": self.render_swagger_ui,
+            "swagger": self.render_swagger_ui,
+        }
