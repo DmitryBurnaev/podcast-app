@@ -29,7 +29,7 @@ from src.modules.schemas.episodes import (
 from src.modules.services.episodes import EpisodeCreator
 from src.modules.tasks.base import RQTask
 from src.modules.utils.processing import publish_redis_stop_downloading
-from src.modules.views.base import AppRequest
+from src.modules.common.types import AppRequest
 
 logger = logging.getLogger(__name__)
 

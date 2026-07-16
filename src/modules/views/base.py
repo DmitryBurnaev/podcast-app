@@ -5,20 +5,17 @@ from typing import Any, Protocol, Self, Literal, Callable
 
 from litestar import Controller
 from litestar.connection import Request
-from litestar.datastructures import State
 from litestar.openapi import OpenAPIController
 from litestar.response import Template
 
 from src import constants as const
+from src.modules.common.types import AppRequestMayBeAuthenticated
 from src.constants import AuthSkip
-from src.modules.auth.backends import TokenData
 from src.modules.db import User
 from src.modules.tasks.base import RQTask
 
 __all__ = ("BaseViewController", "get_optional_user")
 logger = logging.getLogger(__name__)
-type AppRequest = Request[User, TokenData, State]
-type AppRequestMayBeAuthenticated = Request[User | None, TokenData | None, State]
 
 
 def get_optional_user(request: Request) -> User | None:

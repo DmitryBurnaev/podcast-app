@@ -2,7 +2,8 @@ from litestar import get
 from litestar.response import Template
 
 from src.modules.auth.backends import WebAuthBackend
-from src.modules.views.base import BaseViewController, AppRequest
+from src.modules.views.base import BaseViewController
+from src.modules.common.types import AppRequest
 
 
 class ProfileController(BaseViewController):

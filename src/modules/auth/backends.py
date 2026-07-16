@@ -9,6 +9,7 @@ from litestar.exceptions import PermissionDeniedException
 from litestar.handlers import BaseRouteHandler
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from src.modules.common.types import AppRequest
 from src.modules.auth.tokens import (
     issue_token_pair,
     encode_jwt,
@@ -59,8 +60,8 @@ class AuthBackend:
 
     keyword = "Bearer"
 
-    def __init__(self, connection: ASGIConnection, header_keyword: str | None = None) -> None:
-        self.connection = connection
+    def __init__(self, request: AppRequest, header_keyword: str | None = None) -> None:
+        self.request: AppRequest = request
         self.settings: AppSettings = get_app_settings()
         self.header_keyword: str = header_keyword if header_keyword else self.keyword
 
@@ -174,8 +175,13 @@ class AuthBackend:
         return len(token) == LENGTH_USER_ACCESS_TOKEN and len(token.split(".")) == 1
 
     async def register_user_ip(self, user: User | None = None) -> None:
-        """Best-effort IP history registration used by sign-in and profile requests."""
-        request, settings = self.connection, self.settings
+        """
+        Best-effort IP history registration used by sign-in and profile requests.
+
+        :param user: the user
+        :return: None
+        """
+        request, settings = self.request, self.settings
         address = request.headers.get(settings.request_ip_header)
         if not address:
             client: Address = request.client or Address(settings.default_request_user_ip, port=0)
@@ -201,7 +207,10 @@ class APIAuthBackend(AuthBackend):
     """Header based authentication backend"""
 
     async def authenticate(self) -> AuthenticatedUserResult:
-        headers = self.connection.headers
+        """
+        Authenticate the user using the authorization header.
+        """
+        headers = self.request.headers
         auth_header = headers.get("Authorization") or headers.get("authorization")
         if not auth_header:
             raise AuthMissingCredentialsError("Invalid token header. No credentials provided.")
@@ -225,14 +234,22 @@ class APIAuthBackend(AuthBackend):
         return auth_result
 
     async def logout(self) -> None:
+        """Logout the user by deactivating the session."""
         # TODO: recheck logic against the authenticate method in this backend!
-        session_id: str | None = self.connection.session.get("id")
+
+        session_id: str | None = self.request.auth.get("session_id")
         if session_id is not None:
             async with SASessionUOW() as uow:
                 session_repo = UserSessionRepository(uow.session)
                 await session_repo.deactivate_by_public_id(session_id)
 
     async def login(self, email: str, password: str) -> SuccessLoginData:
+        """Login the user by creating a new session.
+
+        :param email: the email of the user
+        :param password: the password of the user
+        :return: the success login data
+        """
         async with SASessionUOW() as uow:
             user_repo = UserRepository(uow.session)
             user = await user_repo.get_by_email(email)
@@ -248,6 +265,12 @@ class APIAuthBackend(AuthBackend):
         return SuccessLoginData(user=user, tokens=tokens, cookie=None)
 
     async def refresh_user_session(self, refresh_token: str) -> TokenCollection:
+        """
+        Refresh the user session by creating a new access and refresh tokens.
+
+        :param refresh_token: the refresh token
+        :return: the success login data
+        """
         auth = await self._authenticate_refresh_token(refresh_token)
         tokens = issue_token_pair(
             user_id=auth.user.id,
@@ -268,7 +291,11 @@ class APIAuthBackend(AuthBackend):
         return tokens
 
     async def create_user_session(self, user: User) -> TokenCollection:
-        """Create a new user session"""
+        """Create a new user session.
+
+        :param user: the user
+        :return: the success login data
+        """
         session_id = str(uuid.uuid4())
         tokens = issue_token_pair(user_id=user.id, session_id=session_id, settings=self.settings)
         async with SASessionUOW() as uow:
@@ -323,7 +350,12 @@ class WebAuthBackend(AuthBackend):
     """Cookies + JWT based authentication backend"""
 
     async def authenticate(self) -> AuthenticatedUserResult:
-        cookie_jwt = self.connection.cookies.get(self.settings.auth.session_cookie_name)
+        """
+        Authenticate the user using the session cookie.
+
+        :return: the authenticated user result
+        """
+        cookie_jwt = self.request.cookies.get(self.settings.auth.session_cookie_name)
         if not cookie_jwt:
             raise AuthMissingCredentialsError("Missing token from session cookie")
 
@@ -337,6 +369,13 @@ class WebAuthBackend(AuthBackend):
         return auth_result
 
     async def login(self, email: str, password: str) -> SuccessLoginData:
+        """
+        Login the user by creating a new session.
+
+        :param email: the email of the user
+        :param password: the password of the user
+        :return: the success login data
+        """
         if not all([email, password]):
             raise AuthCredentialsInvalidError("Email or password is required.")
 
@@ -384,7 +423,12 @@ class WebAuthBackend(AuthBackend):
         return SuccessLoginData(user=user, cookie=session_cookie)
 
     async def logout(self) -> Cookie:
-        public_id = self.connection.cookies.get(self.settings.auth.session_cookie_name)
+        """
+        Logout the user by deactivating the session.
+
+        :return: the clear cookie
+        """
+        public_id = self.request.cookies.get(self.settings.auth.session_cookie_name)
         if public_id:
             async with SASessionUOW() as uow:
                 repo = UserSessionRepository(session=uow.session)

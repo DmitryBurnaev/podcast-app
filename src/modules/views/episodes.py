@@ -17,7 +17,8 @@ from src.modules.db.repositories import EpisodeRepository, PodcastRepository
 from src.modules.schemas.episodes import EpisodeCreateSchema
 from src.modules.services.cover import CoverService
 from src.modules.services.episodes import EpisodeCreator
-from src.modules.views.base import BaseViewController, TaskQueueApp, AppRequest
+from src.modules.views.base import BaseViewController, TaskQueueApp
+from src.modules.common.types import AppRequest
 from src.settings.app import get_app_settings, AppSettings
 from src.utils import cut_string
 

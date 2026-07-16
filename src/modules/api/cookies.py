@@ -14,7 +14,7 @@ from src.modules.db.models.podcasts import Cookie
 from src.modules.db.repositories import CookieRepository, EpisodeRepository
 from src.modules.db.services import SASessionUOW
 from src.modules.schemas.cookies import CookieResponse
-from src.modules.views.base import AppRequest
+from src.modules.common.types import AppRequest
 from src.utils import utcnow
 
 
