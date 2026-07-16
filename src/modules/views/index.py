@@ -1,10 +1,11 @@
 from litestar import get
 from litestar.response import Template
 
+from src.modules.common.types import AppRequest
 from src.modules.db import SASessionUOW
 from src.modules.db.repositories import EpisodeRepository, PodcastRepository
 from src.modules.services.statistic import StatisticService
-from src.modules.views.base import BaseViewController, AppRequest
+from src.modules.views.base import BaseViewController
 
 
 class IndexController(BaseViewController):

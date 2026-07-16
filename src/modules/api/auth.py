@@ -47,7 +47,7 @@ from src.modules.schemas.auth import (
 )
 from src.modules.schemas.common import Pagination, OKResponse
 from src.modules.services.email import _send_invitation_email, _send_reset_password_email
-from src.modules.views.base import AppRequest
+from src.modules.common.types import AppRequest
 from src.settings.app import AppSettings
 from src.utils import hash_string, utcnow
 
@@ -69,19 +69,16 @@ class AuthCoreAPIController(BaseAuthAPIController):
         AuthSkip.SKIP_AUTH_WEB: True,
     }
 
-    @post("/sign-in/")
+    @post("/sign-in/", response_model=TokenResponse, status_code=HTTP_200_OK)
     async def sign_in(
         self,
+        data: SignInRequest,
         request: Request,
-        sign_in_data: SignInRequest,
     ) -> TokenResponse:
         """Authenticate a user and issue a token pair."""
         try:
             auth_backend = APIAuthBackend(request)
-            success_login = await auth_backend.login(
-                email=sign_in_data.email,
-                password=sign_in_data.password,
-            )
+            success_login = await auth_backend.login(email=data.email, password=data.password)
         except AuthenticationError as err:
             raise AuthInvalidAPIError(details=err.details) from err
 

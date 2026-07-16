@@ -14,8 +14,6 @@ from litestar.exceptions import HTTPException, ValidationException
 from litestar.logging import LoggingConfig
 from litestar.middleware import DefineMiddleware
 from litestar.openapi import OpenAPIConfig
-from litestar.openapi.plugins import SwaggerRenderPlugin
-from litestar.openapi.spec import Server
 from litestar.static_files import StaticFilesConfig
 from litestar.template import TemplateConfig
 
@@ -139,15 +137,33 @@ def provide_current_user(request: Request):
 def make_app(settings: AppSettings | None = None) -> PodcastApp:
     """Forming Application instance with required settings and dependencies"""
     app_settings: AppSettings = settings or get_app_settings()
+
+    def provide_settings(_: Any) -> AppSettings:
+        return app_settings
+
+    logger.info("Preparing configs for application...")
     logging_config = LoggingConfig(
         root={"level": "INFO", "handlers": [app_settings.log.default_handler]},
         formatters=app_settings.log.dict_config["formatters"],
         exception_logging_handler=exception_logging_handler,
         log_exceptions="always",
     )
-
-    def provide_settings(_: Any) -> AppSettings:
-        return app_settings
+    static_file_config = StaticFilesConfig(
+        path="/static",
+        directories=[str(APP_DIR / "static")],
+        opt={
+            AuthSkip.SKIP_AUTH_API: True,
+            AuthSkip.SKIP_AUTH_WEB: True,
+        },
+    )
+    openapi_config = OpenAPIConfig(
+        path="/api/schema/",
+        title="Podcast API",
+        version=app_settings.app_version,
+        description="CRUD and functional API for working with Podcast application",
+        render_plugins=[],
+        openapi_controller=PodcastOpenAPIController,
+    )
 
     logger.info("Setting up application...")
     podcast_app = PodcastApp(
@@ -161,32 +177,8 @@ def make_app(settings: AppSettings | None = None) -> PodcastApp:
             DefineMiddleware(WebAuthMiddleware, exclude_from_auth_key=AuthSkip.SKIP_AUTH_WEB),
         ],
         template_config=TemplateConfig(directory=APP_DIR / "templates", engine=JinjaTemplateEngine),
-        static_files_config=[
-            StaticFilesConfig(
-                path="/static",
-                directories=[str(APP_DIR / "static")],
-                opt={
-                    AuthSkip.SKIP_AUTH_API: True,
-                    AuthSkip.SKIP_AUTH_WEB: True,
-                },
-            ),
-        ],
-        openapi_config=OpenAPIConfig(
-            path="/api/schema/",
-            title="Podcast API",
-            version=app_settings.app_version,
-            description="CRUD and functional API for working with Podcast application",
-            # servers=[Server(url="/api/")],
-            render_plugins=[
-                # SwaggerRenderPlugin(
-                #     path="/",
-                #     css_url="/static/css/swagger-ui.css",
-                #     js_url="/static/js/swagger-ui-standalone-preset.js",
-                # )
-            ],
-            openapi_controller=PodcastOpenAPIController,
-            # root_schema_site="swagger",
-        ),
+        static_files_config=[static_file_config],
+        openapi_config=openapi_config,
         lifespan=[lambda _: lifespan(app_settings)],
         debug=app_settings.flags.debug_mode,
         logging_config=logging_config,

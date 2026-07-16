@@ -11,7 +11,8 @@ from src.modules.db.models import File as MediaFile
 from src.modules.db.repositories import EpisodeRepository, PodcastRepository
 from src.modules.services.cover import CoverService
 from src.modules.services.statistic import StatisticService
-from src.modules.views.base import BaseViewController, AppRequest
+from src.modules.views.base import BaseViewController
+from src.modules.common.types import AppRequest
 from src.settings.app import AppSettings
 from src.utils import cut_string
 
