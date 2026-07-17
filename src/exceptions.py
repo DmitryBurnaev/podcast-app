@@ -40,28 +40,21 @@ class BaseApplicationError(Exception):
     ):
         self.message = message or self.message
         self.details = details or self.details
-        self.status_code = status_code or self.status_code
-        self.response_code = response_code or self.response_code
-
-        # if status_code is not None:
-        #     self.status_code = status_code
-        # if response_code is not None:
-        #     self.response_code = response_code
-
-        # self.status_code: int = status_code or getattr(
-        #     self, "status_code", self.default_status_code
-        # )
-        # self.response_code = response_code or getattr(
-        #     self,
-        #     "response_code",
-        #     self.default_response_code,
-        # )
+        if status_code is not None:
+            self.status_code = status_code
+        if response_code is not None:
+            self.response_code = response_code
 
     def __str__(self) -> str:
         return f"{self.message} ({self.details})"
 
     def __repr__(self) -> str:
         return f"<{self.__class__.__name__} {self.message} ({self.details})>"
+
+    @classmethod
+    def get_subclasses(cls) -> list[type[BaseApplicationError]]:
+        """Get all subclasses of the base application error."""
+        return cls.__subclasses__()
 
 
 class AppSettingsError(BaseApplicationError):
@@ -270,13 +263,27 @@ class StateConflictAPIError(APIError):
 
 
 def exception_logging_handler(logger: Logger, scope: Scope, tb: list[str]) -> None:
+    """
+    Handle exception logging for API errors.
+    If the last record in the traceback is an authentication error, log it as an info message.
+    Otherwise, log it as a warning message.
+
+    :param logger: the logger to use
+    :param scope: the scope of the request
+    :param tb: the traceback of the exception
+    :return: None
+    """
     last_record_in_tb = tb[-1] if tb else ""
-    if AuthMissingCredentialsError.__name__ in last_record_in_tb:
-        logger.info("Unauthorized access to '%s'. Redirecting to login page...", scope["path"])
+    auth_error_names = [error.__name__ for error in AuthenticationError.get_subclasses()]
+    is_auth_error = any(error_name in last_record_in_tb for error_name in auth_error_names)
+    if is_auth_error:
+        logger.info("Unauthorized access to '%s'...", scope["path"])
         return
 
-    logger.exception(
-        "Root level's application error occurred | connection %s | path %r",
+    log_method = logger.warning if is_auth_error else logger.exception
+    log_method(
+        "Root level's application error occurred | %s: %r | err: '%s'",
         scope["type"],
         scope["path"],
+        last_record_in_tb,
     )

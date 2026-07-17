@@ -9,7 +9,6 @@ from litestar.exceptions import PermissionDeniedException
 from litestar.handlers import BaseRouteHandler
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.modules.common.types import AppRequest
 from src.modules.auth.tokens import (
     issue_token_pair,
     encode_jwt,
@@ -60,8 +59,8 @@ class AuthBackend:
 
     keyword = "Bearer"
 
-    def __init__(self, request: AppRequest, header_keyword: str | None = None) -> None:
-        self.request: AppRequest = request
+    def __init__(self, request: ASGIConnection, header_keyword: str | None = None) -> None:
+        self.request: ASGIConnection = request
         self.settings: AppSettings = get_app_settings()
         self.header_keyword: str = header_keyword if header_keyword else self.keyword
 
@@ -226,17 +225,12 @@ class APIAuthBackend(AuthBackend):
             raise AuthCredentialsInvalidError("Invalid token header. Keyword mismatch.")
 
         async with SASessionUOW() as uow:
-            auth_result = await self._authenticate_user(
-                jwt_token=auth[1],
-                db_session=uow.session,
-            )
+            auth_result = await self._authenticate_user(jwt_token=auth[1], db_session=uow.session)
 
         return auth_result
 
     async def logout(self) -> None:
         """Logout the user by deactivating the session."""
-        # TODO: recheck logic against the authenticate method in this backend!
-
         session_id: str | None = self.request.auth.get("session_id")
         if session_id is not None:
             async with SASessionUOW() as uow:
