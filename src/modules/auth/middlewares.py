@@ -17,7 +17,7 @@ class APIAuthMiddleware(AbstractAuthenticationMiddleware):
         Given a request, parse the request api key stored in the header and retrieve
         the user correlating to the token from the DB
         """
-        auth_backend = APIAuthBackend(connection=connection, header_keyword="Bearer")
+        auth_backend = APIAuthBackend(request=connection, header_keyword="Bearer")
         auth_result = await auth_backend.authenticate()
         return AuthenticationResult(user=auth_result.user, auth=auth_result.token_data)
 
@@ -29,6 +29,6 @@ class WebAuthMiddleware(AbstractAuthenticationMiddleware):
         Given a request, parse the request api key stored in the header and retrieve
         the user correlating to the token from the DB
         """
-        auth_backend = WebAuthBackend(connection=connection)
+        auth_backend = WebAuthBackend(request=connection)
         auth_result = await auth_backend.authenticate()
         return AuthenticationResult(user=auth_result.user, auth=auth_result.token_data)
