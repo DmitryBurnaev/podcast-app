@@ -17,6 +17,7 @@ from src.modules.auth.types import TokenData
 from src.modules.db.models.users import User, UserSession
 
 logger = logging.getLogger(__name__)
+LENGTH_USER_ACCESS_TOKEN = 64
 
 
 class AuthTokenType(StrEnum):
