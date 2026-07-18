@@ -1,5 +1,6 @@
-import logging
+import abc
 import uuid
+import logging
 from typing import NamedTuple
 
 from jwt import InvalidTokenError, ExpiredSignatureError
@@ -34,8 +35,7 @@ from src.modules.db.repositories import (
     UserIPRepository,
 )
 from src.utils import hash_string, utcnow
-from src.modules.auth.tokens import TokenCollection, decode_jwt
-from src.modules.auth.constants import LENGTH_USER_ACCESS_TOKEN
+from src.modules.auth.tokens import TokenCollection, decode_jwt, LENGTH_USER_ACCESS_TOKEN
 
 logger = logging.getLogger(__name__)
 
@@ -54,7 +54,7 @@ class SuccessLoginData(NamedTuple):
     tokens: TokenCollection | None = None
 
 
-class AuthBackend:
+class BaseAuthBackend(abc.ABC):
     """Core of authenticate system, based on JWT auth approach"""
 
     keyword = "Bearer"
@@ -64,14 +64,29 @@ class AuthBackend:
         self.settings: AppSettings = get_app_settings()
         self.header_keyword: str = header_keyword if header_keyword else self.keyword
 
+    @abc.abstractmethod
     async def authenticate(self) -> AuthenticatedUserResult:
-        raise NotImplementedError
+        """
+        Base method for authenticate user
+        :return: standardized format for authenticated user's request
+        """
 
+    @abc.abstractmethod
     async def login(self, email: str, password: str) -> SuccessLoginData:
-        raise NotImplementedError
+        """
+        Base method for login user
 
+        :param email: current user's email (required to login)
+        :param password: current user's password (required to login)
+        :return: Login data (simple helper for combined info)
+        """
+
+    @abc.abstractmethod
     async def logout(self) -> Cookie | None:
-        raise NotImplementedError
+        """
+        Base method for logout user
+        :return: Response cookie (if context is web request)
+        """
 
     async def _authenticate_user(
         self,
@@ -202,7 +217,7 @@ class AuthBackend:
             logger.exception("[API] Failed to register IP for user '%s': %r", user, exc)
 
 
-class APIAuthBackend(AuthBackend):
+class APIAuthBackend(BaseAuthBackend):
     """Header based authentication backend"""
 
     async def authenticate(self) -> AuthenticatedUserResult:
@@ -340,7 +355,7 @@ class APIAuthBackend(AuthBackend):
             )
 
 
-class WebAuthBackend(AuthBackend):
+class WebAuthBackend(BaseAuthBackend):
     """Cookies + JWT based authentication backend"""
 
     async def authenticate(self) -> AuthenticatedUserResult:
