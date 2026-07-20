@@ -1,0 +1,34 @@
+{% extends "sqladmin/details.html" %}
+{% block content %}
+    {% if model.raw_token != 'None' %}
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body">
+                    <label class="form-label">Generated Token</label>
+                    <div class="input-group mb-2">
+                        <span class="input-group-text cursor-pointer" id="copy-token-btn"> <i class="fa-solid fa-copy"></i> </span>
+                        <input autocomplete="off" value="{{ model.raw_token }}" class="form-control" id="token-value-input" placeholder="Generated Token">
+                    </div>
+                    <div class="alert alert-success" role="alert">
+                        <div>Copy token to the safe place!</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    {% endif %}
+    {{ super() }}
+{% endblock %}
+{% block tail %}
+    <script type="application/javascript">
+        // copy value from input to clipboard
+        const tokenValueInput = document.getElementById('token-value-input');
+        const copyTokenBtn = document.getElementById('copy-token-btn');
+        if (copyTokenBtn !== null){
+            copyTokenBtn.addEventListener('click', () => {
+                tokenValueInput.select();
+                document.execCommand('copy');
+            });
+        }
+    </script>
+    {{ super() }}
+{% endblock %}
