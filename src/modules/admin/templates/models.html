@@ -1,0 +1,34 @@
+{% extends "sqladmin/layout.html" %}
+{% block content %}
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">Fetched Models</h3>
+            </div>
+
+            <div class="card-body border-bottom py-3">
+                <div class="table-responsive">
+                    <table class="table card-table1 table-vcenter text-nowrap1 table-hover table-bordered">
+                        <thead>
+                        <tr>
+                            <th class="w-1">Vendor</th>
+                            <th class="w-1">Model</th>
+                            <th class="w-1">Original Name</th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        {% for vendor_model in vendor_models %}
+                            <tr>
+                                <td>{{ vendor_model.vendor }}</td>
+                                <td>{{ vendor_model.model }}</td>
+                                <td>{{ vendor_model.original_model }}</td>
+                            </tr>
+                        {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+{% endblock %}

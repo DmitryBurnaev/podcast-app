@@ -214,3 +214,5 @@ __marimo__/
 
 # Local-only reference tests copied from the previous project incarnation.
 src/legacy-tests/
+docs
+AGENTS.md

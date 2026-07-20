@@ -1,92 +1,120 @@
-from datetime import UTC, datetime
+import datetime
+import logging
+from typing import cast, TypedDict
 
-from sqlalchemy import select
-from starlette.requests import Request
-from starlette.responses import Response
+import jwt
 from sqladmin.authentication import AuthenticationBackend
+from starlette.requests import Request
 
-from src.modules.db.models import User
 from src.modules.db.repositories import UserRepository
 from src.modules.db.services import SASessionUOW
+from src.modules.db.models import User
+from src.modules.admin.utils import register_error_alert
+from src.modules.auth.tokens import encode_jwt, TokenPayload, decode_jwt
 from src.settings.app import AppSettings
+from src.utils import utcnow
 
-ADMIN_USER_ID_KEY = "admin_user_id"
-ADMIN_EMAIL_KEY = "admin_email"
-ADMIN_EXPIRES_AT_KEY = "admin_expires_at"
+logger = logging.getLogger(__name__)
+type USER_ID = int
 
 
-class PodcastAdminAuth(AuthenticationBackend):
-    """SQLAdmin authentication backed by existing Podcast App users."""
+class UserPayload(TypedDict):
+    id: int
+    username: str
+    email: str
 
-    def __init__(self, settings: AppSettings) -> None:
-        self.settings = settings
-        super().__init__(
-            secret_key=settings.app_secret_key.get_secret_value(),
-            session_cookie="podcast_admin_session",
-            max_age=settings.admin_session_expiration_time,
-            path=settings.admin_base_url,
-            same_site="lax",
-            https_only=settings.auth_cookie_secure_effective(),
-        )
+
+class AdminAuth(AuthenticationBackend):
+    """
+    Customized admin authentication (based on encoding JWT token based on current user)
+    """
+
+    def __init__(self, secret_key: str, settings: AppSettings) -> None:
+        super().__init__(secret_key=secret_key)
+        self.settings: AppSettings = settings
 
     async def login(self, request: Request) -> bool:
         form = await request.form()
-        email = str(form.get("email") or form.get("username") or "").strip().lower()
-        password = str(form.get("password") or "")
-        if not email or not password:
-            return False
+        username: str = cast(str, form["username"])
+        password: str = cast(str, form["password"])
 
         async with SASessionUOW() as uow:
-            repository = UserRepository(session=uow.session)
-            user = await repository.get_by_email(email)
+            user = await UserRepository(session=uow.session).get_by_username(username=username)
+            ok, message = self._check_user(user, identety=username, password=password)
+            if not ok:
+                register_error_alert(title="Authentication failed", details=message)
+                return False
 
-        if user is None or not user.is_active or not user.is_superuser:
-            return False
+            admin: User = cast(User, user)
 
-        if not user.verify_password(password):
-            return False
-
-        request.session.update(
-            {
-                ADMIN_USER_ID_KEY: user.id,
-                ADMIN_EMAIL_KEY: user.email,
-                ADMIN_EXPIRES_AT_KEY: self._expires_at(),
-            }
-        )
+        payload: UserPayload = {"id": admin.id, "username": admin.username, "email": admin.email}
+        request.session.update({"token": self._encode_token(payload)})
         return True
 
-    async def logout(self, request: Request) -> Response | bool:
+    async def logout(self, request: Request) -> bool:
         request.session.clear()
         return True
 
-    async def authenticate(self, request: Request) -> Response | bool:
-        user_id = request.session.get(ADMIN_USER_ID_KEY)
-        expires_at = request.session.get(ADMIN_EXPIRES_AT_KEY)
-        if not user_id or not expires_at:
+    async def authenticate(self, request: Request) -> bool:
+        token = request.session.get("token")
+
+        if not token:
             return False
 
-        if float(expires_at) <= self._now():
-            request.session.clear()
+        user_id = self._decode_token(token)
+        if not user_id:
+            logger.warning("[admin-auth] Invalid or outdated session's token")
+            register_error_alert(
+                title="Authentication failed", details="Invalid or outdated session's token"
+            )
             return False
 
         async with SASessionUOW() as uow:
-            statement = select(User).where(
-                User.id == int(user_id),
-                User.is_active.is_(True),
-                User.is_superuser.is_(True),
-            )
-            user = await uow.session.scalar(statement)
+            user = await UserRepository(session=uow.session).first(instance_id=user_id)
+            ok, message = self._check_user(user, identety=user_id)
+            if not ok:
+                register_error_alert(title="Authentication failed", details=message)
+                return False
 
-        if user is None:
-            request.session.clear()
-            return False
-
-        request.session[ADMIN_EXPIRES_AT_KEY] = self._expires_at()
         return True
 
-    def _expires_at(self) -> float:
-        return self._now() + self.settings.admin_session_expiration_time
+    def _encode_token(self, user_payload: UserPayload) -> str:
+        exp_time = self.settings.admin.session_expiration_time
+        admin_login_token = encode_jwt(
+            payload=TokenPayload(sub=str(user_payload["id"])),
+            expires_at=(utcnow() + datetime.timedelta(seconds=exp_time)),
+            settings=self.settings,
+        )
+        return admin_login_token
+
+    def _decode_token(self, token: str) -> USER_ID | None:
+        try:
+            user_payload = decode_jwt(token, settings=self.settings)
+        except jwt.PyJWTError:
+            return None
+
+        return int(user_payload.sub)
 
     @staticmethod
-    def _now() -> float:
-        return datetime.now(UTC).timestamp()
+    def _check_user(
+        user: User | None, identety: str | int, password: str | None = None
+    ) -> tuple[bool, str]:
+        if not user:
+            logger.error("[admin-auth] User '%s' not found", identety)
+            return False, "User not found"
+
+        if password is not None:
+            password_verified = user.verify_password(password)
+            if not password_verified:
+                logger.error("[admin-auth] User '%s' | invalid password", user)
+                return False, "Invalid password"
+
+        if not user.is_active:
+            logger.error("[admin-auth] User '%s' | inactive", user)
+            return False, "User inactive"
+
+        if not user.is_admin:
+            logger.error("[admin-auth] User '%s' | not an admin", user)
+            return False, "User is not an admin"
+
+        return True, "User is active"
