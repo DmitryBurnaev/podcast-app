@@ -17,6 +17,12 @@ class BaseModel(AsyncAttrs, DeclarativeBase):
         nullable=False,
     )
 
+    def __str__(self) -> str:
+        return f"Instance of {self.__class__.__name__} #{self.id}"
+
+    def __repr__(self) -> str:
+        return f"<{self.__class__.__name__} id={self.id} created_at={self.created_at}>"
+
     def to_dict(self, excluded_fields: list[str] | None = None) -> dict:
         """Return a plain dictionary of public mapped attributes."""
         excluded_fields = excluded_fields or []

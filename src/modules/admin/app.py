@@ -8,29 +8,23 @@ from starlette.datastructures import FormData, URL
 from starlette.requests import Request
 from starlette.responses import Response
 
+from src.modules.admin.counters import AdminCounter
+from src.modules.db import SASessionUOW
 from src.modules.admin.auth import AdminAuth
 from src.settings.app import APP_DIR
-from src.modules.db.services import SASessionUOW
 from src.modules.admin.utils import get_current_error_alert
 
-# from src.modules.admin.views import (
-#     BaseAPPView,
-#     BaseModelView,
-#     UserAdminView,
-#     VendorAdminView,
-#     AIModelsAdminView,
-#     TokenAdminView,
-# )
+from src.modules.admin.views import (
+    BaseAPPView,
+    BaseModelView,
+    UserAdminView,
+)
 from src.modules.db import session as db_session
-
-# from src.modules.services.counters import AdminCounter
-# from src.modules.services.vendors import VendorService
-from src.settings.app import get_app_settings
 
 if TYPE_CHECKING:
     from src.main import PodcastApp
 
-ADMIN_VIEWS: tuple[type[BaseView], ...] = ()
+ADMIN_VIEWS: tuple[type[BaseView], ...] = (UserAdminView,)
 
 logger = logging.getLogger(__name__)
 
@@ -39,7 +33,7 @@ class AdminApp(Admin):
     """License-specific admin class."""
 
     custom_templates_dir = "modules/admin/templates"
-    app: "PodcastApp"
+    # app: "PodcastApp"
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
@@ -50,22 +44,17 @@ class AdminApp(Admin):
     @login_required
     async def index(self, request: Request) -> Response:
         """Index route which can be overridden to create dashboards."""
-        settings = get_app_settings()
-        # async with SASessionUOW() as uow:
-        #     dashboard_stat = await AdminCounter().get_stat(session=uow.session)
-        # try:
-        #     models = await VendorService(settings).get_list_models()
-        # except Exception as exc:
-        #     logger.error("Failed to get vendor models: %r", exc)
-        #     models = []
+
+        async with SASessionUOW() as uow:
+            dashboard_stat = await AdminCounter().get_stat(session=uow.session)
 
         context = {
-            "vendors": {
-                "total": 10,
+            "podcasts": {
+                "total": dashboard_stat.total_podcasts,
                 "active": 12,
             },
-            "models": {
-                "active": 234,
+            "episodes": {
+                "total": dashboard_stat.total_episodes,
             },
         }
         return await self.templates.TemplateResponse(request, "dashboard.html", context=context)
@@ -122,7 +111,7 @@ class AdminApp(Admin):
             self.add_view(view)
 
         for view_instance in self._views:
-            view_instance.app = self.app
+            view_instance.app = cast(PodcastApp, cast(object, self.app))
 
 
 def make_admin(app: "PodcastApp") -> Admin:

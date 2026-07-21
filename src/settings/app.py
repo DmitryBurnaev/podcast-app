@@ -29,6 +29,21 @@ class FlagsSettings(BaseSettings):
     api_debug_mode: bool = False
 
 
+class AdminSettings(BaseSettings):
+    """Implements settings which are loaded from environment variables"""
+
+    model_config = SettingsConfigDict(env_prefix="ADMIN_")
+
+    username: str = Field(default_factory=lambda: "admin", description="Default admin username")
+    password: SecretStr = Field(
+        default_factory=lambda: SecretStr("code-admin!"),
+        description="Default admin password",
+    )
+    session_expiration_time: int = 2 * 24 * 3600
+    base_url: str = "/cadm"
+    title: str = "CodeAgent"
+
+
 class AuthSettings(BaseSettings):
     """Browser session cookie and UserSession TTL (env prefix AUTH_)."""
 
@@ -83,6 +98,7 @@ class AppSettings(BaseSettings):
     db: DBSettings = Field(default_factory=DBSettings)
     redis: RedisSettings = Field(default_factory=RedisSettings)
     s3: S3Settings = Field(default_factory=S3Settings)
+    admin: AdminSettings = Field(default_factory=AdminSettings)
 
     # other settings
     api_docs_enabled: bool = False
