@@ -64,6 +64,7 @@ class PodcastApp(Litestar):
     """Podcast application instance"""
 
     rq_queue: rq.Queue
+    settings: AppSettings
 
     def __init__(self, *args, settings: AppSettings, **kwargs) -> None:
         super().__init__(*args, **kwargs)

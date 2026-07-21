@@ -16,7 +16,7 @@ def mask_secret(_: type, __: Any) -> str:
     return MASKED_SECRET
 
 
-class SecureModelView(ModelView):
+class BaseAPPView(ModelView):
     """Shared admin defaults for model views."""
 
     page_size = 25
@@ -31,7 +31,7 @@ class SecureModelView(ModelView):
         return self.is_accessible(request)
 
 
-class UserAdmin(SecureModelView, model=User):
+class UserAdminView(BaseAPPView, model=User):
     name = "User"
     name_plural = "Users"
     icon = "fa-solid fa-users"
@@ -77,7 +77,7 @@ class UserAdmin(SecureModelView, model=User):
             return user
 
 
-class UserInviteAdmin(SecureModelView, model=UserInvite):
+class UserInviteAdminView(BaseAPPView, model=UserInvite):
     name = "User Invite"
     name_plural = "User Invites"
     icon = "fa-solid fa-envelope-open-text"
@@ -99,7 +99,7 @@ class UserInviteAdmin(SecureModelView, model=UserInvite):
     column_formatters_detail = {"token": mask_secret}
 
 
-class PodcastAdmin(SecureModelView, model=Podcast):
+class PodcastAdminView(BaseAPPView, model=Podcast):
     name = "Podcast"
     name_plural = "Podcasts"
     icon = "fa-solid fa-podcast"
@@ -117,7 +117,7 @@ class PodcastAdmin(SecureModelView, model=Podcast):
     column_default_sort = (Podcast.id, True)
 
 
-class EpisodeAdmin(SecureModelView, model=Episode):
+class EpisodeAdminView(BaseAPPView, model=Episode):
     name = "Episode"
     name_plural = "Episodes"
     icon = "fa-solid fa-headphones"
@@ -137,7 +137,7 @@ class EpisodeAdmin(SecureModelView, model=Episode):
     column_default_sort = (Episode.id, True)
 
 
-class CookieAdmin(SecureModelView, model=Cookie):
+class CookieAdminView(BaseAPPView, model=Cookie):
     name = "Cookie"
     name_plural = "Cookies"
     icon = "fa-solid fa-cookie-bite"
@@ -195,7 +195,7 @@ class CookieAdmin(SecureModelView, model=Cookie):
             return cookie
 
 
-class MediaFileAdmin(SecureModelView, model=File):
+class MediaFileAdminView(BaseAPPView, model=File):
     name = "Media File"
     name_plural = "Media Files"
     icon = "fa-solid fa-file-audio"
@@ -216,7 +216,7 @@ class MediaFileAdmin(SecureModelView, model=File):
     column_formatters_detail = {"access_token": mask_secret}
 
 
-class UserAccessTokenAdmin(SecureModelView, model=UserAccessToken):
+class UserAccessTokenAdminView(BaseAPPView, model=UserAccessToken):
     name = "User Access Token"
     name_plural = "User Access Tokens"
     icon = "fa-solid fa-key"
@@ -295,12 +295,12 @@ class UserAccessTokenAdmin(SecureModelView, model=UserAccessToken):
             return access_token
 
 
-ADMIN_VIEWS: tuple[type[ModelView], ...] = (
-    UserAdmin,
-    UserInviteAdmin,
-    PodcastAdmin,
-    EpisodeAdmin,
-    CookieAdmin,
-    MediaFileAdmin,
-    UserAccessTokenAdmin,
+ADMIN_VIEWS: tuple[type[BaseAPPView], ...] = (
+    UserAdminView,
+    UserInviteAdminView,
+    PodcastAdminView,
+    EpisodeAdminView,
+    CookieAdminView,
+    MediaFileAdminView,
+    UserAccessTokenAdminView,
 )
