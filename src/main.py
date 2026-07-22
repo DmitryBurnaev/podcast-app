@@ -19,6 +19,7 @@ from litestar.template import TemplateConfig
 
 from redis import Redis
 
+from modules.admin.app import make_admin
 from src.constants import AuthSkip
 from src.exceptions import (
     BaseApplicationError,
@@ -104,6 +105,9 @@ async def lifespan(
         await check_redis_connection()
     except Exception as exc:
         raise StartupError("Failed to initialize Redis connection") from exc
+
+    logger.info("Setting up admin application...")
+    make_admin(app)
 
     logger.info("Application startup completed successfully")
 

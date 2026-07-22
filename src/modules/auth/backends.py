@@ -1,14 +1,17 @@
 import abc
 import uuid
 import logging
-from typing import NamedTuple
+from typing import NamedTuple, Any
 
 from jwt import InvalidTokenError, ExpiredSignatureError
 from litestar.connection import ASGIConnection
 from litestar.datastructures import Cookie, Address
 from litestar.exceptions import PermissionDeniedException
 from litestar.handlers import BaseRouteHandler
+from sqladmin.authentication import AuthenticationBackend
 from sqlalchemy.ext.asyncio import AsyncSession
+from starlette.requests import Request as SLRequest
+from starlette.responses import Response as SLResponse
 
 from src.modules.auth.tokens import (
     issue_token_pair,
@@ -430,6 +433,91 @@ class WebAuthBackend(BaseAuthBackend):
         )
         await self.register_user_ip(user)
         return SuccessLoginData(user=user, cookie=session_cookie)
+
+    async def logout(self) -> Cookie:
+        """
+        Logout the user by deactivating the session.
+
+        :return: the clear cookie
+        """
+        public_id = self.request.cookies.get(self.settings.auth.session_cookie_name)
+        if public_id:
+            async with SASessionUOW() as uow:
+                repo = UserSessionRepository(session=uow.session)
+                await repo.deactivate_by_public_id(public_id)
+
+        clear_cookie = Cookie(
+            key=self.settings.auth.session_cookie_name,
+            value="",
+            max_age=0,
+            httponly=True,
+            secure=self.settings.auth_cookie_secure_effective(),
+            samesite="lax",
+            path="/",
+        )
+        return clear_cookie
+
+
+class AdminAuthBackend(BaseAuthBackend):
+    """Admin specific authentication backend"""
+
+    async def authenticate(self) -> AuthenticatedUserResult:
+        """
+        Authenticate the user using the session cookie.
+
+        :return: the authenticated user result
+        """
+        cookie_jwt = self.request.cookies.get(self.settings.auth.session_cookie_name)
+        if not cookie_jwt:
+            raise AuthMissingCredentialsError("Missing token from session cookie")
+
+        async with SASessionUOW() as uow:
+            auth_result = await self._authenticate_user(
+                jwt_token=cookie_jwt,
+                db_session=uow.session,
+                token_type=AuthTokenType.COOKIE,
+            )
+
+        return auth_result
+
+    async def login(self, email: str, password: str) -> SuccessLoginData:
+        """
+        Login the user by creating a new session.
+
+        :param email: the email of the user
+        :param password: the password of the user
+        :return: the success login data
+        """
+        if not all([email, password]):
+            raise AuthCredentialsInvalidError("Email or password is required.")
+
+        async with SASessionUOW() as uow:
+            user_repo = UserRepository(session=uow.session)
+            user = await user_repo.get_by_email(email)
+            if not user:
+                raise AuthCredentialsInvalidError("Unable to find user with provided email")
+
+            if not user.verify_password(password):
+                raise AuthCredentialsInvalidError("Incorrect password")
+
+            public_id = str(uuid.uuid4())
+            access_token, access_exp = encode_jwt(
+                TokenPayload(
+                    user_id=user.id,
+                    session_id=public_id,
+                    token_type=AuthTokenType.COOKIE,
+                ),
+                settings=self.settings,
+                expires_in=self.settings.auth.session_ttl_seconds,
+            )
+            tokens = TokenCollection(
+                refresh_token=access_token,
+                refresh_token_expired_at=access_exp,
+                access_token=access_token,
+                access_token_expired_at=access_exp,
+            )
+
+        return SuccessLoginData(user=user, tokens=tokens)
 
     async def logout(self) -> Cookie:
         """

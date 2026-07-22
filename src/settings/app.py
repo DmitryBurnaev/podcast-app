@@ -36,12 +36,12 @@ class AdminSettings(BaseSettings):
 
     username: str = Field(default_factory=lambda: "admin", description="Default admin username")
     password: SecretStr = Field(
-        default_factory=lambda: SecretStr("code-admin!"),
+        default_factory=lambda: SecretStr("podcast-admin!"),
         description="Default admin password",
     )
     session_expiration_time: int = 2 * 24 * 3600
-    base_url: str = "/cadm"
-    title: str = "CodeAgent"
+    base_url: str = "/padm"
+    title: str = "Podcast Admin"
 
 
 class AuthSettings(BaseSettings):
