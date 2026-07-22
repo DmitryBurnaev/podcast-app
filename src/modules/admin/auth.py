@@ -6,6 +6,7 @@ import jwt
 from sqladmin.authentication import AuthenticationBackend
 from starlette.requests import Request
 
+from modules.auth.backends import WebAuthBackend, AdminAuthBackend
 from src.modules.db.repositories import UserRepository
 from src.modules.db.services import SASessionUOW
 from src.modules.db.models import User
@@ -20,7 +21,6 @@ type USER_ID = int
 
 class UserPayload(TypedDict):
     id: int
-    username: str
     email: str
 
 
@@ -37,17 +37,11 @@ class AdminAuth(AuthenticationBackend):
         form = await request.form()
         username: str = cast(str, form["username"])
         password: str = cast(str, form["password"])
+        backend = AdminAuthBackend(request=request)
+        auth_result = await backend.login(email=username, password=password)
+        admin = auth_result.user
 
-        async with SASessionUOW() as uow:
-            user = await UserRepository(session=uow.session).get_by_username(username=username)
-            ok, message = self._check_user(user, identety=username, password=password)
-            if not ok:
-                register_error_alert(title="Authentication failed", details=message)
-                return False
-
-            admin: User = cast(User, user)
-
-        payload: UserPayload = {"id": admin.id, "username": admin.username, "email": admin.email}
+        payload: UserPayload = {"id": admin.id, "email": admin.email}
         request.session.update({"token": self._encode_token(payload)})
         return True
 
