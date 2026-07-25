@@ -19,7 +19,6 @@ from litestar.template import TemplateConfig
 
 from redis import Redis
 
-from modules.admin.app import make_admin
 from src.constants import AuthSkip
 from src.exceptions import (
     BaseApplicationError,
@@ -29,8 +28,8 @@ from src.exceptions import (
     AuthMissingCredentialsError,
     exception_logging_handler,
 )
+from src.modules.admin.app import make_admin
 from src.modules.auth.middlewares import APIAuthMiddleware, WebAuthMiddleware
-from src.modules.admin import create_admin_route
 from src.modules.db import close_database, initialize_database, verify_database_reachable
 from src.modules.services.redis import check_redis_connection, close_async_redis_connection
 from src.modules.services.storage import validate_s3_settings
@@ -175,7 +174,6 @@ def make_app(settings: AppSettings | None = None) -> PodcastApp:
         route_handlers=[
             *BaseApiController.get_controllers(),
             *BaseViewController.get_controllers(),
-            create_admin_route(app_settings),
         ],
         middleware=[
             DefineMiddleware(APIAuthMiddleware, exclude_from_auth_key=AuthSkip.SKIP_AUTH_API),
@@ -200,7 +198,6 @@ def make_app(settings: AppSettings | None = None) -> PodcastApp:
         },
         settings=app_settings,
     )
-
     logger.info("Application configured!")
     return podcast_app
 

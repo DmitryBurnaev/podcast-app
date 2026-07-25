@@ -6,7 +6,7 @@ import jwt
 from sqladmin.authentication import AuthenticationBackend
 from starlette.requests import Request
 
-from modules.auth.backends import WebAuthBackend, AdminAuthBackend
+from modules.auth.backends import AdminAuthBackend
 from src.modules.db.repositories import UserRepository
 from src.modules.db.services import SASessionUOW
 from src.modules.db.models import User
@@ -35,7 +35,7 @@ class AdminAuth(AuthenticationBackend):
 
     async def login(self, request: Request) -> bool:
         form = await request.form()
-        username: str = cast(str, form["username"])
+        username: str = cast(str, form["email"])
         password: str = cast(str, form["password"])
         backend = AdminAuthBackend(request=request)
         auth_result = await backend.login(email=username, password=password)
