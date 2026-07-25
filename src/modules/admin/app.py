@@ -2,12 +2,17 @@ import logging
 from typing import Any, TYPE_CHECKING, cast
 
 from jinja2 import FileSystemLoader
+from litestar import asgi
+from litestar.types import Scope, Receive, Send
 from sqladmin import Admin, BaseView, ModelView
 from sqladmin.authentication import login_required
+from starlette.applications import Starlette
 from starlette.datastructures import FormData, URL
 from starlette.requests import Request
 from starlette.responses import Response
 
+from constants import AuthSkip
+from src.modules.admin.middlewares import PathFixMiddleware
 from src.modules.admin.counters import AdminCounter
 from src.modules.db import SASessionUOW
 from src.modules.admin.auth import AdminAuth
@@ -36,10 +41,16 @@ class AdminApp(Admin):
     # app: "PodcastApp"
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
+        self._starlette_app = Starlette()
+        kwargs["app"] = self._starlette_app
         super().__init__(*args, **kwargs)
         self._init_jinja_templates()
         self._views: list[BaseModelView | BaseAPPView] = []  # type: ignore
         self._register_views()
+        # disables redirecting based on absence/presence of trailing slashes
+        self._starlette_app.add_middleware(PathFixMiddleware, base_url=self.base_url)
+        self._starlette_app.router.redirect_slashes = False
+        self.admin.router.redirect_slashes = False
 
     @login_required
     async def index(self, request: Request) -> Response:
@@ -97,6 +108,10 @@ class AdminApp(Admin):
 
         return redirect_url
 
+    @property
+    def mount_path(self) -> str:
+        return self.base_url.rstrip("/")
+
     def _init_jinja_templates(self) -> None:
         """
         Init jinja templates.
@@ -111,13 +126,12 @@ class AdminApp(Admin):
             self.add_view(view)
 
         for view_instance in self._views:
-            view_instance.app = cast(PodcastApp, cast(object, self.app))
+            view_instance.app = cast("PodcastApp", cast(object, self.app))
 
 
 def make_admin(app: "PodcastApp") -> Admin:
     """Create a simple admin application"""
-    return AdminApp(
-        app,
+    admin = AdminApp(
         base_url=app.settings.admin.base_url,
         title=app.settings.admin.title,
         session_maker=db_session.get_session_factory(),
@@ -126,3 +140,21 @@ def make_admin(app: "PodcastApp") -> Admin:
             settings=app.settings,
         ),
     )
+    auth_opts = {AuthSkip.SKIP_AUTH_API: True, AuthSkip.SKIP_AUTH_WEB: True}
+
+    @asgi(admin.mount_path, opt=auth_opts, is_mount=True)
+    async def wrapped_app(scope: Scope, receive: Receive, send: Send) -> None:
+        """Wrapper for the SQLAdmin app.
+
+        Performs, and unwinds, the necessary scope modifications for the SQLAdmin app.
+        """
+        copied_scope = cast("Scope", cast(object, dict(scope)))
+        copied_scope["path"] = f"{admin.mount_path}{scope['path']}"
+
+        try:
+            await admin._starlette_app(copied_scope, receive, send)  # type: ignore[arg-type]
+        except Exception as err:
+            logger.exception("Error raised from SQLAdmin app: %r", err)
+
+    app.register(wrapped_app)
+    return admin
