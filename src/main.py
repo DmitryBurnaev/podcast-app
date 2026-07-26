@@ -82,6 +82,7 @@ class PodcastApp(Litestar):
 @asynccontextmanager
 async def lifespan(
     settings: AppSettings,
+    app: "PodcastApp | None" = None,
     start_msg_suffix: str = "",
     *,
     db_start_mode: DbStartMode = DbStartMode.INIT,
@@ -105,8 +106,9 @@ async def lifespan(
     except Exception as exc:
         raise StartupError("Failed to initialize Redis connection") from exc
 
-    logger.info("Setting up admin application...")
-    make_admin(app)
+    if app is not None:
+        logger.info("Setting up admin application...")
+        make_admin(app)
 
     logger.info("Application startup completed successfully")
 
@@ -182,7 +184,7 @@ def make_app(settings: AppSettings | None = None) -> PodcastApp:
         template_config=TemplateConfig(directory=APP_DIR / "templates", engine=JinjaTemplateEngine),
         static_files_config=[static_file_config],
         openapi_config=openapi_config,
-        lifespan=[lambda _: lifespan(app_settings)],
+        lifespan=[lambda app: lifespan(app_settings, app)],
         debug=app_settings.flags.debug_mode,
         logging_config=logging_config,
         exception_handlers={
