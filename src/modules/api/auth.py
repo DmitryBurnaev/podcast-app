@@ -284,7 +284,7 @@ class AuthProfileAPIController(BaseAuthAPIController):
     @get("/me/")
     async def me(self, request: AppRequest) -> UserResponse:
         """Return the current authenticated user."""
-        await APIAuthBackend(connection=request).register_user_ip()
+        await APIAuthBackend(request=request).register_user_ip()
         return UserResponse.model_validate(request.user, from_attributes=True)
 
     @patch("/me/")

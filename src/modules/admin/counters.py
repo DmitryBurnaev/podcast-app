@@ -2,8 +2,6 @@ import dataclasses
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.modules.db.repositories import PodcastRepository
-
 
 @dataclasses.dataclass(frozen=True)
 class DashboardCounts:
@@ -17,8 +15,7 @@ class AdminCounter:
     @classmethod
     async def get_stat(cls, session: AsyncSession) -> DashboardCounts:
         """Get vendors counts"""
-        podcast_repository = PodcastRepository(session)
-        # active_vendors = await podcast_repository.group_by_active()
+        del session
         return DashboardCounts(
             total_podcasts=123,
             total_episodes=455,

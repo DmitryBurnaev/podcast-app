@@ -1,17 +1,15 @@
 import abc
 import uuid
 import logging
-from typing import NamedTuple, Any
+from datetime import datetime
+from typing import NamedTuple
 
 from jwt import InvalidTokenError, ExpiredSignatureError
 from litestar.connection import ASGIConnection
 from litestar.datastructures import Cookie, Address
 from litestar.exceptions import PermissionDeniedException
 from litestar.handlers import BaseRouteHandler
-from sqladmin.authentication import AuthenticationBackend
 from sqlalchemy.ext.asyncio import AsyncSession
-from starlette.requests import Request as SLRequest
-from starlette.responses import Response as SLResponse
 
 from src.modules.auth.tokens import (
     issue_token_pair,
@@ -55,6 +53,7 @@ class SuccessLoginData(NamedTuple):
     user: User
     cookie: Cookie | None = None
     tokens: TokenCollection | None = None
+    token: str | None = None
 
 
 class BaseAuthBackend(abc.ABC):
@@ -62,9 +61,14 @@ class BaseAuthBackend(abc.ABC):
 
     keyword = "Bearer"
 
-    def __init__(self, request: ASGIConnection, header_keyword: str | None = None) -> None:
+    def __init__(
+        self,
+        request: ASGIConnection,
+        header_keyword: str | None = None,
+        settings: AppSettings | None = None,
+    ) -> None:
         self.request: ASGIConnection = request
-        self.settings: AppSettings = get_app_settings()
+        self.settings: AppSettings = settings or get_app_settings()
         self.header_keyword: str = header_keyword if header_keyword else self.keyword
 
     @abc.abstractmethod
@@ -128,6 +132,73 @@ class BaseAuthBackend(abc.ABC):
             )
 
         return AuthenticatedUserResult(user, by_token_data.payload, session_id)
+
+    async def authenticate_token(
+        self,
+        token: str,
+        token_type: AuthTokenType = AuthTokenType.COOKIE,
+    ) -> AuthenticatedUserResult:
+        """Authenticate a JWT held by an adapter-specific session store."""
+        async with SASessionUOW() as uow:
+            return await self._authenticate_user(token, uow.session, token_type)
+
+    async def _authenticate_credentials(
+        self,
+        email: str,
+        password: str,
+        *,
+        require_superuser: bool = False,
+    ) -> User:
+        """Load and validate a user before any session or token is issued."""
+        if not email or not password:
+            raise AuthCredentialsInvalidError("Email or password is required.")
+
+        async with SASessionUOW() as uow:
+            user = await UserRepository(uow.session).get_by_email(email)
+
+        if user is None or not user.is_active:
+            raise AuthCredentialsInvalidError("Active user not found")
+        if not user.verify_password(password):
+            raise AuthCredentialsInvalidError("Unable to authenticate user")
+        if require_superuser and not user.is_superuser:
+            raise AuthCredentialsInvalidError("Administrator privileges are required")
+
+        return user
+
+    async def create_cookie_session(self, user: User, *, expires_in: int) -> tuple[str, datetime]:
+        """Persist a JWT-backed browser session and return its token and expiry."""
+        session_id = str(uuid.uuid4())
+        token, expired_at = encode_jwt(
+            TokenPayload(
+                user_id=user.id,
+                session_id=session_id,
+                token_type=AuthTokenType.COOKIE,
+            ),
+            settings=self.settings,
+            expires_in=expires_in,
+        )
+        now = utcnow()
+        async with SASessionUOW() as uow:
+            await UserSessionRepository(uow.session).create(
+                public_id=session_id,
+                user_id=user.id,
+                refresh_token=None,
+                is_active=True,
+                expired_at=expired_at,
+                created_at=now,
+                refreshed_at=now,
+            )
+        return token, expired_at
+
+    async def deactivate_cookie_session(self, token: str) -> None:
+        """Deactivate the persisted session represented by a cookie JWT."""
+        try:
+            session_id = self._decode_jwt(token, AuthTokenType.COOKIE).session_id
+        except AuthCredentialsInvalidError, SignatureExpiredError:
+            return
+
+        async with SASessionUOW() as uow:
+            await UserSessionRepository(uow.session).deactivate_by_public_id(session_id)
 
     def _decode_jwt(self, token: str, token_type: AuthTokenType) -> ByTokenData:
         """
@@ -388,39 +459,10 @@ class WebAuthBackend(BaseAuthBackend):
         :param password: the password of the user
         :return: the success login data
         """
-        if not all([email, password]):
-            raise AuthCredentialsInvalidError("Email or password is required.")
-
-        async with SASessionUOW() as uow:
-            user_repo = UserRepository(session=uow.session)
-            user = await user_repo.get_by_email(email)
-            if not user:
-                raise AuthCredentialsInvalidError("Unable to find user with provided email")
-
-            if not user.verify_password(password):
-                raise AuthCredentialsInvalidError("Incorrect password")
-
-            public_id = str(uuid.uuid4())
-            access_token, access_exp = encode_jwt(
-                TokenPayload(
-                    user_id=user.id,
-                    session_id=public_id,
-                    token_type=AuthTokenType.COOKIE,
-                ),
-                settings=self.settings,
-                expires_in=self.settings.auth.session_ttl_seconds,
-            )
-            now = utcnow()
-            session_repo = UserSessionRepository(session=uow.session)
-            await session_repo.create(
-                public_id=public_id,
-                user_id=user.id,
-                refresh_token=None,
-                is_active=True,
-                expired_at=access_exp,
-                created_at=now,
-                refreshed_at=now,
-            )
+        user = await self._authenticate_credentials(email, password)
+        access_token, _ = await self.create_cookie_session(
+            user, expires_in=self.settings.auth.session_ttl_seconds
+        )
 
         session_cookie = Cookie(
             key=self.settings.auth.session_cookie_name,
@@ -442,9 +484,7 @@ class WebAuthBackend(BaseAuthBackend):
         """
         public_id = self.request.cookies.get(self.settings.auth.session_cookie_name)
         if public_id:
-            async with SASessionUOW() as uow:
-                repo = UserSessionRepository(session=uow.session)
-                await repo.deactivate_by_public_id(public_id)
+            await self.deactivate_cookie_session(public_id)
 
         clear_cookie = Cookie(
             key=self.settings.auth.session_cookie_name,
@@ -467,17 +507,13 @@ class AdminAuthBackend(BaseAuthBackend):
 
         :return: the authenticated user result
         """
-        cookie_jwt = self.request.cookies.get(self.settings.auth.session_cookie_name)
-        if not cookie_jwt:
-            raise AuthMissingCredentialsError("Missing token from session cookie")
+        token = self.request.session.get("token")
+        if not isinstance(token, str) or not token:
+            raise AuthMissingCredentialsError("Missing token from admin session")
 
-        async with SASessionUOW() as uow:
-            auth_result = await self._authenticate_user(
-                jwt_token=cookie_jwt,
-                db_session=uow.session,
-                token_type=AuthTokenType.COOKIE,
-            )
-
+        auth_result = await self.authenticate_token(token)
+        if not auth_result.user.is_superuser:
+            raise AuthCredentialsInvalidError("Administrator privileges are required")
         return auth_result
 
     async def login(self, email: str, password: str) -> SuccessLoginData:
@@ -488,36 +524,12 @@ class AdminAuthBackend(BaseAuthBackend):
         :param password: the password of the user
         :return: the success login data
         """
-        if not all([email, password]):
-            raise AuthCredentialsInvalidError("Email or password is required.")
-
-        async with SASessionUOW() as uow:
-            user_repo = UserRepository(session=uow.session)
-            user = await user_repo.get_by_email(email)
-            if not user:
-                raise AuthCredentialsInvalidError("Unable to find user with provided email")
-
-            if not user.verify_password(password):
-                raise AuthCredentialsInvalidError("Incorrect password")
-
-            public_id = str(uuid.uuid4())
-            access_token, access_exp = encode_jwt(
-                TokenPayload(
-                    user_id=user.id,
-                    session_id=public_id,
-                    token_type=AuthTokenType.COOKIE,
-                ),
-                settings=self.settings,
-                expires_in=self.settings.auth.session_ttl_seconds,
-            )
-            tokens = TokenCollection(
-                refresh_token=access_token,
-                refresh_token_expired_at=access_exp,
-                access_token=access_token,
-                access_token_expired_at=access_exp,
-            )
-
-        return SuccessLoginData(user=user, tokens=tokens)
+        user = await self._authenticate_credentials(email, password, require_superuser=True)
+        token, _ = await self.create_cookie_session(
+            user, expires_in=self.settings.admin.session_expiration_time
+        )
+        await self.register_user_ip(user)
+        return SuccessLoginData(user=user, token=token)
 
     async def logout(self) -> Cookie:
         """
@@ -525,19 +537,7 @@ class AdminAuthBackend(BaseAuthBackend):
 
         :return: the clear cookie
         """
-        public_id = self.request.cookies.get(self.settings.auth.session_cookie_name)
-        if public_id:
-            async with SASessionUOW() as uow:
-                repo = UserSessionRepository(session=uow.session)
-                await repo.deactivate_by_public_id(public_id)
-
-        clear_cookie = Cookie(
-            key=self.settings.auth.session_cookie_name,
-            value="",
-            max_age=0,
-            httponly=True,
-            secure=self.settings.auth_cookie_secure_effective(),
-            samesite="lax",
-            path="/",
-        )
-        return clear_cookie
+        token = self.request.session.get("token")
+        if isinstance(token, str) and token:
+            await self.deactivate_cookie_session(token)
+        return Cookie(key=self.settings.auth.session_cookie_name, value="", max_age=0)

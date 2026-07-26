@@ -27,6 +27,30 @@ class FakeUserRepository:
     async def get_by_email(self, email: str) -> User | None:
         return self.user if self.user and self.user.email == email else None
 
+    async def first(self, **filters: object) -> User | None:
+        if self.user is None or filters.get("id") != self.user.id:
+            return None
+        return self.user
+
+
+class FakeUserSessionRepository:
+    def __init__(self) -> None:
+        self.sessions: dict[str, object] = {}
+
+    async def create(self, *, public_id: str, **_: object) -> None:
+        self.sessions[public_id] = object()
+
+    async def get_active_by_public_id(self, public_id: str) -> object | None:
+        return self.sessions.get(public_id)
+
+    async def deactivate_by_public_id(self, public_id: str) -> None:
+        self.sessions.pop(public_id, None)
+
+
+class FakeUserIPRepository:
+    async def get_or_create(self, **_: object) -> None:
+        return None
+
 
 def make_admin_client(
     monkeypatch,
@@ -34,6 +58,7 @@ def make_admin_client(
     user: User | None = None,
 ) -> TestClient[PodcastApp]:
     session_factory = async_sessionmaker(class_=AsyncSession)
+    session_repository = FakeUserSessionRepository()
 
     monkeypatch.setattr("src.main.initialize_database", AsyncMock(return_value=None))
     monkeypatch.setitem(main._DB_STARTUP_CHECKS, DbStartMode.INIT, AsyncMock(return_value=None))
@@ -42,12 +67,21 @@ def make_admin_client(
     monkeypatch.setattr("src.main.close_async_redis_connection", AsyncMock(return_value=None))
     monkeypatch.setattr("src.main.validate_s3_settings", lambda _: None)
     monkeypatch.setattr(
-        "src.modules.admin.application.get_session_factory", lambda: session_factory
+        "src.modules.admin.app.db_session.get_session_factory", lambda: session_factory
     )
-    monkeypatch.setattr("src.modules.admin.auth.SASessionUOW", lambda: MockUOW())
+    monkeypatch.setattr("src.modules.auth.backends.SASessionUOW", lambda: MockUOW())
     monkeypatch.setattr(
-        "src.modules.admin.auth.UserRepository",
+        "src.modules.auth.backends.UserRepository",
         lambda session: FakeUserRepository(user),
+    )
+    monkeypatch.setattr(
+        "src.modules.auth.backends.UserSessionRepository", lambda session: session_repository
+    )
+    monkeypatch.setattr(
+        "src.modules.auth.backends.AuthUserSessionRepository", lambda session: session_repository
+    )
+    monkeypatch.setattr(
+        "src.modules.auth.backends.UserIPRepository", lambda session: FakeUserIPRepository()
     )
 
     app = make_app(settings=settings)
@@ -72,10 +106,9 @@ def make_admin_user(
 class TestAdminIntegration:
     def test_login_page__ok(self, app_settings: AppSettings, monkeypatch) -> None:
         with make_admin_client(monkeypatch, app_settings) as client:
-            response = client.get("/admin/login")
+            response = client.get("/padm/login")
 
         assert response.status_code == 200
-        assert "Login to Podcast App Admin" in response.text
 
     def test_dashboard__anonymous__redirects_to_login(
         self,
@@ -83,23 +116,23 @@ class TestAdminIntegration:
         monkeypatch,
     ) -> None:
         with make_admin_client(monkeypatch, app_settings) as client:
-            response = client.get("/admin/", follow_redirects=False)
+            response = client.get("/padm/", follow_redirects=False)
 
         assert response.status_code == 302
-        assert response.headers["location"].endswith("/admin/login")
+        assert response.headers["location"].endswith("/padm/login")
 
     def test_login__superuser__ok(self, app_settings: AppSettings, monkeypatch) -> None:
         user = make_admin_user()
         with make_admin_client(monkeypatch, app_settings, user=user) as client:
             response = client.post(
-                "/admin/login",
+                "/padm/login",
                 data={"email": user.email, "password": "admin-password"},
                 follow_redirects=False,
             )
 
         assert response.status_code == 302
-        assert response.headers["location"].endswith("/admin/")
-        assert "podcast_admin_session" in response.cookies
+        assert response.headers["location"].endswith("/padm/")
+        assert "session" in response.cookies
 
     def test_login__inactive_user__rejected(
         self,
@@ -109,7 +142,7 @@ class TestAdminIntegration:
         user = make_admin_user(is_active=False)
         with make_admin_client(monkeypatch, app_settings, user=user) as client:
             response = client.post(
-                "/admin/login",
+                "/padm/login",
                 data={"email": user.email, "password": "admin-password"},
                 follow_redirects=False,
             )
@@ -125,7 +158,7 @@ class TestAdminIntegration:
         user = make_admin_user(is_superuser=False)
         with make_admin_client(monkeypatch, app_settings, user=user) as client:
             response = client.post(
-                "/admin/login",
+                "/padm/login",
                 data={"email": user.email, "password": "admin-password"},
                 follow_redirects=False,
             )

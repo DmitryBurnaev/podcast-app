@@ -11,7 +11,7 @@ from starlette.datastructures import FormData, URL
 from starlette.requests import Request
 from starlette.responses import Response
 
-from constants import AuthSkip
+from src.constants import AuthSkip
 from src.modules.admin.middlewares import PathFixMiddleware
 from src.modules.admin.counters import AdminCounter
 from src.modules.db import SASessionUOW
@@ -140,7 +140,10 @@ def make_admin(app: "PodcastApp") -> Admin:
             settings=app.settings,
         ),
     )
-    auth_opts = {AuthSkip.SKIP_AUTH_API: True, AuthSkip.SKIP_AUTH_WEB: True}
+    auth_opts: dict[str, bool] = {
+        AuthSkip.SKIP_AUTH_API.value: True,
+        AuthSkip.SKIP_AUTH_WEB.value: True,
+    }
 
     @asgi(admin.mount_path, opt=auth_opts, is_mount=True)
     async def wrapped_app(scope: Scope, receive: Receive, send: Send) -> None:
