@@ -26,30 +26,39 @@ class AdminAuth(AuthenticationBackend):
         email = str(form.get("email") or "")
         password = str(form.get("password") or "")
         try:
-            result = await AdminAuthBackend(
-                request=cast(ASGIConnection, request), settings=self.settings
-            ).login(email=email, password=password)
+            auth_backend = self._get_auth_backend(request)
+            result = await auth_backend.login(email=email, password=password)
         except AuthenticationError:
             return False
 
         if result.token is None:
-            logger.error("[admin-auth] Login succeeded without a session token")
+            logger.error("[admin-auth] Login proceed without a session token")
             return False
+
         request.session["token"] = result.token
+        logger.debug("[admin-auth] Successfully logged in user: %r", email)
         return True
 
     async def logout(self, request: Request) -> bool:
-        await AdminAuthBackend(
-            request=cast(ASGIConnection, request), settings=self.settings
-        ).logout()
+        auth_backend = self._get_auth_backend(request)
+        await auth_backend.logout()
         request.session.clear()
+        logger.debug("[admin-auth] Successfully logged out")
         return True
 
     async def authenticate(self, request: Request) -> bool:
         try:
-            await AdminAuthBackend(
-                request=cast(ASGIConnection, request), settings=self.settings
-            ).authenticate()
+            auth_backend = self._get_auth_backend(request)
+            await auth_backend.authenticate()
         except AuthenticationError:
+            logger.error("[admin-auth] Unable to authenticate with provided credentials")
             return False
+
+        logger.debug("[admin-auth] Successfully authenticated with provided credentials")
         return True
+
+    def _get_auth_backend(self, request: Request) -> AdminAuthBackend:
+        return AdminAuthBackend(
+            request=cast(ASGIConnection, cast(object, request)),
+            settings=self.settings,
+        )
