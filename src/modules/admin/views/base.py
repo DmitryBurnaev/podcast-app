@@ -1,6 +1,6 @@
 import logging
 import datetime
-from typing import ClassVar, TYPE_CHECKING
+from typing import ClassVar, TYPE_CHECKING, Any
 
 from sqladmin import ModelView, BaseView
 from starlette.exceptions import HTTPException
@@ -13,6 +13,11 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 type FormDataType = dict[str, str | int | datetime.datetime | None]
 __all__ = ("BaseModelView",)
+MASKED_SECRET = "********"
+
+
+def mask_secret(_: type, __: Any) -> str:
+    return MASKED_SECRET
 
 
 class BaseAPPView(BaseView):
