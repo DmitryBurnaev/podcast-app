@@ -6,7 +6,8 @@ from starlette.requests import Request
 from wtforms import Form, StringField, EmailField, PasswordField, BooleanField
 
 from src.modules.db import SASessionUOW, UserRepository
-from src.modules.admin.views.base import BaseModelView, FormDataType
+from src.modules.db.models import UserInvite
+from src.modules.admin.views.base import BaseModelView, FormDataType, mask_secret
 from src.modules.admin.constants import RENDER_KW_REQ
 from src.modules.db.models import BaseModel, User
 from src.modules.admin.utils import admin_get_link
@@ -27,6 +28,7 @@ class UserAdminForm(Form):
     )
     is_admin = BooleanField(render_kw={"class": "form-check-input"})
     is_active = BooleanField(render_kw={"class": "form-check-input"})
+    is_superuser = BooleanField(render_kw={"class": "form-check-input"})
 
     def validate(self, extra_validators: Mapping[str, Sequence[Any]] | None = None) -> bool:
         """Extra validation for user's form"""
@@ -39,13 +41,24 @@ class UserAdminForm(Form):
         return True
 
 
+class UserInviteAdminForm(Form):
+    """Provides extra validation for users' creation/updating"""
+
+    email = EmailField(render_kw=RENDER_KW_REQ)
+
+
 class UserAdminView(BaseModelView, model=User):
     """Provides logic for users' creation/updating"""
 
     form = UserAdminForm
     icon = "fa-solid fa-person-drowning"
-    column_list = (User.id, User.email, User.is_active, User.is_superuser)
-    column_details_list = (User.id, User.email, User.is_active, User.is_superuser)
+    column_list = [User.id, User.email, User.is_active, User.is_superuser]
+    column_details_list = [User.id, User.email, User.is_active, User.is_superuser]
+    column_searchable_list = [User.email]
+    column_sortable_list = [User.id, User.email]
+    column_filters = [User.is_active, User.is_superuser]
+    column_default_sort = (User.id, True)
+    column_export_list = [User.id, User.email, User.is_active, User.is_superuser]
     column_formatters = {User.email: lambda model, a: admin_get_link(cast(BaseModel, model))}
 
     async def insert_model(self, request: Request, data: FormDataType) -> Any:
@@ -79,3 +92,25 @@ class UserAdminView(BaseModelView, model=User):
             exists_user = await user_repo.get_by_email(email)
             if exists_user is not None:
                 raise HTTPException(status_code=400, detail="Username already taken")
+
+
+class UserInviteAdminView(BaseModelView, model=UserInvite):
+    name = "User Invite"
+    name_plural = "User Invites"
+    icon = "fa-solid fa-envelope-open-text"
+    form = UserInviteAdminForm
+    column_list = [
+        UserInvite.id,
+        UserInvite.email,
+        UserInvite.user_id,
+        UserInvite.owner_id,
+        UserInvite.is_applied,
+        UserInvite.expired_at,
+        UserInvite.created_at,
+    ]
+    column_details_exclude_list = [UserInvite.token]
+    column_searchable_list = [UserInvite.email]
+    column_sortable_list = [UserInvite.id, UserInvite.email, UserInvite.created_at]
+    column_default_sort = (UserInvite.id, True)
+    column_formatters = {"token": mask_secret}
+    column_formatters_detail = {"token": mask_secret}

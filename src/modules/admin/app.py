@@ -23,13 +23,23 @@ from src.modules.admin.views import (
     BaseAPPView,
     BaseModelView,
     UserAdminView,
+    UserInviteAdminView,
+    PodcastAdminView,
+    EpisodeAdminView,
+    CookieAdminView,
 )
 from src.modules.db import session as db_session
 
 if TYPE_CHECKING:
     from src.main import PodcastApp
 
-ADMIN_VIEWS: tuple[type[BaseView], ...] = (UserAdminView,)
+ADMIN_VIEWS: tuple[type[BaseView], ...] = (
+    UserAdminView,
+    UserInviteAdminView,
+    PodcastAdminView,
+    EpisodeAdminView,
+    CookieAdminView,
+)
 
 logger = logging.getLogger(__name__)
 
