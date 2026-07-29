@@ -27,6 +27,7 @@ from src.modules.admin.views import (
     PodcastAdminView,
     EpisodeAdminView,
     CookieAdminView,
+    MediaFileAdminView,
 )
 from src.modules.db import session as db_session
 
@@ -39,6 +40,7 @@ ADMIN_VIEWS: tuple[type[BaseView], ...] = (
     PodcastAdminView,
     EpisodeAdminView,
     CookieAdminView,
+    MediaFileAdminView,
 )
 
 logger = logging.getLogger(__name__)

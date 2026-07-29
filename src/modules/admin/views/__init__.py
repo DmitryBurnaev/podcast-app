@@ -1,6 +1,7 @@
 from .base import BaseModelView, BaseAPPView
 from .users import UserAdminView, UserInviteAdminView
 from .podcasts import PodcastAdminView, EpisodeAdminView, CookieAdminView
+from .media import MediaFileAdminView
 
 __all__ = (
     "BaseModelView",
@@ -10,4 +11,5 @@ __all__ = (
     "PodcastAdminView",
     "EpisodeAdminView",
     "CookieAdminView",
+    "MediaFileAdminView",
 )

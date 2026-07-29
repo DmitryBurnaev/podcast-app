@@ -51,7 +51,6 @@ class EpisodeAdminView(BaseModelView, model=Episode):
     ]
     column_searchable_list = [Episode.title, Episode.source_id, Episode.watch_url]
     column_sortable_list = [Episode.id, Episode.title, Episode.created_at, Episode.published_at]
-    column_filters = [Episode.status, Episode.source_type, Episode.owner_id, Episode.podcast_id]
     column_default_sort = (Episode.id, True)
 
 
@@ -75,7 +74,6 @@ class CookieAdminView(BaseModelView, model=Cookie):
         Cookie.updated_at,
     ]
     column_sortable_list = [Cookie.id, Cookie.source_type, Cookie.created_at, Cookie.updated_at]
-    column_filters = [Cookie.source_type, Cookie.owner_id]
     column_default_sort = (Cookie.id, True)
     column_formatters = {"data": mask_secret}
     column_formatters_detail = {"data": mask_secret}
@@ -92,11 +90,13 @@ class CookieAdminView(BaseModelView, model=Cookie):
             owner_id=int(data["owner_id"]),
         )
         async with self.session_maker(expire_on_commit=False) as session:
+            # TODO: use repository instead!
             session.add(cookie)
             await session.commit()
         return cookie
 
     async def update_model(self, request: Request, pk: str, data: dict[str, Any]) -> Cookie:
+        # TODO: use repository instead!
         raw_data = str(data.pop("raw_data") or "")
         async with self.session_maker(expire_on_commit=False) as session:
             cookie = await session.scalar(self._stmt_by_identifier(pk))
