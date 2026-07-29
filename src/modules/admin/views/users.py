@@ -3,12 +3,12 @@ from typing import cast, Any, Mapping, Sequence
 
 from starlette.exceptions import HTTPException
 from starlette.requests import Request
-from wtforms import Form, StringField, EmailField, PasswordField, BooleanField
+from wtforms import Form, EmailField, PasswordField, BooleanField
 
 from src.modules.db import SASessionUOW, UserRepository
 from src.modules.db.models import UserInvite
 from src.modules.admin.views.base import BaseModelView, FormDataType, mask_secret
-from src.modules.admin.constants import RENDER_KW_REQ
+from src.modules.admin.constants import RENDER_KW_REQ, RENDER_KW
 from src.modules.db.models import BaseModel, User
 from src.modules.admin.utils import admin_get_link
 
@@ -19,14 +19,9 @@ logger = logging.getLogger(__name__)
 class UserAdminForm(Form):
     """Provides extra validation for users' creation/updating"""
 
-    username = StringField(render_kw=RENDER_KW_REQ, label="Username")
     email = EmailField(render_kw=RENDER_KW_REQ)
-    new_password = PasswordField(render_kw={"class": "form-control"}, label="New Password")
-    repeat_password = PasswordField(
-        render_kw={"class": "form-control"},
-        label="Repeat New Password",
-    )
-    is_admin = BooleanField(render_kw={"class": "form-check-input"})
+    new_password = PasswordField(render_kw=RENDER_KW, label="New Password")
+    repeat_password = PasswordField(render_kw=RENDER_KW, label="Repeat New Password")
     is_active = BooleanField(render_kw={"class": "form-check-input"})
     is_superuser = BooleanField(render_kw={"class": "form-check-input"})
 
@@ -56,7 +51,7 @@ class UserAdminView(BaseModelView, model=User):
     column_details_list = [User.id, User.email, User.is_active, User.is_superuser]
     column_searchable_list = [User.email]
     column_sortable_list = [User.id, User.email]
-    column_filters = [User.is_active, User.is_superuser]
+    # column_filters = [User.is_active, User.is_superuser]
     column_default_sort = (User.id, True)
     column_export_list = [User.id, User.email, User.is_active, User.is_superuser]
     column_formatters = {User.email: lambda model, a: admin_get_link(cast(BaseModel, model))}

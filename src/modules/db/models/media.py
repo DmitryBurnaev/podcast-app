@@ -58,8 +58,11 @@ class File(BaseModel):
     meta: Mapped[dict | None] = mapped_column(JSONB(none_as_null=True), nullable=True)
     hash: Mapped[str] = mapped_column(sa.String(length=32), nullable=False, server_default="")
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f'<File #{self.id} | {self.type} | "{self.path}">'
+
+    def __str__(self) -> str:
+        return f'File {self.type} | "{self.path}"'
 
     @classmethod
     def generate_token(cls) -> str:
