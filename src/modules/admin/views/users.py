@@ -9,8 +9,8 @@ from src.modules.db import SASessionUOW, UserRepository
 from src.modules.db.models import UserInvite
 from src.modules.admin.views.base import BaseModelView, FormDataType, mask_secret
 from src.modules.admin.constants import RENDER_KW_REQ, RENDER_KW
-from src.modules.db.models import BaseModel, User
-from src.modules.admin.utils import admin_get_link
+from src.modules.db.models import User
+from src.modules.admin.utils import format_instance_details_link
 
 __all__ = ("UserAdminView",)
 logger = logging.getLogger(__name__)
@@ -47,14 +47,12 @@ class UserAdminView(BaseModelView, model=User):
 
     form = UserAdminForm
     icon = "fa-solid fa-person-drowning"
-    column_list = [User.id, User.email, User.is_active, User.is_superuser]
-    column_details_list = [User.id, User.email, User.is_active, User.is_superuser]
-    column_searchable_list = [User.email]
-    column_sortable_list = [User.id, User.email]
-    # column_filters = [User.is_active, User.is_superuser]
+    column_list = (User.id, User.email, User.is_active, User.is_superuser)
+    column_details_list = (User.id, User.email, User.is_active, User.is_superuser)
+    column_searchable_list = (User.email,)
+    column_sortable_list = (User.id, User.email)
     column_default_sort = (User.id, True)
-    column_export_list = [User.id, User.email, User.is_active, User.is_superuser]
-    column_formatters = {User.email: lambda model, a: admin_get_link(cast(BaseModel, model))}
+    column_formatters = {User.id: format_instance_details_link}
 
     async def insert_model(self, request: Request, data: FormDataType) -> Any:
         """Create a new user and insert it into the database"""
@@ -90,8 +88,8 @@ class UserAdminView(BaseModelView, model=User):
 
 
 class UserInviteAdminView(BaseModelView, model=UserInvite):
-    name = "User Invite"
-    name_plural = "User Invites"
+    name = "Invite"
+    name_plural = "Invites"
     icon = "fa-solid fa-envelope-open-text"
     form = UserInviteAdminForm
     column_list = [
@@ -107,5 +105,5 @@ class UserInviteAdminView(BaseModelView, model=UserInvite):
     column_searchable_list = [UserInvite.email]
     column_sortable_list = [UserInvite.id, UserInvite.email, UserInvite.created_at]
     column_default_sort = (UserInvite.id, True)
-    column_formatters = {"token": mask_secret}
+    column_formatters = {"token": mask_secret, UserInvite.id: format_instance_details_link}
     column_formatters_detail = {"token": mask_secret}

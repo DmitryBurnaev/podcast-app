@@ -18,8 +18,9 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from src.constants import SourceType
 from src.modules.services.encryption import SensitiveData
-from src.modules.db.models.media import File
 from src.modules.db.models import BaseModel
+from src.modules.db.models.media import File
+from src.modules.db.models.users import User
 from src.modules.schemas.statistics import PodcastStatistics
 from src.settings.app import get_app_settings
 from src.utils import utcnow, cut_string
@@ -92,6 +93,7 @@ class Podcast(BaseModel):
     rss: Mapped["File | None"] = relationship("File", foreign_keys=[rss_id], lazy="subquery")
     image: Mapped["File | None"] = relationship("File", foreign_keys=[image_id], lazy="subquery")
     episodes: Mapped[list["Episode"]] = relationship(back_populates="podcast", lazy="subquery")
+    owner: Mapped["User"] = relationship("User", foreign_keys=[owner_id], lazy="subquery")
 
     def __str__(self):
         return f'<Podcast #{self.id} "{self.name}">'

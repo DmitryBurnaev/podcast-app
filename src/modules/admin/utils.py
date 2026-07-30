@@ -1,6 +1,7 @@
+import datetime
 import logging
 import contextvars
-from typing import TypedDict, Optional, Literal
+from typing import TypedDict, Optional, Literal, cast, Any
 
 import markupsafe
 
@@ -60,3 +61,32 @@ def admin_get_link(
     return markupsafe.Markup(
         f'<a href="{base_url}/{name}/{target}/{instance.id}">[#{instance.id}] {instance}</a>'
     )
+
+
+def format_instance_details_link(model: Any, _: Any) -> str:
+    return admin_get_link(cast(BaseModel, model), target="details")
+
+
+def _format_datetime(value: datetime.datetime | None, dt_format: str, blank: str) -> str:
+    if not value:
+        return blank
+
+    ui_timezone = get_app_settings().ui_timezone
+    if ui_timezone is not None:
+        value = value.replace(tzinfo=datetime.timezone.utc).astimezone(ui_timezone)
+
+    return value.strftime(dt_format)
+
+
+def format_datetime(value: datetime.datetime, blank: str = "-") -> str:
+    """
+    Format a datetime object to a string in the format "%d.%m.%Y %H:%M"
+    """
+    return _format_datetime(value, dt_format="%d.%m.%Y %H:%M", blank=blank)
+
+
+def format_date(value: datetime.datetime, blank: str = "-") -> str:
+    """
+    Format a datetime object to a string in the format "%d.%m.%Y"
+    """
+    return _format_datetime(value, dt_format="%d.%m.%Y", blank=blank)

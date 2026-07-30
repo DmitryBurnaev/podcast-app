@@ -3,6 +3,7 @@ from typing import Any
 
 from starlette.requests import Request
 
+from src.modules.admin.utils import format_instance_details_link
 from src.modules.admin.forms import CookieAdminForm
 from src.modules.db.models import Podcast, Episode, Cookie
 from src.modules.admin.views.base import BaseModelView, mask_secret
@@ -21,18 +22,27 @@ class PodcastAdminView(BaseModelView, model=Podcast):
     name = "Podcast"
     name_plural = "Podcasts"
     icon = "fa-solid fa-podcast"
-    column_list = [
+    column_list = (
         Podcast.id,
         Podcast.name,
         Podcast.publish_id,
         Podcast.owner_id,
         Podcast.download_automatically,
         Podcast.created_at,
-    ]
-    column_searchable_list = [Podcast.name, Podcast.publish_id]
-    column_sortable_list = [Podcast.id, Podcast.name, Podcast.created_at]
-    # column_filters = [Podcast.download_automatically, Podcast.owner_id]
+    )
+    column_searchable_list = (Podcast.name, Podcast.publish_id)
+    column_sortable_list = (Podcast.id, Podcast.name, Podcast.created_at)
     column_default_sort = (Podcast.id, True)
+    column_details_list = (
+        Podcast.id,
+        Podcast.name,
+        Podcast.owner,
+        Podcast.description,
+        Podcast.created_at,
+        Podcast.publish_id,
+        Podcast.download_automatically,
+    )
+    column_formatters = {Podcast.id: format_instance_details_link}
 
 
 class EpisodeAdminView(BaseModelView, model=Episode):
@@ -52,6 +62,7 @@ class EpisodeAdminView(BaseModelView, model=Episode):
     column_searchable_list = [Episode.title, Episode.source_id, Episode.watch_url]
     column_sortable_list = [Episode.id, Episode.title, Episode.created_at, Episode.published_at]
     column_default_sort = (Episode.id, True)
+    column_formatters = {Episode.id: format_instance_details_link}
 
 
 class CookieAdminView(BaseModelView, model=Cookie):
@@ -59,25 +70,25 @@ class CookieAdminView(BaseModelView, model=Cookie):
     name_plural = "Cookies"
     icon = "fa-solid fa-cookie-bite"
     can_export = False
-    column_list = [
-        Cookie.id,
-        Cookie.source_type,
-        Cookie.owner_id,
-        Cookie.created_at,
-        Cookie.updated_at,
-    ]
-    column_details_list = [
-        Cookie.id,
-        Cookie.source_type,
-        Cookie.owner_id,
-        Cookie.created_at,
-        Cookie.updated_at,
-    ]
-    column_sortable_list = [Cookie.id, Cookie.source_type, Cookie.created_at, Cookie.updated_at]
-    column_default_sort = (Cookie.id, True)
-    column_formatters = {"data": mask_secret}
-    column_formatters_detail = {"data": mask_secret}
     form = CookieAdminForm
+    column_list = (
+        Cookie.id,
+        Cookie.source_type,
+        Cookie.owner_id,
+        Cookie.created_at,
+        Cookie.updated_at,
+    )
+    column_details_list = (
+        Cookie.id,
+        Cookie.source_type,
+        Cookie.owner_id,
+        Cookie.created_at,
+        Cookie.updated_at,
+    )
+    column_sortable_list = (Cookie.id, Cookie.source_type, Cookie.created_at, Cookie.updated_at)
+    column_default_sort = (Cookie.id, True)
+    column_formatters = {"data": mask_secret, Cookie.id: format_instance_details_link}
+    column_formatters_detail = {"data": mask_secret}
 
     async def insert_model(self, request: Request, data: dict[str, Any]) -> Cookie:
         raw_data = str(data.pop("raw_data") or "")

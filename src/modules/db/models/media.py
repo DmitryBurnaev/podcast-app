@@ -62,7 +62,11 @@ class File(BaseModel):
         return f'<File #{self.id} | {self.type} | "{self.path}">'
 
     def __str__(self) -> str:
-        return f'File {self.type} | "{self.path}"'
+        suffix = ""
+        if self.path:
+            suffix = f" | {self.path}"
+
+        return f"File {self.type}{suffix}"
 
     @classmethod
     def generate_token(cls) -> str:
