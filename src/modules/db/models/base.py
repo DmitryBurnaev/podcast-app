@@ -1,3 +1,4 @@
+import re
 from typing import Self
 from datetime import datetime
 
@@ -41,3 +42,10 @@ class BaseModel(AsyncAttrs, DeclarativeBase):
             setattr(instance, key, value)
 
         return instance
+
+    @property
+    def admin_url_name(self) -> str:
+        """Return the admin url name. Split name by rule: CamelCase -> kebab-case"""
+        name = self.__class__.__name__
+        name = re.sub(r"(?<!^)(?=[A-Z])", "-", name).lower()
+        return name

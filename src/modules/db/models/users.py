@@ -108,6 +108,9 @@ class UserInvite(BaseModel):
     def __repr__(self) -> str:
         return f"<UserInvite #{self.id} {self.email}>"
 
+    def __str__(self) -> str:
+        return f"Invite {self.email}"
+
 
 class UserSession(BaseModel):
     __tablename__ = "auth_sessions"
