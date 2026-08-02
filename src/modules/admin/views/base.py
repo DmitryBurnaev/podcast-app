@@ -33,6 +33,7 @@ class BaseModelView(ModelView):
     can_export = False
     is_async = True
     custom_post_create: ClassVar[bool] = False
+    can_view_details = False
 
     async def handle_post_create(self, request: Request, object_id: int) -> Response:
         if not self.custom_post_create:

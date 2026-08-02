@@ -47,12 +47,17 @@ class UserAdminView(BaseModelView, model=User):
 
     form = UserAdminForm
     icon = "fa-solid fa-person-drowning"
-    column_list = (User.id, User.email, User.is_active, User.is_superuser)
+    column_list = (User.id, User.is_active, User.is_superuser)
     column_details_list = (User.id, User.email, User.is_active, User.is_superuser)
     column_searchable_list = (User.email,)
     column_sortable_list = (User.id, User.email)
     column_default_sort = (User.id, True)
     column_formatters = {User.id: format_instance_details_link}
+    column_labels = {
+        User.id: "User",
+        User.is_active: "Activated",
+        User.is_superuser: "Superuser (admin)",
+    }
 
     async def insert_model(self, request: Request, data: FormDataType) -> Any:
         """Create a new user and insert it into the database"""
@@ -94,9 +99,6 @@ class UserInviteAdminView(BaseModelView, model=UserInvite):
     form = UserInviteAdminForm
     column_list = [
         UserInvite.id,
-        UserInvite.email,
-        UserInvite.user_id,
-        UserInvite.owner_id,
         UserInvite.is_applied,
         UserInvite.expired_at,
         UserInvite.created_at,
@@ -107,3 +109,9 @@ class UserInviteAdminView(BaseModelView, model=UserInvite):
     column_default_sort = (UserInvite.id, True)
     column_formatters = {"token": mask_secret, UserInvite.id: format_instance_details_link}
     column_formatters_detail = {"token": mask_secret}
+    column_labels = {
+        UserInvite.id: "Invite",
+        UserInvite.is_applied: "Applied",
+        UserInvite.expired_at: "Expired At",
+        UserInvite.created_at: "Created At",
+    }

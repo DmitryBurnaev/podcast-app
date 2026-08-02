@@ -1,4 +1,11 @@
-from wtforms import BooleanField, DateTimeLocalField, IntegerField, PasswordField, StringField
+from wtforms import (
+    BooleanField,
+    DateTimeLocalField,
+    IntegerField,
+    PasswordField,
+    StringField,
+    widgets,
+)
 from wtforms.validators import DataRequired, Email, Length, Optional
 
 from sqladmin.forms import Form
@@ -25,3 +32,18 @@ class UserAccessTokenAdminForm(Form):
     expires_in = DateTimeLocalField(
         "Expires at", validators=[DataRequired()], format="%Y-%m-%dT%H:%M"
     )
+
+
+class LongTextAreaWidget(widgets.TextArea):
+    def __call__(self, field, **kwargs):
+        kwargs.setdefault("rows", 10)
+        return super(LongTextAreaWidget, self).__call__(field, **kwargs)
+
+
+class LongTextAreaField(StringField):
+    """
+    This field represents an HTML ``<textarea>`` and can be used to take
+    multi-line input.
+    """
+
+    widget = LongTextAreaWidget()

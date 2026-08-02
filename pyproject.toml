@@ -21,7 +21,7 @@ dependencies = [
     "pyjwt==2.13.0",
     "sentry-sdk[litestar,rq]==2.61.1",
     "aiosmtplib==5.1.1",
-    "sqladmin[full]==0.27.2",
+    "sqladmin[full]==0.29.0",
 ]
 
 [dependency-groups]

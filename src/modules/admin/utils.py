@@ -57,14 +57,14 @@ def admin_get_link(
     """
     settings = get_app_settings()
     base_url = settings.admin.base_url
-    name = url_name or instance.__class__.__name__.lower()
+    name = url_name or instance.admin_url_name
     return markupsafe.Markup(
         f'<a href="{base_url}/{name}/{target}/{instance.id}">[#{instance.id}] {instance}</a>'
     )
 
 
 def format_instance_details_link(model: Any, _: Any) -> str:
-    return admin_get_link(cast(BaseModel, model), target="details")
+    return admin_get_link(cast(BaseModel, model), target="edit")
 
 
 def _format_datetime(value: datetime.datetime | None, dt_format: str, blank: str) -> str:

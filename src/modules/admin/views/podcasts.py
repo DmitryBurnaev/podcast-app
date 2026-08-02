@@ -4,7 +4,7 @@ from typing import Any
 from starlette.requests import Request
 
 from src.modules.admin.utils import format_instance_details_link
-from src.modules.admin.forms import CookieAdminForm
+from src.modules.admin.forms import CookieAdminForm, LongTextAreaField
 from src.modules.db.models import Podcast, Episode, Cookie
 from src.modules.admin.views.base import BaseModelView, mask_secret
 from src.utils import utcnow
@@ -42,7 +42,17 @@ class PodcastAdminView(BaseModelView, model=Podcast):
         Podcast.publish_id,
         Podcast.download_automatically,
     )
+    form_columns = (
+        Podcast.name,
+        Podcast.owner,
+        Podcast.description,
+        Podcast.created_at,
+        Podcast.publish_id,
+        Podcast.download_automatically,
+    )
     column_formatters = {Podcast.id: format_instance_details_link}
+    form_overrides = {"description": LongTextAreaField}
+    can_view_details = False
 
 
 class EpisodeAdminView(BaseModelView, model=Episode):
@@ -63,6 +73,7 @@ class EpisodeAdminView(BaseModelView, model=Episode):
     column_sortable_list = [Episode.id, Episode.title, Episode.created_at, Episode.published_at]
     column_default_sort = (Episode.id, True)
     column_formatters = {Episode.id: format_instance_details_link}
+    form_overrides = {"description": LongTextAreaField}
 
 
 class CookieAdminView(BaseModelView, model=Cookie):
