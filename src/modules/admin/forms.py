@@ -1,37 +1,29 @@
-from wtforms import (
-    BooleanField,
-    DateTimeLocalField,
-    IntegerField,
-    PasswordField,
-    StringField,
-    widgets,
-)
-from wtforms.validators import DataRequired, Email, Length, Optional
+from typing import Mapping, Sequence, Any
 
 from sqladmin.forms import Form
+from wtforms import BooleanField, PasswordField, StringField, widgets, EmailField
+
+from src.modules.admin.constants import RENDER_KW_REQ, RENDER_KW
 
 
 class UserAdminForm(Form):
-    email = StringField("Email", validators=[DataRequired(), Email(), Length(max=128)])
-    new_password = PasswordField("New password", validators=[Optional(), Length(min=8, max=128)])
-    is_active = BooleanField("Active")
-    is_superuser = BooleanField("Superuser")
+    """Provides extra validation for users' creation/updating"""
 
+    email = EmailField(render_kw=RENDER_KW_REQ)
+    new_password = PasswordField(render_kw=RENDER_KW, label="New Password")
+    repeat_password = PasswordField(render_kw=RENDER_KW, label="Repeat New Password")
+    is_active = BooleanField(render_kw={"class": "form-check-input"})
+    is_superuser = BooleanField(render_kw={"class": "form-check-input"})
 
-class CookieAdminForm(Form):
-    source_type = StringField("Source type", validators=[DataRequired()])
-    raw_data = StringField("Cookie data", validators=[Optional()])
-    owner_id = IntegerField("Owner ID", validators=[DataRequired()])
+    def validate(self, extra_validators: Mapping[str, Sequence[Any]] | None = None) -> bool:
+        """Extra validation for user's form"""
+        if new_password := self.data.get("new_password"):
+            if new_password != self.data["repeat_password"]:
+                self.new_password.errors = ("Passwords must be the same",)
+                self.repeat_password.errors = ("Passwords must be the same",)
+                return False
 
-
-class UserAccessTokenAdminForm(Form):
-    user_id = IntegerField("User ID", validators=[DataRequired()])
-    name = StringField("Name", validators=[DataRequired(), Length(max=256)])
-    new_token = StringField("Access token", validators=[Optional(), Length(max=256)])
-    enabled = BooleanField("Enabled")
-    expires_in = DateTimeLocalField(
-        "Expires at", validators=[DataRequired()], format="%Y-%m-%dT%H:%M"
-    )
+        return True
 
 
 class LongTextAreaWidget(widgets.TextArea):

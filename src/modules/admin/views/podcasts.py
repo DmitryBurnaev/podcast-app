@@ -4,9 +4,9 @@ from typing import Any
 from starlette.requests import Request
 
 from src.modules.admin.utils import format_instance_details_link
-from src.modules.admin.forms import CookieAdminForm, LongTextAreaField
+from src.modules.admin.forms import LongTextAreaField
 from src.modules.db.models import Podcast, Episode, Cookie
-from src.modules.admin.views.base import BaseModelView, mask_secret
+from src.modules.admin.views.base import BaseModelView
 from src.utils import utcnow
 
 __all__ = (
@@ -15,7 +15,6 @@ __all__ = (
     "CookieAdminView",
 )
 logger = logging.getLogger(__name__)
-MASKED_SECRET = "********"
 
 
 class PodcastAdminView(BaseModelView, model=Podcast):
@@ -59,7 +58,7 @@ class EpisodeAdminView(BaseModelView, model=Episode):
     name = "Episode"
     name_plural = "Episodes"
     icon = "fa-solid fa-headphones"
-    column_list = [
+    column_list = (
         Episode.id,
         Episode.title,
         Episode.status,
@@ -68,9 +67,9 @@ class EpisodeAdminView(BaseModelView, model=Episode):
         Episode.owner_id,
         Episode.created_at,
         Episode.published_at,
-    ]
-    column_searchable_list = [Episode.title, Episode.source_id, Episode.watch_url]
-    column_sortable_list = [Episode.id, Episode.title, Episode.created_at, Episode.published_at]
+    )
+    column_searchable_list = (Episode.title, Episode.source_id, Episode.watch_url)
+    column_sortable_list = (Episode.id, Episode.title, Episode.created_at, Episode.published_at)
     column_default_sort = (Episode.id, True)
     column_formatters = {Episode.id: format_instance_details_link}
     form_overrides = {"description": LongTextAreaField}
@@ -81,7 +80,6 @@ class CookieAdminView(BaseModelView, model=Cookie):
     name_plural = "Cookies"
     icon = "fa-solid fa-cookie-bite"
     can_export = False
-    form = CookieAdminForm
     column_list = (
         Cookie.id,
         Cookie.source_type,
@@ -96,10 +94,10 @@ class CookieAdminView(BaseModelView, model=Cookie):
         Cookie.created_at,
         Cookie.updated_at,
     )
+    form_columns = (Cookie.id, Cookie.source_type, Cookie.data)
     column_sortable_list = (Cookie.id, Cookie.source_type, Cookie.created_at, Cookie.updated_at)
     column_default_sort = (Cookie.id, True)
-    column_formatters = {"data": mask_secret, Cookie.id: format_instance_details_link}
-    column_formatters_detail = {"data": mask_secret}
+    column_formatters = {Cookie.id: format_instance_details_link}
 
     async def insert_model(self, request: Request, data: dict[str, Any]) -> Cookie:
         raw_data = str(data.pop("raw_data") or "")
