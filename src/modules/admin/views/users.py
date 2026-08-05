@@ -1,5 +1,5 @@
 import logging
-from typing import cast, Any, Mapping, Sequence
+from typing import cast, Any
 
 from starlette.exceptions import HTTPException
 from starlette.requests import Request
@@ -9,7 +9,11 @@ from src.modules.db import SASessionUOW, UserRepository
 from src.modules.db.models import UserInvite
 from src.modules.admin.views.base import BaseModelView, FormDataType, mask_secret
 from src.modules.db.models import User
-from src.modules.admin.utils import format_instance_details_link, format_datetime
+from src.modules.admin.utils import (
+    format_instance_details_link,
+    format_datetime,
+    format_bool,
+)
 
 __all__ = ("UserAdminView",)
 logger = logging.getLogger(__name__)
@@ -87,7 +91,9 @@ class UserInviteAdminView(BaseModelView, model=UserInvite):
     column_default_sort = (UserInvite.id, True)
     column_formatters = {
         UserInvite.id: format_instance_details_link,
+        UserInvite.is_applied: format_bool,
         UserInvite.created_at: format_datetime,
+        UserInvite.expired_at: format_datetime,
     }
     column_formatters_detail = {"token": mask_secret}
     column_labels = {
