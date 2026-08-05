@@ -78,10 +78,15 @@ def _format_datetime(value: datetime.datetime | None, dt_format: str, blank: str
     return value.strftime(dt_format)
 
 
-def format_datetime(value: datetime.datetime, blank: str = "-") -> str:
+def format_datetime(instance: "BaseModel", field_name: str, blank: str = "-", *_) -> str:
     """
     Format a datetime object to a string in the format "%d.%m.%Y %H:%M"
+    # instance: "BaseModel", field_name: str, blank: str = "-"
     """
+    value = getattr(instance, field_name, None)
+    if value is None:
+        return blank
+
     return _format_datetime(value, dt_format="%d.%m.%Y %H:%M", blank=blank)
 
 
@@ -90,3 +95,12 @@ def format_date(value: datetime.datetime, blank: str = "-") -> str:
     Format a datetime object to a string in the format "%d.%m.%Y"
     """
     return _format_datetime(value, dt_format="%d.%m.%Y", blank=blank)
+
+
+def format_bool(instance: "BaseModel", field_name: str, blank: str = "-") -> str:
+    """ Format a boolean object to an emoj symbol """
+    value: bool | None = getattr(instance, field_name, None)
+    if value is None:
+        return blank
+
+    return {True: "✅", False: "❌"}[value]
