@@ -113,7 +113,7 @@ class RQTask:
     @classmethod
     def get_job_id(cls, *task_args, **task_kwargs) -> str:
         """Build a deterministic RQ job id for task arguments."""
-        kw_pairs = [f"{key}={value}" for key, value in task_kwargs.items()]
+        kw_pairs = [f"{key}_{value}" for key, value in task_kwargs.items()]
         return f"{cls.__name__.lower()}_{'_'.join(map(str, task_args))}_{'_'.join(kw_pairs)}_"
 
     @classmethod

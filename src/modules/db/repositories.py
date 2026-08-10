@@ -1,6 +1,7 @@
 """DB-specific module that provides specific operations on the database."""
 
 import logging
+import uuid
 from pathlib import Path
 from datetime import UTC, datetime
 from typing import (
@@ -525,8 +526,8 @@ class EpisodeRepository(BaseRepository[Episode]):
                 case "gte":
                     statement = statement.filter(field >= value)
                 case "isnot":
-                    if not isinstance(value, bool):
-                        raise TypeError("Filter statement can take only boolean values")
+                    if not (isinstance(value, bool) or value is None):
+                        raise TypeError("Filter statement can take only boolean / None values")
 
                     statement = statement.filter(isnot(field, value))  # noqa
                 case _:
@@ -755,6 +756,7 @@ class FileRepository(BaseRepository[File]):
             path=source_file.path,
             size=source_file.size,
             source_url=source_file.source_url,
+            access_token=uuid.uuid4().hex,
         )
 
 

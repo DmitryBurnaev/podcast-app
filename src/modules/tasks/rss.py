@@ -88,7 +88,7 @@ class GenerateRSSTask(RQTask):
         episodes = await episode_repository.all(
             podcast_id=podcast.id,
             status=EpisodeStatus.PUBLISHED,
-            published_at__ne=None,
+            published_at__isnot=None,
         )
         context = {"episodes": episodes, "settings": self.settings}
         logger.info("Podcast #%i: Adding chapters", podcast.id)

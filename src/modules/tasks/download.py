@@ -268,6 +268,7 @@ class DownloadEpisodeTask(RQTask):
         }
         logger.debug("Episodes update filter: %s | data: %s", filter_kwargs, update_data)
         await self.episode_repository.update_by_filters(filters=filter_kwargs, value=update_data)
+        await self.db_session.refresh(episode)
 
     async def _update_files(self, episode: Episode, update_data: dict) -> None:
         """Updating data for stored files"""
