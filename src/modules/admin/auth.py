@@ -36,6 +36,7 @@ class AdminAuth(AuthenticationBackend):
             return False
 
         request.session["token"] = result.token
+        request.session["user_id"] = result.user.id
         logger.debug("[admin-auth] Successfully logged in user: %r", email)
         return True
 

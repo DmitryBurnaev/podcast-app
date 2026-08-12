@@ -7,8 +7,6 @@ from starlette.exceptions import HTTPException
 from starlette.requests import Request
 from starlette.responses import Response
 
-from modules.db.repositories import BaseRepository
-
 if TYPE_CHECKING:
     from src.main import PodcastApp
 
@@ -50,7 +48,10 @@ class BaseModelView(ModelView):
 
         return await self.templates.TemplateResponse(request, self.details_template, context)
 
-
     async def insert_model(self, request: Request, data: dict[str, Any]) -> Any:
         """ Generic method for inserting a model with providing current owner to new records """
-        repo = BaseRepository[self.model]
+        if hasattr(self.model, "owner_id"):
+            data["owner_id"] = request.session["user_id"]
+
+        logger.info("[admin] Inserting new model data: %s", data)
+        return await super().insert_model(request, data)

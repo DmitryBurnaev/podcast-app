@@ -29,11 +29,15 @@ class UserAdminView(BaseModelView, model=User):
     column_searchable_list = (User.email,)
     column_sortable_list = (User.id, User.email)
     column_default_sort = (User.id, True)
-    column_formatters = {User.id: format_instance_details_link}
+    column_formatters = {
+        User.id: format_instance_details_link,
+        User.is_active: format_bool,
+        User.is_superuser: format_bool,
+    }
     column_labels = {
         User.id: "User",
-        User.is_active: "Activated",
-        User.is_superuser: "Superuser (admin)",
+        User.is_active: "Active",
+        User.is_superuser: "Admin",
     }
 
     async def insert_model(self, request: Request, data: FormDataType) -> Any:
