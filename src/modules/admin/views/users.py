@@ -77,6 +77,7 @@ class UserInviteAdminView(BaseModelView, model=UserInvite):
     name = "Invite"
     name_plural = "Invites"
     icon = "fa-solid fa-envelope-open-text"
+    # edit_template = "invite_edit.html"
     column_list = (
         UserInvite.id,
         UserInvite.is_applied,
@@ -86,7 +87,6 @@ class UserInviteAdminView(BaseModelView, model=UserInvite):
     form_columns = (
         UserInvite.id,
         UserInvite.email,
-        UserInvite.token,
         UserInvite.is_applied,
         UserInvite.expired_at,
     )
