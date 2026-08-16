@@ -1,12 +1,16 @@
 import datetime
 import logging
 import contextvars
-from typing import TypedDict, Optional, Literal, cast, Any
+from typing import TypedDict, Optional, Literal, cast, Any, TYPE_CHECKING
 
 import markupsafe
 
 from src.settings.app import get_app_settings
 from src.modules.db.models import BaseModel
+from src.utils import get_invites_link
+
+if TYPE_CHECKING:
+    from src.modules.db.models import UserInvite
 
 logger = logging.getLogger(__name__)
 alert_context_var: contextvars.ContextVar[Optional["ErrorInContext"]] = contextvars.ContextVar(
@@ -90,17 +94,26 @@ def format_datetime(instance: "BaseModel", field_name: str, blank: str = "-", *_
     return _format_datetime(value, dt_format="%d.%m.%Y %H:%M", blank=blank)
 
 
-def format_date(value: datetime.datetime, blank: str = "-") -> str:
-    """
-    Format a datetime object to a string in the format "%d.%m.%Y"
-    """
-    return _format_datetime(value, dt_format="%d.%m.%Y", blank=blank)
-
-
 def format_bool(instance: "BaseModel", field_name: str, blank: str = "-") -> str:
-    """ Format a boolean object to an emoj symbol """
+    """Format a boolean object to an emoji symbol"""
     value: bool | None = getattr(instance, field_name, None)
     if value is None:
         return blank
 
     return {True: "✅", False: "❌"}[value]
+
+
+def format_invite_link(instance: "BaseModel", field_name: str, blank: str = "-") -> str:
+    """Generate a link to an invitation"""
+    value: bool | None = getattr(instance, field_name, None)
+    if value is None:
+        return blank
+
+    user_invite: "UserInvite" = cast("UserInvite", instance)
+    settings = get_app_settings()
+    if user_invite.email is None:
+        logger.info("[admin] Email not provided for invite: %s", user_invite)
+        return blank
+
+    link = get_invites_link(email=user_invite.email, token=user_invite.token, settings=settings)
+    return markupsafe.Markup(f'<a href="{link}">InviteLink</a>')

@@ -29,7 +29,13 @@ class UserAdminForm(Form):
 class LongTextAreaWidget(widgets.TextArea):
     def __call__(self, field, **kwargs):
         kwargs.setdefault("rows", 10)
-        return super(LongTextAreaWidget, self).__call__(field, **kwargs)
+        return super().__call__(field, **kwargs)
+
+
+class ReadOnlyTextWidget(widgets.TextInput):
+    def __call__(self, field, **kwargs):
+        kwargs.setdefault("disabled", True)
+        return super().__call__(field, **kwargs)
 
 
 class LongTextAreaField(StringField):
@@ -39,3 +45,9 @@ class LongTextAreaField(StringField):
     """
 
     widget = LongTextAreaWidget()
+
+
+class ReadOnlyTextField(StringField):
+    """This field represents an HTML ``<input ... readonly>``"""
+
+    widget = ReadOnlyTextWidget()

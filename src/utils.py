@@ -1,6 +1,8 @@
 import asyncio
+import base64
 import datetime
 import hashlib
+import json
 import logging
 import uuid
 from http import HTTPStatus
@@ -9,7 +11,7 @@ from typing import TypeVar, Callable, ParamSpec, Any
 
 import httpx
 
-from src.settings.app import get_app_settings
+from src.settings.app import get_app_settings, AppSettings
 from src.exceptions import NotFoundError
 
 __all__ = ("singleton",)
@@ -144,6 +146,19 @@ def hash_string(source_string: str) -> str:
     '12ca17b49af2289436f303e0166030a21e525d266e209267433801a8fd4071a0'
     """
     return hashlib.sha256(source_string.encode()).hexdigest()
+
+
+def get_invites_link(
+    email: str,
+    token: str,
+    settings: AppSettings,
+) -> str:
+    """"""
+    invite_data = base64.urlsafe_b64encode(
+        json.dumps({"token": token, "email": email}).encode()
+    ).decode()
+    link = f"{settings.site_url.rstrip('/')}/sign-up/?i={invite_data}"
+    return link
 
 
 async def download_content(
