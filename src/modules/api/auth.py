@@ -46,7 +46,7 @@ from src.modules.schemas.auth import (
     UserResponse,
 )
 from src.modules.schemas.common import Pagination, OKResponse
-from src.modules.services.email import _send_invitation_email, _send_reset_password_email
+from src.modules.services.email import send_invitation_email, send_reset_password_email
 from src.modules.common.types import AppRequest
 from src.settings.app import AppSettings
 from src.utils import hash_string, utcnow
@@ -168,7 +168,7 @@ class AuthCoreAPIController(BaseAuthAPIController):
                 settings=settings,
                 expires_in=settings.reset_password_link_expires_in,
             )
-            await _send_reset_password_email(user, token, settings=settings)
+            await send_reset_password_email(user, token, settings=settings)
 
         return OKResponse()
 
@@ -276,7 +276,7 @@ class AuthInviteAPIController(BaseAuthAPIController):
             await uow.session.flush()
             response = UserInviteResponse.model_validate(invite, from_attributes=True)
 
-        await _send_invitation_email(email, token, settings=settings)
+        await send_invitation_email(email, token, settings=settings)
         return response
 
 

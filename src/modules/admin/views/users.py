@@ -4,15 +4,16 @@ from typing import cast, Any
 from starlette.exceptions import HTTPException
 from starlette.requests import Request
 
-from src.modules.admin.forms import UserAdminForm
+from src.modules.admin.forms import UserAdminForm, ReadOnlyTextField
 from src.modules.db import SASessionUOW, UserRepository
 from src.modules.db.models import UserInvite
-from src.modules.admin.views.base import BaseModelView, FormDataType, mask_secret
+from src.modules.admin.views.base import BaseModelView, FormDataType
 from src.modules.db.models import User
 from src.modules.admin.utils import (
     format_instance_details_link,
     format_datetime,
     format_bool,
+    format_invite_link,
 )
 
 __all__ = ("UserAdminView",)
@@ -81,15 +82,18 @@ class UserInviteAdminView(BaseModelView, model=UserInvite):
     column_list = (
         UserInvite.id,
         UserInvite.is_applied,
+        UserInvite.token,
         UserInvite.expired_at,
         UserInvite.created_at,
     )
     form_columns = (
         UserInvite.id,
         UserInvite.email,
+        UserInvite.token,
         UserInvite.is_applied,
         UserInvite.expired_at,
     )
+    form_overrides = {"token": ReadOnlyTextField}
     column_searchable_list = (UserInvite.email,)
     column_sortable_list = (UserInvite.id, UserInvite.email, UserInvite.created_at)
     column_default_sort = (UserInvite.id, True)
@@ -98,10 +102,11 @@ class UserInviteAdminView(BaseModelView, model=UserInvite):
         UserInvite.is_applied: format_bool,
         UserInvite.created_at: format_datetime,
         UserInvite.expired_at: format_datetime,
+        UserInvite.token: format_invite_link,
     }
-    column_formatters_detail = {"token": mask_secret}
     column_labels = {
         UserInvite.id: "Invite",
+        UserInvite.token: "Token",
         UserInvite.is_applied: "Applied",
         UserInvite.expired_at: "Expired At",
         UserInvite.created_at: "Created At",

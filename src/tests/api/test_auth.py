@@ -11,7 +11,7 @@ from src.modules.api.auth import (
     AuthCoreAPIController,
     AuthInviteAPIController,
 )
-from src.modules.services.email import _send_invitation_email
+from src.modules.services.email import send_invitation_email
 from src.modules.schemas.auth import (
     ChangePasswordRequest,
     SignUpRequest,
@@ -242,7 +242,7 @@ class TestAuthAccountManagementAPI:
         send_reset_email = AsyncMock()
         monkeypatch.setattr("src.modules.api.auth.SASessionUOW", lambda: MockUOW())
         monkeypatch.setattr("src.modules.api.auth.UserRepository", lambda session: repository)
-        monkeypatch.setattr("src.modules.api.auth._send_reset_password_email", send_reset_email)
+        monkeypatch.setattr("src.modules.api.auth.send_reset_password_email", send_reset_email)
 
         response = await AuthCoreAPIController.reset_password.fn(
             None,
@@ -367,7 +367,7 @@ class TestAuthEmail:
             created_at=utcnow(),
         )
 
-        await _send_invitation_email(
+        await send_invitation_email(
             str(invite.email),
             "invite-token",
             settings=app_settings,
