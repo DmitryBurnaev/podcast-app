@@ -30,6 +30,7 @@ class FlagsSettings(BaseSettings):
 
     debug_mode: bool = False
     api_debug_mode: bool = False
+    send_invites: bool = False
 
 
 class AdminSettings(BaseSettings):

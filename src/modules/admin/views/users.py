@@ -1,14 +1,19 @@
 import logging
+from datetime import timedelta
 from typing import cast, Any
 
 from starlette.exceptions import HTTPException
 from starlette.requests import Request
 
+from src.modules.services.email import send_invitation_email
+from src.modules.db.repositories import UserInviteRepository
+from src.settings.app import get_app_settings
 from src.modules.admin.forms import UserAdminForm, ReadOnlyTextField
 from src.modules.db import SASessionUOW, UserRepository
 from src.modules.db.models import UserInvite
 from src.modules.admin.views.base import BaseModelView, FormDataType
 from src.modules.db.models import User
+from src.utils import utcnow
 from src.modules.admin.utils import (
     format_instance_details_link,
     format_datetime,
@@ -78,7 +83,6 @@ class UserInviteAdminView(BaseModelView, model=UserInvite):
     name = "Invite"
     name_plural = "Invites"
     icon = "fa-solid fa-envelope-open-text"
-    # edit_template = "invite_edit.html"
     column_list = (
         UserInvite.id,
         UserInvite.is_applied,
@@ -89,7 +93,7 @@ class UserInviteAdminView(BaseModelView, model=UserInvite):
     form_columns = (
         UserInvite.id,
         UserInvite.email,
-        UserInvite.token,
+        # UserInvite.token,
         UserInvite.is_applied,
         UserInvite.expired_at,
     )
@@ -111,3 +115,29 @@ class UserInviteAdminView(BaseModelView, model=UserInvite):
         UserInvite.expired_at: "Expired At",
         UserInvite.created_at: "Created At",
     }
+
+    async def insert_model(self, request: Request, data: FormDataType) -> Any:
+        """Create a new invite if email isn't already taken"""
+        email = data.get("email", None)
+        async with SASessionUOW() as uow:
+            invite_repository = UserInviteRepository(uow.session)
+            invite = await invite_repository.first(email=email)
+            if invite is not None:
+                raise HTTPException(status_code=400, detail="Email already taken")
+
+        settings = get_app_settings()
+        token: str = UserInvite.generate_token()
+        expired_at = utcnow() + timedelta(seconds=settings.invite_link_expires_in)
+        data.update(
+            {
+                "token": token,
+                "expired_at": expired_at,
+            }
+        )
+        invite = await super().insert_model(request, data)
+        await send_invitation_email(
+            email=invite.email,
+            token=invite.token,
+            settings=settings,
+        )
+        return invite
