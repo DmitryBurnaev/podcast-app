@@ -3,7 +3,7 @@ from typing import Any
 
 from starlette.requests import Request
 
-from src.modules.admin.utils import format_instance_details_link
+from src.modules.admin.utils import format_instance_details_link, format_datetime, format_bool
 from src.modules.admin.forms import LongTextAreaField
 from src.modules.db.models import Podcast, Episode, Cookie
 from src.modules.admin.views.base import BaseModelView
@@ -23,14 +23,13 @@ class PodcastAdminView(BaseModelView, model=Podcast):
     icon = "fa-solid fa-podcast"
     column_list = (
         Podcast.id,
-        Podcast.name,
         Podcast.publish_id,
-        Podcast.owner_id,
         Podcast.download_automatically,
+        Podcast.owner_id,
         Podcast.created_at,
     )
     column_searchable_list = (Podcast.name, Podcast.publish_id)
-    column_sortable_list = (Podcast.id, Podcast.name, Podcast.created_at)
+    column_sortable_list = (Podcast.id, Podcast.name, Podcast.owner_id, Podcast.created_at)
     column_default_sort = (Podcast.id, True)
     column_details_list = (
         Podcast.id,
@@ -49,9 +48,21 @@ class PodcastAdminView(BaseModelView, model=Podcast):
         Podcast.publish_id,
         Podcast.download_automatically,
     )
-    column_formatters = {Podcast.id: format_instance_details_link}
+    column_formatters = {
+        Podcast.id: format_instance_details_link,
+        Podcast.created_at: format_datetime,
+        Podcast.download_automatically: format_bool,
+    }
     form_overrides = {"description": LongTextAreaField}
     can_view_details = False
+    column_labels = {
+        Podcast.id: "ID",
+        Podcast.name: "Name",
+        Podcast.publish_id: "Publish ID",
+        Podcast.download_automatically: "Auto Download",
+        Podcast.created_at: "Created At",
+        Podcast.owner_id: "Owner",
+    }
 
 
 class EpisodeAdminView(BaseModelView, model=Episode):
