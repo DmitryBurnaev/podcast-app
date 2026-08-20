@@ -95,8 +95,11 @@ class Podcast(BaseModel):
     episodes: Mapped[list["Episode"]] = relationship(back_populates="podcast", lazy="subquery")
     owner: Mapped["User"] = relationship("User", foreign_keys=[owner_id], lazy="subquery")
 
-    def __str__(self):
+    def __repr__(self) -> str:
         return f'<Podcast #{self.id} "{self.name}">'
+
+    def __str__(self) -> str:
+        return f'Podcast "{self.name}"'
 
     @property
     def stat(self) -> PodcastStatistics | None:
