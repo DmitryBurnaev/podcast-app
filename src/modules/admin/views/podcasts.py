@@ -3,7 +3,12 @@ from typing import Any
 
 from starlette.requests import Request
 
-from src.modules.admin.utils import format_instance_details_link, format_datetime, format_bool
+from src.modules.admin.utils import (
+    format_instance_details_link,
+    format_datetime,
+    format_bool,
+    format_status,
+)
 from src.modules.admin.forms import LongTextAreaField
 from src.modules.db.models import Podcast, Episode, Cookie
 from src.modules.admin.views.base import BaseModelView
@@ -71,10 +76,9 @@ class EpisodeAdminView(BaseModelView, model=Episode):
     icon = "fa-solid fa-headphones"
     column_list = (
         Episode.id,
-        Episode.title,
         Episode.status,
         Episode.source_type,
-        Episode.podcast_id,
+        Episode.podcast,
         Episode.owner_id,
         Episode.created_at,
         Episode.published_at,
@@ -82,8 +86,19 @@ class EpisodeAdminView(BaseModelView, model=Episode):
     column_searchable_list = (Episode.title, Episode.source_id, Episode.watch_url)
     column_sortable_list = (Episode.id, Episode.title, Episode.created_at, Episode.published_at)
     column_default_sort = (Episode.id, True)
-    column_formatters = {Episode.id: format_instance_details_link}
+    column_formatters = {
+        Episode.id: format_instance_details_link,
+        Episode.created_at: format_datetime,
+        Episode.status: format_status,
+    }
     form_overrides = {"description": LongTextAreaField}
+    column_labels = {
+        Episode.id: "ID",
+        Episode.created_at: "Created At",
+        Episode.owner_id: "Owner",
+        Episode.source_type: "Source",
+        Episode.podcast: "Podcast",
+    }
 
 
 class CookieAdminView(BaseModelView, model=Cookie):
