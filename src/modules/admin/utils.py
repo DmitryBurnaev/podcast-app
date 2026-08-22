@@ -8,6 +8,7 @@ import markupsafe
 from src.settings.app import get_app_settings
 from src.modules.db.models import BaseModel
 from src.utils import get_invites_link
+from utils import cut_string
 
 if TYPE_CHECKING:
     from src.modules.db.models import UserInvite
@@ -62,8 +63,10 @@ def admin_get_link(
     settings = get_app_settings()
     base_url = settings.admin.base_url
     name = url_name or instance.admin_url_name
+    instance_link = cut_string(str(instance), max_length=48)
+    instance_title = " ".join(str(instance).replace('"', "").split(" ")[1:])
     return markupsafe.Markup(
-        f'<a href="{base_url}/{name}/{target}/{instance.id}">[#{instance.id}] {instance}</a>'
+        f'<a href="{base_url}/{name}/{target}/{instance.id}" title="{instance_title}">[#{instance.id}] {instance_link}</a>'
     )
 
 
@@ -101,6 +104,16 @@ def format_bool(instance: "BaseModel", field_name: str, blank: str = "-") -> str
         return blank
 
     return {True: "✅", False: "❌"}[value]
+
+
+def format_status(instance: "BaseModel", field_name: str, blank: str = "-") -> str:
+    """Format a boolean object to an emoji symbol"""
+    value: str | None = getattr(instance, field_name, None)
+    if value is None:
+        return blank
+
+    emoj_map = {"PUBLISHED": "✅", "ERROR": "❌", "NEW": "🆕", "DOWNLOADING": "⬇️"}
+    return emoj_map.get(value, f"⚙️ ({value})")
 
 
 def format_invite_link(instance: "BaseModel", field_name: str, blank: str = "-") -> str:

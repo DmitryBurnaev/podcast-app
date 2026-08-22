@@ -253,8 +253,11 @@ class Episode(BaseModel):
     image: Mapped["File"] = relationship("File", foreign_keys=[image_id], lazy="subquery")
     audio: Mapped["File"] = relationship("File", foreign_keys=[audio_id], lazy="subquery")
 
-    def __str__(self) -> str:
+    def __repr__(self) -> str:
         return f'<Episode #{self.id} {self.source_id} [{self.status}] "{self.title[:10]}..." >'
+
+    def __str__(self) -> str:
+        return f'Episode "{self.title}"'
 
     @classmethod
     async def get_in_progress(cls, db_session: AsyncSession, user_id: int):
@@ -362,24 +365,6 @@ class Episode(BaseModel):
             episode_author=self.author or "Unknown",
             podcast_name=self.podcast.name,
         )
-
-    async def delete(self, db_session: AsyncSession, db_flush: bool = True):
-        """Removing files associated with requested episode"""
-        # TODO: move to repository
-        raise NotImplementedError("Episode deletion not implemented")
-        # app_settings = get_app_settings()
-        #
-        # if self.image_id and self.image:
-        #     await self.image.delete(
-        #         db_session, db_flush, remote_path=str(app_settings.s3.bucket_episode_images_path)
-        #     )
-        #
-        # if self.audio_id and self.audio:
-        #     await self.audio.delete(db_session, db_flush)
-        #
-        # await db_session.delete(self)
-        # if db_flush:
-        #     await db_session.flush()
 
 
 class Cookie(BaseModel):
