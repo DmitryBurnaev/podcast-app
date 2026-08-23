@@ -7,6 +7,7 @@ from src.modules.admin.utils import (
     format_instance_details_link,
     format_datetime,
     format_bool,
+    format_source_type,
     format_status,
 )
 from src.modules.admin.forms import LongTextAreaField
@@ -75,8 +76,8 @@ class EpisodeAdminView(BaseModelView, model=Episode):
     name_plural = "Episodes"
     icon = "fa-solid fa-headphones"
     column_list = (
-        Episode.id,
         Episode.status,
+        Episode.id,
         Episode.source_type,
         Episode.podcast,
         Episode.owner_id,
@@ -89,7 +90,9 @@ class EpisodeAdminView(BaseModelView, model=Episode):
     column_formatters = {
         Episode.id: format_instance_details_link,
         Episode.created_at: format_datetime,
+        Episode.published_at: format_datetime,
         Episode.status: format_status,
+        Episode.source_type: format_source_type,
     }
     form_overrides = {"description": LongTextAreaField}
     column_labels = {
@@ -98,6 +101,9 @@ class EpisodeAdminView(BaseModelView, model=Episode):
         Episode.owner_id: "Owner",
         Episode.source_type: "Source",
         Episode.podcast: "Podcast",
+        Episode.status: "S",
+        Episode.source_type: "Src",
+        Episode.published_at: "Publish",
     }
 
 
