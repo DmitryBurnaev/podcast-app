@@ -4,7 +4,10 @@ import contextvars
 from typing import TypedDict, Optional, Literal, cast, Any, TYPE_CHECKING
 
 import markupsafe
+from starlette.requests import Request
 
+from src.constants import EpisodeStatus, SourceType
+from src.modules.admin import constants
 from src.settings.app import get_app_settings
 from src.modules.db.models import BaseModel
 from src.utils import get_invites_link
@@ -85,19 +88,31 @@ def _format_datetime(value: datetime.datetime | None, dt_format: str, blank: str
     return value.strftime(dt_format)
 
 
-def format_datetime(instance: "BaseModel", field_name: str, blank: str = "-", *_) -> str:
+def format_datetime(
+    instance: "BaseModel", field_name: str, request: Request, *_, blank: str = "-"
+) -> str:
     """
     Format a datetime object to a string in the format "%d.%m.%Y %H:%M"
     # instance: "BaseModel", field_name: str, blank: str = "-"
     """
     value = getattr(instance, field_name, None)
     if value is None:
+        print("blank:", repr(blank))
+        print("value:", repr(value))
+        print("instance:", repr(instance))
+        print("field_name:", repr(field_name))
         return blank
 
     return _format_datetime(value, dt_format="%d.%m.%Y %H:%M", blank=blank)
 
 
-def format_bool(instance: "BaseModel", field_name: str, blank: str = "-") -> str:
+def format_bool(
+    instance: "BaseModel",
+    field_name: str,
+    request: Request,
+    *_,
+    blank: str = "-",
+) -> str:
     """Format a boolean object to an emoji symbol"""
     value: bool | None = getattr(instance, field_name, None)
     if value is None:
@@ -106,13 +121,60 @@ def format_bool(instance: "BaseModel", field_name: str, blank: str = "-") -> str
     return {True: "✅", False: "❌"}[value]
 
 
-def format_status(instance: "BaseModel", field_name: str, blank: str = "-") -> str:
-    """Format a boolean object to an emoji symbol"""
+def format_status(
+    instance: "BaseModel", field_name: str, request: Request, *_, blank: str = "-"
+) -> str:
+    """Format a boolean object to an emoji symbol
+    must be one of constants.EpisodeStatus
+    :param instance: The instance of the model
+    :param field_name: The name of the field to format
+    :param blank: The blank string to return if the field is None
+    :return: The formatted status
+    """
     value: str | None = getattr(instance, field_name, None)
     if value is None:
         return blank
 
-    emoj_map = {"PUBLISHED": "✅", "ERROR": "❌", "NEW": "🆕", "DOWNLOADING": "⬇️"}
+    emoj_map = {
+        EpisodeStatus.PUBLISHED: "✅",
+        EpisodeStatus.ERROR: "❌",
+        EpisodeStatus.NEW: "🆕",
+        EpisodeStatus.DOWNLOADING: "⬇️",
+        EpisodeStatus.DL_PENDING: "⏳",
+        EpisodeStatus.DL_EPISODE_DOWNLOADING: "⬇️",
+        EpisodeStatus.DL_EPISODE_POSTPROCESSING: "🔄",
+        EpisodeStatus.DL_EPISODE_UPLOADING: "⬆️",
+        EpisodeStatus.DL_COVER_DOWNLOADING: "⬇️",
+        EpisodeStatus.DL_COVER_UPLOADING: "⬆️",
+        EpisodeStatus.CANCELING: "⏹️",
+        EpisodeStatus.ARCHIVED: "📁",
+    }
+    return emoj_map.get(value, f"⚙️ ({value})")
+
+
+def format_source_type(
+    instance: "BaseModel",
+    field_name: str,
+    request: Request,
+    *_,
+    blank: str = "-",
+) -> str:
+    """Format a source type object to an emoji symbol
+    must be one of constants.SourceType
+    :param instance: The instance of the model
+    :param field_name: The name of the field to format
+    :param blank: The blank string to return if the field is None
+    :return: The formatted source type
+    """
+    value: str | None = getattr(instance, field_name, None)
+    if value is None:
+        return blank
+
+    emoj_map = {
+        SourceType.YOUTUBE: "🎥",
+        SourceType.YANDEX: "🎵",
+        SourceType.UPLOAD: "📤",
+    }
     return emoj_map.get(value, f"⚙️ ({value})")
 
 
