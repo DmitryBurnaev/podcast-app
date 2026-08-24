@@ -8,7 +8,7 @@ from src.modules.admin.utils import (
     format_datetime,
     format_bool,
     format_source_type,
-    format_status,
+    format_episode_details_link,
 )
 from src.modules.admin.forms import LongTextAreaField
 from src.modules.db.models import Podcast, Episode, Cookie
@@ -76,7 +76,6 @@ class EpisodeAdminView(BaseModelView, model=Episode):
     name_plural = "Episodes"
     icon = "fa-solid fa-headphones"
     column_list = (
-        Episode.status,
         Episode.id,
         Episode.source_type,
         Episode.podcast,
@@ -88,10 +87,9 @@ class EpisodeAdminView(BaseModelView, model=Episode):
     column_sortable_list = (Episode.id, Episode.title, Episode.created_at, Episode.published_at)
     column_default_sort = (Episode.id, True)
     column_formatters = {
-        Episode.id: format_instance_details_link,
+        Episode.id: format_episode_details_link,
         Episode.created_at: format_datetime,
         Episode.published_at: format_datetime,
-        Episode.status: format_status,
         Episode.source_type: format_source_type,
     }
     form_overrides = {"description": LongTextAreaField}
@@ -99,10 +97,8 @@ class EpisodeAdminView(BaseModelView, model=Episode):
         Episode.id: "ID",
         Episode.created_at: "Created At",
         Episode.owner_id: "Owner",
-        Episode.source_type: "Source",
         Episode.podcast: "Podcast",
-        Episode.status: "S",
-        Episode.source_type: "Src",
+        Episode.source_type: "S",
         Episode.published_at: "Publish",
     }
 

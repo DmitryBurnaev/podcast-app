@@ -4,17 +4,15 @@ import contextvars
 from typing import TypedDict, Optional, Literal, cast, Any, TYPE_CHECKING
 
 import markupsafe
-from starlette.requests import Request
 
 from src.constants import EpisodeStatus, SourceType
-from src.modules.admin import constants
 from src.settings.app import get_app_settings
 from src.modules.db.models import BaseModel
 from src.utils import get_invites_link
 from utils import cut_string
 
 if TYPE_CHECKING:
-    from src.modules.db.models import UserInvite
+    from src.modules.db.models import UserInvite, Episode
 
 logger = logging.getLogger(__name__)
 alert_context_var: contextvars.ContextVar[Optional["ErrorInContext"]] = contextvars.ContextVar(
@@ -53,6 +51,7 @@ def admin_get_link(
     instance: "BaseModel",
     url_name: str | None = None,
     target: Literal["edit", "details"] = "edit",
+    max_length: int = 48,
 ) -> str:
     """
     Simple helper function to generate a link to an instance
@@ -61,12 +60,13 @@ def admin_get_link(
     :param instance: Some model's instance for link's building
     :param url_name: Part of url (admin path)
     :param target: Link target (edit / link)
+    :param max_length: Max length of link
     :return: HTML-safe tag with a generated link
     """
     settings = get_app_settings()
     base_url = settings.admin.base_url
     name = url_name or instance.admin_url_name
-    instance_link = cut_string(str(instance), max_length=48)
+    instance_link = cut_string(str(instance), max_length=max_length)
     instance_title = " ".join(str(instance).replace('"', "").split(" ")[1:])
     return markupsafe.Markup(
         f'<a href="{base_url}/{name}/{target}/{instance.id}" title="{instance_title}">[#{instance.id}] {instance_link}</a>'
@@ -88,19 +88,13 @@ def _format_datetime(value: datetime.datetime | None, dt_format: str, blank: str
     return value.strftime(dt_format)
 
 
-def format_datetime(
-    instance: "BaseModel", field_name: str, request: Request, *_, blank: str = "-"
-) -> str:
+def format_datetime(instance: "BaseModel", field_name: str, *_, blank: str = "-") -> str:
     """
     Format a datetime object to a string in the format "%d.%m.%Y %H:%M"
     # instance: "BaseModel", field_name: str, blank: str = "-"
     """
     value = getattr(instance, field_name, None)
     if value is None:
-        print("blank:", repr(blank))
-        print("value:", repr(value))
-        print("instance:", repr(instance))
-        print("field_name:", repr(field_name))
         return blank
 
     return _format_datetime(value, dt_format="%d.%m.%Y %H:%M", blank=blank)
@@ -109,7 +103,6 @@ def format_datetime(
 def format_bool(
     instance: "BaseModel",
     field_name: str,
-    request: Request,
     *_,
     blank: str = "-",
 ) -> str:
@@ -121,41 +114,9 @@ def format_bool(
     return {True: "✅", False: "❌"}[value]
 
 
-def format_status(
-    instance: "BaseModel", field_name: str, request: Request, *_, blank: str = "-"
-) -> str:
-    """Format a boolean object to an emoji symbol
-    must be one of constants.EpisodeStatus
-    :param instance: The instance of the model
-    :param field_name: The name of the field to format
-    :param blank: The blank string to return if the field is None
-    :return: The formatted status
-    """
-    value: str | None = getattr(instance, field_name, None)
-    if value is None:
-        return blank
-
-    emoj_map = {
-        EpisodeStatus.PUBLISHED: "✅",
-        EpisodeStatus.ERROR: "❌",
-        EpisodeStatus.NEW: "🆕",
-        EpisodeStatus.DOWNLOADING: "⬇️",
-        EpisodeStatus.DL_PENDING: "⏳",
-        EpisodeStatus.DL_EPISODE_DOWNLOADING: "⬇️",
-        EpisodeStatus.DL_EPISODE_POSTPROCESSING: "🔄",
-        EpisodeStatus.DL_EPISODE_UPLOADING: "⬆️",
-        EpisodeStatus.DL_COVER_DOWNLOADING: "⬇️",
-        EpisodeStatus.DL_COVER_UPLOADING: "⬆️",
-        EpisodeStatus.CANCELING: "⏹️",
-        EpisodeStatus.ARCHIVED: "📁",
-    }
-    return emoj_map.get(value, f"⚙️ ({value})")
-
-
 def format_source_type(
     instance: "BaseModel",
     field_name: str,
-    request: Request,
     *_,
     blank: str = "-",
 ) -> str:
@@ -170,7 +131,7 @@ def format_source_type(
     if value is None:
         return blank
 
-    emoj_map = {
+    emoj_map: dict[str, str] = {
         SourceType.YOUTUBE: "🎥",
         SourceType.YANDEX: "🎵",
         SourceType.UPLOAD: "📤",
@@ -192,3 +153,23 @@ def format_invite_link(instance: "BaseModel", field_name: str, blank: str = "-")
 
     link = get_invites_link(email=user_invite.email, token=user_invite.token, settings=settings)
     return markupsafe.Markup(f'<a href="{link}">InviteLink</a>')
+
+
+def format_episode_details_link(model: "Episode", _: Any) -> str:
+    emoj_map = {
+        EpisodeStatus.PUBLISHED: "✅",
+        EpisodeStatus.ERROR: "❌",
+        EpisodeStatus.NEW: "🆕",
+        EpisodeStatus.DOWNLOADING: "⬇️",
+        EpisodeStatus.DL_PENDING: "⏳",
+        EpisodeStatus.DL_EPISODE_DOWNLOADING: "⬇️",
+        EpisodeStatus.DL_EPISODE_POSTPROCESSING: "🔄",
+        EpisodeStatus.DL_EPISODE_UPLOADING: "⬆️",
+        EpisodeStatus.DL_COVER_DOWNLOADING: "⬇️",
+        EpisodeStatus.DL_COVER_UPLOADING: "⬆️",
+        EpisodeStatus.CANCELING: "⏹️",
+        EpisodeStatus.ARCHIVED: "📁",
+    }
+    status_label: str = emoj_map.get(model.status, f"⚙️ ({model.status})")
+    link: str = admin_get_link(cast(BaseModel, model), target="edit", max_length=64)
+    return markupsafe.Markup(f"<span title='{model.status}'>{status_label}</span> &nbsp; {link}")
