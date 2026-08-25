@@ -74,6 +74,11 @@ def admin_get_link(
 
 
 def format_instance_details_link(model: Any, _: Any) -> str:
+    """Format a instance details link for the admin list view
+    :param model: The model to format
+    :param _: The request object
+    :return: The formatted instance details link
+    """
     return admin_get_link(cast(BaseModel, model), target="edit")
 
 
@@ -173,3 +178,30 @@ def format_episode_details_link(model: "Episode", _: Any) -> str:
     status_label: str = emoj_map.get(model.status, f"⚙️ ({model.status})")
     link: str = admin_get_link(cast(BaseModel, model), target="edit", max_length=64)
     return markupsafe.Markup(f"<span title='{model.status}'>{status_label}</span> &nbsp; {link}")
+
+
+def format_file_size(instance: "BaseModel", field_name: str, blank: str = "-") -> str:
+    """Format a file size object to a string in the format "100 bytes", "100 KB", "100 MB", "100 GB"
+
+    :param instance: The instance of the model
+    :param field_name: The name of the field to format
+    :param blank: The blank string to return if the field is None
+    :return: The formatted file size
+    """
+
+    value: int | None = getattr(instance, field_name, None)
+    if value is None:
+        return blank
+
+    if not isinstance(value, int):
+        logger.warning("[admin] File size is not an integer: %s", value)
+        return blank
+
+    if value < 1024:
+        return f"{value} bytes"
+    elif value < 1024 * 1024:
+        return f"{value / 1024:.2f} KB"
+    elif value < 1024 * 1024 * 1024:
+        return f"{value / 1024 / 1024:.2f} MB"
+    else:
+        return f"{value / 1024 / 1024 / 1024:.2f} GB"

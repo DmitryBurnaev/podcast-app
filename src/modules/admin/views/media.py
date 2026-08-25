@@ -1,4 +1,4 @@
-from src.modules.admin.utils import format_instance_details_link
+from src.modules.admin.utils import format_bool, format_instance_details_link, format_file_size
 from src.modules.db.models import File
 from src.modules.admin.views.base import BaseModelView
 
@@ -20,4 +20,17 @@ class MediaFileAdminView(BaseModelView, model=File):
     column_searchable_list = (File.path, File.source_url, File.hash)
     column_sortable_list = (File.id, File.path, File.size, File.created_at)
     column_default_sort = (File.id, True)
-    column_formatters = {File.id: format_instance_details_link}
+    column_formatters = {
+        File.id: format_instance_details_link,
+        File.size: format_file_size,
+        File.available: format_bool,
+        File.public: format_bool,
+    }
+    column_labels = {
+        File.id: "ID",
+        File.type: "Type",
+        File.size: "Size",
+        File.available: "Available",
+        File.public: "Public",
+        File.owner_id: "Owner",
+    }
