@@ -38,6 +38,12 @@ class ReadOnlyTextWidget(widgets.TextInput):
         return super().__call__(field, **kwargs)
 
 
+class ReadOnlyBoolWidget(widgets.CheckboxInput):
+    def __call__(self, field, **kwargs):
+        kwargs.setdefault("disabled", True)
+        return super().__call__(field, **kwargs)
+
+
 class LongTextAreaField(StringField):
     """
     This field represents an HTML ``<textarea>`` and can be used to take
@@ -48,6 +54,12 @@ class LongTextAreaField(StringField):
 
 
 class ReadOnlyTextField(StringField):
-    """This field represents an HTML ``<input ... readonly>``"""
+    """This field represents an HTML ``<input type="text" ... readonly>``"""
 
     widget = ReadOnlyTextWidget()
+
+#
+# class ReadOnlyBoolField(BooleanField):
+#     """This field represents an HTML ``<input type="checkbox" ... readonly>``"""
+#
+#     # widget = ReadOnlyBoolWidget()
