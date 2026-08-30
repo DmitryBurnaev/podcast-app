@@ -5,7 +5,18 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 import src.main as main
 from src.main import DbStartMode, PodcastApp, make_app
-from src.modules.db.models import User
+from src.modules.admin.app import ADMIN_VIEWS
+from src.modules.db.models import (
+    Cookie,
+    Episode,
+    File,
+    Podcast,
+    User,
+    UserAccessToken,
+    UserInvite,
+    UserIP,
+    UserSession,
+)
 from src.settings.app import AppSettings
 from src.tests.factories import make_user
 
@@ -165,3 +176,21 @@ class TestAdminIntegration:
 
         assert response.status_code == 400
         assert "Invalid credentials." in response.text
+
+
+class TestAdminViews:
+    def test_all_database_models_have_list_and_edit_views(self) -> None:
+        expected_models = {
+            Cookie,
+            Episode,
+            File,
+            Podcast,
+            User,
+            UserAccessToken,
+            UserInvite,
+            UserIP,
+            UserSession,
+        }
+
+        assert {view.model for view in ADMIN_VIEWS} == expected_models
+        assert all(view.can_edit for view in ADMIN_VIEWS)
