@@ -8,8 +8,7 @@ import markupsafe
 from src.constants import EpisodeStatus, SourceType
 from src.settings.app import get_app_settings
 from src.modules.db.models import BaseModel
-from src.utils import get_invites_link
-from utils import cut_string
+from src.utils import get_invites_link, cut_string
 
 if TYPE_CHECKING:
     from src.modules.db.models import UserInvite, Episode
@@ -161,7 +160,7 @@ def format_invite_link(instance: "BaseModel", field_name: str, blank: str = "-")
 
 
 def format_episode_details_link(model: "Episode", _: Any) -> str:
-    emoj_map = {
+    emoj_map: dict[str, str] = {
         EpisodeStatus.PUBLISHED: "✅",
         EpisodeStatus.ERROR: "❌",
         EpisodeStatus.NEW: "🆕",
