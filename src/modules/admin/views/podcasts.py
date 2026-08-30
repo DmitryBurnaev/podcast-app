@@ -132,34 +132,19 @@ class CookieAdminView(BaseModelView, model=Cookie):
     }
 
     async def insert_model(self, request: Request, data: dict[str, Any]) -> Cookie:
+        """Encrypt required cookie data before delegating creation to the base view."""
         raw_data = str(data.pop("raw_data") or "")
         if not raw_data:
             raise ValueError("Cookie data is required.")
 
-        cookie = Cookie(
-            source_type=data["source_type"],
-            data=Cookie.get_encrypted_data(raw_data),
-            owner_id=int(data["owner_id"]),
-        )
-        async with self.session_maker(expire_on_commit=False) as session:
-            # TODO: use repository instead!
-            session.add(cookie)
-            await session.commit()
-        return cookie
+        data["data"] = Cookie.get_encrypted_data(raw_data)
+        return await super().insert_model(request, data)
 
     async def update_model(self, request: Request, pk: str, data: dict[str, Any]) -> Cookie:
-        # TODO: use repository instead!
+        """Encrypt replacement data and timestamp the cookie before the base update."""
         raw_data = str(data.pop("raw_data") or "")
-        async with self.session_maker(expire_on_commit=False) as session:
-            cookie = await session.scalar(self._stmt_by_identifier(pk))
-            if cookie is None:
-                raise ValueError("Cookie not found.")
+        data["updated_at"] = utcnow()
+        if raw_data:
+            data["data"] = Cookie.get_encrypted_data(raw_data)
 
-            cookie.source_type = data["source_type"]
-            cookie.owner_id = int(data["owner_id"])
-            cookie.updated_at = utcnow()
-            if raw_data:
-                cookie.data = Cookie.get_encrypted_data(raw_data)
-
-            await session.commit()
-            return cookie
+        return await super().update_model(request, pk, data)
