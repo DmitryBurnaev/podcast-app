@@ -10,7 +10,7 @@ from src.modules.db.repositories import UserInviteRepository
 from src.settings.app import get_app_settings
 from src.modules.admin.forms import UserAdminForm, ReadOnlyTextField
 from src.modules.db import SASessionUOW, UserRepository
-from src.modules.db.models import UserInvite
+from src.modules.db.models import UserInvite, UserSession, UserIP, UserAccessToken
 from src.modules.admin.views.base import BaseModelView, FormDataType
 from src.modules.db.models import User
 from src.utils import utcnow
@@ -21,7 +21,13 @@ from src.modules.admin.utils import (
     format_invite_link,
 )
 
-__all__ = ("UserAdminView",)
+__all__ = (
+    "UserAdminView",
+    "UserInviteAdminView",
+    "UserSessionAdminView",
+    "UserIPAdminView",
+    "UserAccessTokenAdminView",
+)
 logger = logging.getLogger(__name__)
 
 
@@ -141,3 +147,129 @@ class UserInviteAdminView(BaseModelView, model=UserInvite):
             settings=settings,
         )
         return invite
+
+
+class UserSessionAdminView(BaseModelView, model=UserSession):
+    name = "Session"
+    name_plural = "Sessions"
+    icon = "fa-solid fa-right-to-bracket"
+    can_create = False
+    column_list = (
+        UserSession.id,
+        UserSession.public_id,
+        UserSession.user_id,
+        UserSession.is_active,
+        UserSession.expired_at,
+        UserSession.refreshed_at,
+        UserSession.created_at,
+    )
+    form_columns = (
+        UserSession.public_id,
+        UserSession.user_id,
+        UserSession.is_active,
+        UserSession.expired_at,
+        UserSession.refreshed_at,
+    )
+    column_searchable_list = (UserSession.public_id,)
+    column_sortable_list = (
+        UserSession.id,
+        UserSession.user_id,
+        UserSession.expired_at,
+        UserSession.refreshed_at,
+        UserSession.created_at,
+    )
+    column_default_sort = (UserSession.id, True)
+    column_formatters = {
+        UserSession.id: format_instance_details_link,
+        UserSession.is_active: format_bool,
+        UserSession.expired_at: format_datetime,
+        UserSession.refreshed_at: format_datetime,
+        UserSession.created_at: format_datetime,
+    }
+    column_labels = {
+        UserSession.id: "ID",
+        UserSession.public_id: "Public ID",
+        UserSession.user_id: "User",
+        UserSession.is_active: "Active",
+        UserSession.expired_at: "Expires At",
+        UserSession.refreshed_at: "Refreshed At",
+        UserSession.created_at: "Created At",
+    }
+
+
+class UserIPAdminView(BaseModelView, model=UserIP):
+    name = "User IP"
+    name_plural = "User IPs"
+    icon = "fa-solid fa-network-wired"
+    can_create = False
+    column_list = (
+        UserIP.id,
+        UserIP.hashed_address,
+        UserIP.user_id,
+        UserIP.registered_by,
+        UserIP.created_at,
+    )
+    form_columns = (UserIP.hashed_address, UserIP.user_id, UserIP.registered_by)
+    column_searchable_list = (UserIP.hashed_address, UserIP.registered_by)
+    column_sortable_list = (
+        UserIP.id,
+        UserIP.user_id,
+        UserIP.registered_by,
+        UserIP.created_at,
+    )
+    column_default_sort = (UserIP.id, True)
+    column_formatters = {
+        UserIP.id: format_instance_details_link,
+        UserIP.created_at: format_datetime,
+    }
+    column_labels = {
+        UserIP.id: "ID",
+        UserIP.hashed_address: "Hashed Address",
+        UserIP.user_id: "User",
+        UserIP.registered_by: "Registered By",
+        UserIP.created_at: "Created At",
+    }
+
+
+class UserAccessTokenAdminView(BaseModelView, model=UserAccessToken):
+    name = "Access Token"
+    name_plural = "Access Tokens"
+    icon = "fa-solid fa-key"
+    can_create = False
+    column_list = (
+        UserAccessToken.id,
+        UserAccessToken.name,
+        UserAccessToken.user_id,
+        UserAccessToken.enabled,
+        UserAccessToken.expires_in,
+        UserAccessToken.created_at,
+    )
+    form_columns = (
+        UserAccessToken.name,
+        UserAccessToken.user_id,
+        UserAccessToken.enabled,
+        UserAccessToken.expires_in,
+    )
+    column_searchable_list = (UserAccessToken.name,)
+    column_sortable_list = (
+        UserAccessToken.id,
+        UserAccessToken.name,
+        UserAccessToken.user_id,
+        UserAccessToken.expires_in,
+        UserAccessToken.created_at,
+    )
+    column_default_sort = (UserAccessToken.id, True)
+    column_formatters = {
+        UserAccessToken.id: format_instance_details_link,
+        UserAccessToken.enabled: format_bool,
+        UserAccessToken.expires_in: format_datetime,
+        UserAccessToken.created_at: format_datetime,
+    }
+    column_labels = {
+        UserAccessToken.id: "ID",
+        UserAccessToken.name: "Name",
+        UserAccessToken.user_id: "User",
+        UserAccessToken.enabled: "Enabled",
+        UserAccessToken.expires_in: "Expires At",
+        UserAccessToken.created_at: "Created At",
+    }
