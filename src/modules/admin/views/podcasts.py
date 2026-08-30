@@ -111,21 +111,25 @@ class CookieAdminView(BaseModelView, model=Cookie):
     column_list = (
         Cookie.id,
         Cookie.source_type,
-        Cookie.owner_id,
+        Cookie.owner,
         Cookie.created_at,
         Cookie.updated_at,
     )
     column_details_list = (
         Cookie.id,
         Cookie.source_type,
-        Cookie.owner_id,
+        Cookie.owner,
         Cookie.created_at,
         Cookie.updated_at,
     )
     form_columns = (Cookie.id, Cookie.source_type, Cookie.data)
     column_sortable_list = (Cookie.id, Cookie.source_type, Cookie.created_at, Cookie.updated_at)
     column_default_sort = (Cookie.id, True)
-    column_formatters = {Cookie.id: format_instance_details_link}
+    column_formatters = {
+        Cookie.id: format_instance_details_link,
+        Cookie.created_at: format_datetime,
+        Cookie.updated_at: format_datetime,
+    }
 
     async def insert_model(self, request: Request, data: dict[str, Any]) -> Cookie:
         raw_data = str(data.pop("raw_data") or "")

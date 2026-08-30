@@ -24,6 +24,10 @@ class BaseModel(AsyncAttrs, DeclarativeBase):
     def __repr__(self) -> str:
         return f"<{self.__class__.__name__} id={self.id} created_at={self.created_at}>"
 
+    @property
+    def admin_link_name(self) -> str:
+        return str(self)
+
     def to_dict(self, excluded_fields: list[str] | None = None) -> dict:
         """Return a plain dictionary of public mapped attributes."""
         excluded_fields = excluded_fields or []

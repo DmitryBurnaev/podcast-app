@@ -29,10 +29,14 @@ class User(BaseModel):
     is_superuser: Mapped[bool] = mapped_column(sa.Boolean, nullable=False, server_default=sa.true())
 
     def __str__(self) -> str:
-        return self.display_name
+        return f"User #{self.id} | {self.display_name}"
 
     def __repr__(self):
         return f"<User #{self.id} {self.email}>"
+
+    @property
+    def admin_link_name(self) -> str:
+        return self.display_name
 
     @classmethod
     def make_password(cls, raw_password: str) -> str:
@@ -100,16 +104,20 @@ class UserInvite(BaseModel):
     )
     owner_id: Mapped[int] = mapped_column(sa.ForeignKey("auth_users.id"), nullable=False)
 
-    @classmethod
-    def generate_token(cls) -> str:
-        """Generate an invite token."""
-        return secrets.token_urlsafe()[:LENGTH_USER_ACCESS_TOKEN]
-
     def __repr__(self) -> str:
         return f"<UserInvite #{self.id} {self.email}>"
 
     def __str__(self) -> str:
         return f"Invite {self.email}"
+
+    @property
+    def admin_link_name(self) -> str:
+        return self.email or "unknown"
+
+    @classmethod
+    def generate_token(cls) -> str:
+        """Generate an invitation token."""
+        return secrets.token_urlsafe()[:LENGTH_USER_ACCESS_TOKEN]
 
 
 class UserSession(BaseModel):
