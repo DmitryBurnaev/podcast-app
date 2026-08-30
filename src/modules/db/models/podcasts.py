@@ -102,6 +102,10 @@ class Podcast(BaseModel):
         return f'Podcast "{self.name}"'
 
     @property
+    def admin_link_name(self) -> str:
+        return self.name
+
+    @property
     def stat(self) -> PodcastStatistics | None:
         """Return externally attached podcast statistics."""
         return getattr(self, "_stat", None)
@@ -259,14 +263,17 @@ class Episode(BaseModel):
     def __str__(self) -> str:
         return f'Episode "{self.title}"'
 
+    @property
+    def admin_link_name(self) -> str:
+        return self.title
+
     @classmethod
     async def get_in_progress(cls, db_session: AsyncSession, user_id: int):
         """Return downloading episodes"""
         # TODO: move to repository
-        from sqlalchemy import select
 
         statement = (
-            select(cls)
+            sa.select(cls)
             .filter(cls.status.in_(Episode.PROGRESS_STATUSES))
             .filter(cls.owner_id == user_id)
         )
@@ -386,12 +393,22 @@ class Cookie(BaseModel):
     )
     owner_id: Mapped[int] = mapped_column(sa.ForeignKey("auth_users.id"))
 
+    # relations
+    owner: Mapped["User"] = relationship(backref="cookies", lazy="subquery")
+
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
         self.__file_path: Path | None = None
 
-    def __str__(self) -> str:
+    def __repr__(self) -> str:
         return f'<Cookie #{self.id} "{self.source_type}" at {self.created_at}>'
+
+    def __str__(self) -> str:
+        return f"Cookie for {self.source_type} at {self.created_at}"
+
+    @property
+    def admin_link_name(self) -> str:
+        return self.source_type
 
     async def as_file(self) -> Path:
         """Library for downloading content takes only path to cookie's file (stored on the disk)"""

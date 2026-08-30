@@ -66,10 +66,10 @@ def admin_get_link(
     settings = get_app_settings()
     base_url = settings.admin.base_url
     name = url_name or instance.admin_url_name
-    instance_link = cut_string(str(instance), max_length=max_length)
-    instance_title = " ".join(str(instance).replace('"', "").split(" ")[1:])
+    admin_link_name = cut_string(instance.admin_link_name, max_length)
+    instance_title = admin_link_name.replace('"', "")
     return markupsafe.Markup(
-        f'<a href="{base_url}/{name}/{target}/{instance.id}" title="{instance_title}">[#{instance.id}] {instance_link}</a>'
+        f'<a href="{base_url}/{name}/{target}/{instance.id}" title="{instance_title}">[#{instance.id}] {instance.admin_link_name}</a>'
     )
 
 
