@@ -17,6 +17,7 @@ MASKED_SECRET = "********"
 
 
 def mask_secret(_: type, __: Any) -> str:
+    """Return a fixed replacement for secret values displayed in the admin."""
     return MASKED_SECRET
 
 
@@ -37,6 +38,7 @@ class BaseModelView(ModelView):
     page_size = 20
 
     async def handle_post_create(self, request: Request, object_id: int) -> Response:
+        """Render details for a newly created object when a view opts into that flow."""
         if not self.custom_post_create:
             raise HTTPException(status_code=400, detail="Missing handle_post_create logic")
 

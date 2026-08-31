@@ -24,6 +24,8 @@ logger = logging.getLogger(__name__)
 
 
 class PodcastAdminView(BaseModelView, model=Podcast):
+    """Configure list and edit screens for podcasts."""
+
     name = "Podcast"
     name_plural = "Podcasts"
     icon = "fa-solid fa-podcast"
@@ -72,6 +74,8 @@ class PodcastAdminView(BaseModelView, model=Podcast):
 
 
 class EpisodeAdminView(BaseModelView, model=Episode):
+    """Configure list and edit screens for podcast episodes."""
+
     name = "Episode"
     name_plural = "Episodes"
     icon = "fa-solid fa-headphones"
@@ -104,6 +108,8 @@ class EpisodeAdminView(BaseModelView, model=Episode):
 
 
 class CookieAdminView(BaseModelView, model=Cookie):
+    """Configure list and edit screens for encrypted source cookies."""
+
     name = "Cookie"
     name_plural = "Cookies"
     icon = "fa-solid fa-cookie-bite"

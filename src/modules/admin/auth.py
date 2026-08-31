@@ -22,6 +22,7 @@ class AdminAuth(AuthenticationBackend):
         self.settings: AppSettings = settings
 
     async def login(self, request: Request) -> bool:
+        """Authenticate submitted credentials and persist the admin session state."""
         form = await request.form()
         email = str(form.get("email") or "")
         password = str(form.get("password") or "")
@@ -41,6 +42,7 @@ class AdminAuth(AuthenticationBackend):
         return True
 
     async def logout(self, request: Request) -> bool:
+        """Invalidate the current admin session and clear its browser state."""
         auth_backend = self._get_auth_backend(request)
         await auth_backend.logout()
         request.session.clear()
@@ -48,6 +50,7 @@ class AdminAuth(AuthenticationBackend):
         return True
 
     async def authenticate(self, request: Request) -> bool:
+        """Validate the credentials associated with the current admin request."""
         try:
             auth_backend = self._get_auth_backend(request)
             await auth_backend.authenticate()

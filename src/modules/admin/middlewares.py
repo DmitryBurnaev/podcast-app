@@ -44,10 +44,12 @@ class PathFixMiddleware:
         scope["raw_path"] = scope["path"].encode("utf-8")
 
         def reset_paths() -> None:
+            """Restore the path values that the upstream application supplied."""
             scope["path"] = orig_path
             scope["raw_path"] = orig_raw
 
         async def send_wrapper(message: Any) -> None:
+            """Restore the original path before passing an ASGI message downstream."""
             reset_paths()
             await send(message)
 

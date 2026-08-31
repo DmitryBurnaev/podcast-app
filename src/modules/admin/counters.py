@@ -7,6 +7,8 @@ from src.modules.db.repositories import PodcastRepository, EpisodeRepository
 
 @dataclasses.dataclass(frozen=True)
 class DashboardCounts:
+    """Aggregate record counts displayed on the admin dashboard."""
+
     total_podcasts: int
     total_episodes: int
 
