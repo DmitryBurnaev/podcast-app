@@ -7,6 +7,8 @@ __all__ = ("MediaFileAdminView",)
 
 
 class MediaFileAdminView(BaseModelView, model=File):
+    """Configure list and edit screens for stored media files."""
+
     name = "File"
     name_plural = "Files"
     icon = "fa-solid fa-file-audio"

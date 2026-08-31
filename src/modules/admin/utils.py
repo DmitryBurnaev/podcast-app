@@ -20,6 +20,8 @@ alert_context_var: contextvars.ContextVar[Optional["ErrorInContext"]] = contextv
 
 
 class ErrorInContext(TypedDict):
+    """Payload shown by admin templates when the current request has an error."""
+
     title: str
     details: str
 
@@ -160,6 +162,7 @@ def format_invite_link(instance: "BaseModel", field_name: str, blank: str = "-")
 
 
 def format_episode_details_link(model: "Episode", _: Any) -> str:
+    """Render an episode edit link prefixed with an icon for its current status."""
     emoj_map: dict[str, str] = {
         EpisodeStatus.PUBLISHED: "✅",
         EpisodeStatus.ERROR: "❌",

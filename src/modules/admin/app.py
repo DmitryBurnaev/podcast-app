@@ -90,6 +90,7 @@ class AdminApp(Admin):
 
     @login_required
     async def create(self, request: Request) -> Response:
+        """Create an admin model and render a custom post-create response when configured."""
         response: Response = await super().create(request)
         if request.method == "GET":
             return response
@@ -128,6 +129,7 @@ class AdminApp(Admin):
 
     @property
     def mount_path(self) -> str:
+        """Return the admin mount path without a trailing slash."""
         return self.base_url.rstrip("/")
 
     def _init_jinja_templates(self) -> None:

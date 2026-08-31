@@ -86,6 +86,8 @@ class UserAdminView(BaseModelView, model=User):
 
 
 class UserInviteAdminView(BaseModelView, model=UserInvite):
+    """Configure list and creation screens for user invitations."""
+
     name = "Invite"
     name_plural = "Invites"
     icon = "fa-solid fa-envelope-open-text"
@@ -150,6 +152,8 @@ class UserInviteAdminView(BaseModelView, model=UserInvite):
 
 
 class UserSessionAdminView(BaseModelView, model=UserSession):
+    """Configure list and edit screens for authenticated user sessions."""
+
     name = "Session"
     name_plural = "Sessions"
     icon = "fa-solid fa-right-to-bracket"
@@ -198,6 +202,8 @@ class UserSessionAdminView(BaseModelView, model=UserSession):
 
 
 class UserIPAdminView(BaseModelView, model=UserIP):
+    """Configure list and edit screens for recorded user IP addresses."""
+
     name = "User IP"
     name_plural = "User IPs"
     icon = "fa-solid fa-network-wired"
@@ -232,6 +238,8 @@ class UserIPAdminView(BaseModelView, model=UserIP):
 
 
 class UserAccessTokenAdminView(BaseModelView, model=UserAccessToken):
+    """Configure list and edit screens for user API access tokens."""
+
     name = "Access Token"
     name_plural = "Access Tokens"
     icon = "fa-solid fa-key"

@@ -27,18 +27,24 @@ class UserAdminForm(Form):
 
 
 class LongTextAreaWidget(widgets.TextArea):
+    """Render text inputs as multi-line fields with a practical default height."""
+
     def __call__(self, field, **kwargs):
         kwargs.setdefault("rows", 10)
         return super().__call__(field, **kwargs)
 
 
 class ReadOnlyTextWidget(widgets.TextInput):
+    """Render text inputs disabled so their value cannot be changed in the form."""
+
     def __call__(self, field, **kwargs):
         kwargs.setdefault("disabled", True)
         return super().__call__(field, **kwargs)
 
 
 class ReadOnlyBoolWidget(widgets.CheckboxInput):
+    """Render boolean inputs disabled so their value cannot be changed in the form."""
+
     def __call__(self, field, **kwargs):
         kwargs.setdefault("disabled", True)
         return super().__call__(field, **kwargs)
@@ -57,6 +63,7 @@ class ReadOnlyTextField(StringField):
     """This field represents an HTML ``<input type="text" ... readonly>``"""
 
     widget = ReadOnlyTextWidget()
+
 
 #
 # class ReadOnlyBoolField(BooleanField):
