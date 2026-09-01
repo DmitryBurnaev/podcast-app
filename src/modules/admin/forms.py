@@ -1,7 +1,7 @@
 from typing import Mapping, Sequence, Any
 
 from sqladmin.forms import Form
-from wtforms import BooleanField, PasswordField, StringField, widgets, EmailField
+from wtforms import BooleanField, EmailField, IntegerField, PasswordField, StringField, widgets
 
 from src.modules.admin.constants import RENDER_KW_REQ, RENDER_KW
 
@@ -35,10 +35,10 @@ class LongTextAreaWidget(widgets.TextArea):
 
 
 class ReadOnlyTextWidget(widgets.TextInput):
-    """Render text inputs disabled so their value cannot be changed in the form."""
+    """Render text inputs as read-only while preserving their submitted value."""
 
     def __call__(self, field, **kwargs):
-        kwargs.setdefault("disabled", True)
+        kwargs.setdefault("readonly", True)
         return super().__call__(field, **kwargs)
 
 
@@ -61,6 +61,12 @@ class LongTextAreaField(StringField):
 
 class ReadOnlyTextField(StringField):
     """This field represents an HTML ``<input type="text" ... readonly>``"""
+
+    widget = ReadOnlyTextWidget()
+
+
+class ReadOnlyIntegerField(IntegerField):
+    """Integer field rendered as read-only without losing its numeric type."""
 
     widget = ReadOnlyTextWidget()
 

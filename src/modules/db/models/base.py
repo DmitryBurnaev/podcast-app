@@ -1,8 +1,8 @@
-import re
 from typing import Self
 from datetime import datetime
 
 import sqlalchemy as sa
+from sqladmin.helpers import slugify_class_name
 from sqlalchemy.ext.asyncio import AsyncAttrs
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
@@ -50,6 +50,4 @@ class BaseModel(AsyncAttrs, DeclarativeBase):
     @property
     def admin_url_name(self) -> str:
         """Return the admin url name. Split name by rule: CamelCase -> kebab-case"""
-        name = self.__class__.__name__
-        name = re.sub(r"(?<!^)(?=[A-Z])", "-", name).lower()
-        return name
+        return slugify_class_name(self.__class__.__name__)

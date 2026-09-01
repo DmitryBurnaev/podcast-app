@@ -194,3 +194,7 @@ class TestAdminViews:
 
         assert {view.model for view in ADMIN_VIEWS} == expected_models
         assert all(view.can_edit for view in ADMIN_VIEWS)
+
+    def test_model_admin_url_names_match_view_identities(self) -> None:
+        for view in ADMIN_VIEWS:
+            assert view.model().admin_url_name == view.identity

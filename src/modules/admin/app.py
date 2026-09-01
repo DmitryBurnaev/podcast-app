@@ -85,6 +85,9 @@ class AdminApp(Admin):
             "episodes": {
                 "total": dashboard_stat.total_episodes,
             },
+            "files": {
+                "total_size_label": dashboard_stat.total_file_size_label,
+            },
         }
         return await self.templates.TemplateResponse(request, "dashboard.html", context=context)
 

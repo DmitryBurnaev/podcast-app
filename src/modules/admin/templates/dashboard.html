@@ -7,18 +7,33 @@
             </div>
             <div class="card-body border-bottom py-3">
                 <div class="row">
-                    <div class="card text-bg-light col-2 mb-2 m-2" style="max-width: 18rem;">
-                        <div class="card-header"><h3>Total Podcasts</h3></div>
+                    <a href="{{ url_for('admin:list', identity='podcast') }}"
+                       class="card text-bg-light text-reset text-decoration-none col-2 mb-2 m-2"
+                       style="max-width: 18rem;"
+                       aria-label="Open podcasts">
+                        <div class="card-header"><h3 class="fs-3 mb-0">Total Podcasts</h3></div>
                         <div class="card-body">
-                            <h5 class="card-title">{{ podcasts.total }}</h5>
+                            <h5 class="card-title fs-4 mb-0">{{ podcasts.total }}</h5>
                         </div>
-                    </div>
-                    <div class="card text-bg-success col-2 mb-2 m-2" style="max-width: 18rem;">
-                        <div class="card-header"><h3>Total Episodes</h3></div>
+                    </a>
+                    <a href="{{ url_for('admin:list', identity='episode') }}"
+                       class="card text-bg-success text-reset text-decoration-none col-2 mb-2 m-2"
+                       style="max-width: 18rem;"
+                       aria-label="Open episodes">
+                        <div class="card-header"><h3 class="fs-3 mb-0">Total Episodes</h3></div>
                         <div class="card-body">
-                            <h5 class="card-title">{{ episodes.total }}</h5>
+                            <h5 class="card-title fs-4 mb-0">{{ episodes.total }}</h5>
                         </div>
-                    </div>
+                    </a>
+                    <a href="{{ url_for('admin:list', identity='file') }}?sortBy=size&amp;page=1&amp;sort=desc"
+                       class="card text-bg-info text-reset text-decoration-none col-2 mb-2 m-2"
+                       style="max-width: 18rem;"
+                       aria-label="Open files">
+                        <div class="card-header"><h3 class="fs-3 mb-0">Total File Size</h3></div>
+                        <div class="card-body">
+                            <h5 class="card-title fs-4 mb-0">{{ files.total_size_label }}</h5>
+                        </div>
+                    </a>
                 </div>
             </div>
         </div>

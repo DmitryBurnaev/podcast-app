@@ -1,4 +1,10 @@
-from src.modules.admin.forms import ReadOnlyTextField
+from typing import Any
+
+from sqlalchemy import Select
+from sqlalchemy.orm import selectinload
+from starlette.requests import Request
+
+from src.modules.admin.forms import ReadOnlyIntegerField, ReadOnlyTextField
 from src.modules.admin.utils import format_bool, format_instance_details_link, format_file_size
 from src.modules.db.models import File
 from src.modules.admin.views.base import BaseModelView
@@ -12,6 +18,7 @@ class MediaFileAdminView(BaseModelView, model=File):
     name = "File"
     name_plural = "Files"
     icon = "fa-solid fa-file-audio"
+    edit_template = "media_edit.html"
     column_list = (
         File.id,
         File.type,
@@ -40,7 +47,7 @@ class MediaFileAdminView(BaseModelView, model=File):
     form_overrides = {
         "type": ReadOnlyTextField,
         # "public": ReadOnlyBoolField,
-        "size": ReadOnlyTextField,
+        "size": ReadOnlyIntegerField,
     }
     column_labels = {
         File.id: "ID",
@@ -50,3 +57,24 @@ class MediaFileAdminView(BaseModelView, model=File):
         File.public: "Public",
         File.owner_id: "Owner",
     }
+
+    def sort_query(self, stmt: Select, request: Request) -> Select:
+        """Keep media rows with an unknown size at the end of size-sorted lists."""
+        if request.query_params.get("sortBy") != File.size.key:
+            return super().sort_query(stmt, request)
+
+        order_by = File.size.desc() if request.query_params.get("sort") == "desc" else File.size.asc()
+        return stmt.order_by(order_by.nulls_last())
+
+    def form_edit_query(self, request: Request) -> Select:
+        """Load episodes that reference the file for its read-only admin form."""
+        return super().form_edit_query(request).options(
+            selectinload(File.audio_episodes),
+            selectinload(File.image_episodes),
+        )
+
+    async def update_model(self, request: Request, pk: str, data: dict[str, Any]) -> Any:
+        """Keep media metadata immutable when saving other file settings."""
+        data.pop("type", None)
+        data.pop("size", None)
+        return await super().update_model(request, pk, data)

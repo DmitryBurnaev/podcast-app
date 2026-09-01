@@ -145,7 +145,7 @@ def format_source_type(
     return emoj_map.get(value, f"⚙️ ({value})")
 
 
-def format_invite_link(instance: "BaseModel", field_name: str, blank: str = "-") -> str:
+def format_invite_link(instance: "BaseModel", field_name: str, *, blank: str = "-") -> str:
     """Generate a link to an invitation"""
     value: bool | None = getattr(instance, field_name, None)
     if value is None:
@@ -182,7 +182,7 @@ def format_episode_details_link(model: "Episode", _: Any) -> str:
     return markupsafe.Markup(f"<span title='{model.status}'>{status_label}</span> &nbsp; {link}")
 
 
-def format_file_size(instance: "BaseModel", field_name: str, blank: str = "-") -> str:
+def format_file_size(instance: "BaseModel", field_name: str, *, blank: str = "-") -> str:
     """Format a file size object to a string in the format "100 bytes", "100 KB", "100 MB", "100 GB"
 
     :param instance: The instance of the model
