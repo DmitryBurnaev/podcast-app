@@ -1,0 +1,41 @@
+{% extends "sqladmin/edit.html" %}
+{% from 'sqladmin/_macros.html' import render_form_fields %}
+{% block edit_form %}
+<form action="{{ model_view._build_url_for('admin:edit', request, obj) }}{% if request.url.query %}?{{ request.url.query }}{% endif %}" method="POST"
+  enctype="multipart/form-data">
+  <div class="row">
+    {% if error %}
+    <div class="alert alert-danger" role="alert">{{ error }}</div>
+    {% endif %}
+  </div>
+  <fieldset class="form-fieldset">
+    {{ render_form_fields(form, form_opts=form_opts, ajax_lookup_url=url_for('admin:ajax_lookup', identity=model_view.identity)) }}
+  </fieldset>
+  <fieldset class="form-fieldset">
+    <div class="mb-3 form-group row">
+      <label class="form-label col-sm-2 col-form-label">Episodes</label>
+      <div class="col-sm-10 pt-2">
+        {% for episode in obj.audio_episodes + obj.image_episodes %}
+        <a href="{{ model_view._build_url_for('admin:edit', request, episode) }}">{{ episode.admin_link_name }}</a>{% if not loop.last %}<br>{% endif %}
+        {% else %}
+        <span class="text-secondary">-</span>
+        {% endfor %}
+      </div>
+    </div>
+  </fieldset>
+  <div class="row">
+    <div class="col-md-2">
+      <a href="{{ url_for('admin:list', identity=model_view.identity) }}{% if request.url.query %}?{{ request.url.query }}{% endif %}"
+        class="btn">
+        Cancel
+      </a>
+    </div>
+    <div class="col-md-6">
+      <div class="btn-group flex-wrap">
+        <input type="submit" name="save" value="Save" class="btn">
+        <input type="submit" name="save" value="Save and continue editing" class="btn">
+      </div>
+    </div>
+  </div>
+</form>
+{% endblock %}

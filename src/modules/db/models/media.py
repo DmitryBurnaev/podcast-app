@@ -3,10 +3,11 @@ import logging
 import os.path
 import urllib.parse
 from datetime import datetime
+from typing import TYPE_CHECKING
 
 import sqlalchemy as sa
 from sqlalchemy.dialects.postgresql import JSONB
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import expression
 
 from src.constants import StringEnumMixin
@@ -15,6 +16,9 @@ from src.modules.auth.hashers import get_random_hash
 from src.modules.db.models import BaseModel
 from src.settings.app import get_app_settings
 from src.utils import utcnow
+
+if TYPE_CHECKING:
+    from src.modules.db.models.podcasts import Episode
 
 logger = logging.getLogger(__name__)
 TOKEN_LENGTH = 48
@@ -57,6 +61,19 @@ class File(BaseModel):
     )
     meta: Mapped[dict | None] = mapped_column(JSONB(none_as_null=True), nullable=True)
     hash: Mapped[str] = mapped_column(sa.String(length=32), nullable=False, server_default="")
+
+    audio_episodes: Mapped[list["Episode"]] = relationship(
+        "Episode",
+        foreign_keys="Episode.audio_id",
+        back_populates="audio",
+        lazy="selectin",
+    )
+    image_episodes: Mapped[list["Episode"]] = relationship(
+        "Episode",
+        foreign_keys="Episode.image_id",
+        back_populates="image",
+        lazy="selectin",
+    )
 
     def __repr__(self) -> str:
         return f'<File #{self.id} | {self.type} | "{self.path}">'

@@ -254,8 +254,12 @@ class Episode(BaseModel):
 
     # relations
     podcast: Mapped["Podcast"] = relationship(back_populates="episodes", lazy="subquery")
-    image: Mapped["File"] = relationship("File", foreign_keys=[image_id], lazy="subquery")
-    audio: Mapped["File"] = relationship("File", foreign_keys=[audio_id], lazy="subquery")
+    image: Mapped["File"] = relationship(
+        "File", foreign_keys=[image_id], back_populates="image_episodes", lazy="subquery"
+    )
+    audio: Mapped["File"] = relationship(
+        "File", foreign_keys=[audio_id], back_populates="audio_episodes", lazy="subquery"
+    )
 
     def __repr__(self) -> str:
         return f'<Episode #{self.id} {self.source_id} [{self.status}] "{self.title[:10]}..." >'
