@@ -7,7 +7,11 @@ import pytest
 from pydantic import SecretStr
 
 from src.exceptions import StorageConfigurationError
-from src.modules.services.storage import StorageS3, validate_s3_settings
+from src.modules.services.storage import (
+    StorageDeleteStatus,
+    StorageS3,
+    validate_s3_settings,
+)
 from src.settings.db import S3Settings
 
 
@@ -91,6 +95,19 @@ class TestStorageS3Operations:
 
         with pytest.raises(ValueError, match="At least one argument"):
             await storage.delete_file()
+
+    async def test_delete_file_result__not_found__is_idempotent_success(self) -> None:
+        storage, _ = _make_storage(
+            client_error=botocore.exceptions.ClientError(
+                {"Error": {"Code": "404", "Message": "missing"}},
+                "DeleteObject",
+            )
+        )
+
+        result = await storage.delete_file_result(dst_path="audio/missing.mp3")
+
+        assert result.status == StorageDeleteStatus.NOT_FOUND
+        assert "already absent" in (result.error or "")
 
     async def test_get_presigned_url__uses_cached_url(
         self, monkeypatch: pytest.MonkeyPatch
