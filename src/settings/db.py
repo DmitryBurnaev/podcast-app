@@ -1,5 +1,6 @@
 from functools import lru_cache, cached_property
 from pathlib import Path
+from typing import Literal
 
 from pydantic import Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -51,6 +52,7 @@ class S3Settings(BaseSettings):
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore", env_prefix="S3_")
 
+    env: Literal["dev", "prod"] = "prod"
     storage_url: str | None = None
     access_key_id: str | None = None
     secret_access_key: SecretStr | None = None

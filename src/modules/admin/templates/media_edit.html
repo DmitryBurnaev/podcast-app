@@ -1,41 +1,101 @@
 {% extends "sqladmin/edit.html" %}
 {% from 'sqladmin/_macros.html' import render_form_fields %}
-{% block edit_form %}
-<form action="{{ model_view._build_url_for('admin:edit', request, obj) }}{% if request.url.query %}?{{ request.url.query }}{% endif %}" method="POST"
-  enctype="multipart/form-data">
-  <div class="row">
-    {% if error %}
-    <div class="alert alert-danger" role="alert">{{ error }}</div>
-    {% endif %}
-  </div>
-  <fieldset class="form-fieldset">
-    {{ render_form_fields(form, form_opts=form_opts, ajax_lookup_url=url_for('admin:ajax_lookup', identity=model_view.identity)) }}
-  </fieldset>
-  <fieldset class="form-fieldset">
-    <div class="mb-3 form-group row">
-      <label class="form-label col-sm-2 col-form-label">Episodes</label>
-      <div class="col-sm-10 pt-2">
-        {% for episode in obj.audio_episodes + obj.image_episodes %}
-        <a href="{{ model_view._build_url_for('admin:edit', request, episode) }}">{{ episode.admin_link_name }}</a>{% if not loop.last %}<br>{% endif %}
-        {% else %}
-        <span class="text-secondary">-</span>
-        {% endfor %}
+{% block content %}
+<div class="col-12">
+  <div class="card">
+    <div class="card-header">
+      <h3 class="card-title">Edit {{ model_view.name }}</h3>
+      <div class="ms-auto d-flex align-items-center">
+        {% include "snippets/storage_context.html" %}
       </div>
     </div>
-  </fieldset>
-  <div class="row">
-    <div class="col-md-2">
-      <a href="{{ url_for('admin:list', identity=model_view.identity) }}{% if request.url.query %}?{{ request.url.query }}{% endif %}"
-        class="btn">
-        Cancel
-      </a>
-    </div>
-    <div class="col-md-6">
-      <div class="btn-group flex-wrap">
-        <input type="submit" name="save" value="Save" class="btn">
-        <input type="submit" name="save" value="Save and continue editing" class="btn">
-      </div>
+    <div class="card-body border-bottom py-3">
+      <form action="{{ model_view._build_url_for('admin:edit', request, obj) }}{% if request.url.query %}?{{ request.url.query }}{% endif %}" method="POST"
+        enctype="multipart/form-data">
+        <div class="row">
+          {% if error %}
+          <div class="alert alert-danger" role="alert">{{ error }}</div>
+          {% endif %}
+        </div>
+        <fieldset class="form-fieldset">
+          {{ render_form_fields(form, form_opts=form_opts, ajax_lookup_url=url_for('admin:ajax_lookup', identity=model_view.identity)) }}
+        </fieldset>
+        <fieldset class="form-fieldset">
+          <div class="mb-1 form-group row">
+            <label class="form-label col-sm-2 col-form-label">Episodes</label>
+            <div class="col-sm-10 pt-2">
+              {% for episode in obj.audio_episodes + obj.image_episodes %}
+              <a href="{{ model_view._build_url_for('admin:edit', request, episode) }}">{{ episode.admin_link_name }}</a>{% if not loop.last %}<br>{% endif %}
+              {% else %}
+              <span class="text-secondary">-</span>
+              {% endfor %}
+            </div>
+          </div>
+          {% set content_label = model_view.s3_content_label(obj) %}
+          <div class="mb-1 form-group row">
+            <label class="form-label col-sm-2 col-form-label">Content</label>
+            <div class="col-sm-10 pt-2">
+              {% if content_label %}
+              <a href="{{ model_view._url_for_action(request, 'open-external-file') }}?pks={{ get_object_identifier(obj) }}"
+                target="_blank" rel="noopener noreferrer">{{ content_label }}</a>
+              {% else %}
+              <span class="text-secondary">-</span>
+              {% endif %}
+            </div>
+          </div>
+          <div class="mb-1 form-group row">
+            <label class="form-label col-sm-2 col-form-label">Same-path files</label>
+            <div class="col-sm-10 pt-2">
+              {% for related_file in obj.same_path_files %}
+              <a class="text-danger" href="{{ model_view._build_url_for('admin:edit', request, related_file) }}">File #{{ related_file.id }}</a>{% if not loop.last %}, {% endif %}
+              {% else %}
+              <span class="text-success">No other files</span>
+              {% endfor %}
+            </div>
+          </div>
+        </fieldset>
+        <div class="row">
+          <div class="col-md-2">
+            <a href="{{ url_for('admin:list', identity=model_view.identity) }}{% if request.url.query %}?{{ request.url.query }}{% endif %}"
+              class="btn">
+              Cancel
+            </a>
+          </div>
+          <div class="col-md-6">
+            <div class="btn-group flex-wrap">
+              <input type="submit" name="save" value="Save" class="btn">
+              <input type="submit" name="save" value="Save and continue editing" class="btn">
+              {% if not obj.path and obj.size == 0 %}
+              <button type="button" class="btn btn-secondary" disabled
+                title="The file is already absent from external storage">
+                Clear external file
+              </button>
+              {% else %}
+              <a href="#" class="btn btn-secondary" data-bs-toggle="modal"
+                data-bs-target="#modal-confirmation-clear-external-files">
+                Clear external file
+              </a>
+              {% endif %}
+              {% if model_view.check_can_delete(request, obj) %}
+              <a href="#" class="btn btn-danger" data-name="{{ model_view.name }}"
+                data-pk="{{ get_object_identifier(obj) }}" data-url="{{ model_view._url_for_delete(request, obj) }}"
+                data-bs-toggle="modal" data-bs-target="#modal-delete">
+                Delete
+              </a>
+              {% endif %}
+            </div>
+          </div>
+        </div>
+      </form>
     </div>
   </div>
-</form>
+</div>
+
+{% with confirmation_message="Delete this file from external storage?", custom_action="clear-external-files",
+url=model_view._url_for_action(request, "clear-external-files") + "?pks=" + (get_object_identifier(obj) | string) + "&return_to=edit" %}
+{% include "sqladmin/modals/details_action_confirmation.html" %}
+{% endwith %}
+{% if model_view.can_delete %}
+{% include "sqladmin/modals/delete.html" %}
+{% endif %}
 {% endblock %}

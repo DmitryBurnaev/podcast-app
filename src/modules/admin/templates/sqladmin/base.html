@@ -40,7 +40,7 @@
 </head>
 
 <body>
-{% with alert = error_alert() %}
+{% with alert = error_alert(request) %}
     {% if alert %}
         {% include 'error_alert.html' %}
     {% endif %}

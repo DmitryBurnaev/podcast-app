@@ -4,7 +4,7 @@ from unittest.mock import AsyncMock
 
 import botocore.exceptions
 import pytest
-from pydantic import SecretStr
+from pydantic import SecretStr, ValidationError
 
 from src.exceptions import StorageConfigurationError
 from src.modules.services.storage import (
@@ -16,6 +16,25 @@ from src.settings.db import S3Settings
 
 
 class TestStorageSettings:
+    def test_s3_environment__defaults_to_prod(self) -> None:
+        settings = S3Settings.model_validate({})
+
+        assert settings.env == "prod"
+
+    def test_s3_environment__loads_dev_from_environment(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        monkeypatch.setenv("S3_ENV", "dev")
+
+        settings = S3Settings()
+
+        assert settings.env == "dev"
+
+    def test_s3_environment__rejects_unknown_value(self) -> None:
+        with pytest.raises(ValidationError):
+            S3Settings.model_validate({"env": "stage"})
+
     def test_validate_s3_settings__ok(self) -> None:
         validate_s3_settings(
             S3Settings(
