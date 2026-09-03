@@ -1,0 +1,6 @@
+{% extends "sqladmin/list.html" %}
+
+{% block model_menu_bar %}
+{% include "snippets/storage_context.html" %}
+{{ super() }}
+{% endblock %}

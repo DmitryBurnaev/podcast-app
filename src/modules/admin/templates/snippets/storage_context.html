@@ -1,0 +1,10 @@
+{% set storage = model_view.s3_admin_context %}
+<div class="d-inline-flex align-items-center gap-2 me-3">
+  <span class="text-secondary" title="S3 storage host">
+    <i class="fa-solid fa-cloud me-1"></i>{{ storage.host }}
+  </span>
+  <span class="badge bg-azure-lt" title="S3 bucket">{{ storage.bucket }}</span>
+  <span class="badge {{ storage.badge_class }}" title="S3 environment">
+    {{ storage.badge_label }}
+  </span>
+</div>

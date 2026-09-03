@@ -4,6 +4,7 @@ import contextvars
 from typing import TypedDict, Optional, Literal, cast, Any, TYPE_CHECKING
 
 import markupsafe
+from starlette.requests import Request
 
 from src.constants import EpisodeStatus, SourceType
 from src.settings.app import get_app_settings
@@ -14,30 +15,80 @@ if TYPE_CHECKING:
     from src.modules.db.models import UserInvite, Episode
 
 logger = logging.getLogger(__name__)
-alert_context_var: contextvars.ContextVar[Optional["ErrorInContext"]] = contextvars.ContextVar(
+type AlertLevel = Literal["error", "success"]
+
+alert_context_var: contextvars.ContextVar[Optional["AlertInContext"]] = contextvars.ContextVar(
     "alert_context", default=None
 )
+ERROR_ALERT_SESSION_KEY = "_admin_error_alert"
 
 
-class ErrorInContext(TypedDict):
-    """Payload shown by admin templates when the current request has an error."""
+class AlertInContext(TypedDict):
+    """Payload shown by admin templates as a one-time notification."""
 
     title: str
     details: str
+    level: AlertLevel
 
 
-def register_error_alert(title: str, details: str) -> None:
-    """
-    Register an error alert in the context
-    """
-    logger.debug("Registering error alert: title=%s, details=%s", title, details)
-    alert_context_var.set(ErrorInContext(title=title, details=details))
+def _register_alert(
+    title: str,
+    details: str,
+    *,
+    level: AlertLevel,
+    request: Request | None = None,
+) -> None:
+    """Register an alert for this request and, when available, its redirect target."""
+    logger.debug(
+        "Registering admin alert: level=%s, title=%s, details=%s",
+        level,
+        title,
+        details,
+    )
+    alert = AlertInContext(title=title, details=details, level=level)
+    alert_context_var.set(alert)
+    if request is not None:
+        request.session[ERROR_ALERT_SESSION_KEY] = dict(alert)
 
 
-def get_current_error_alert() -> dict[str, str] | None:
+def register_error_alert(
+    title: str,
+    details: str,
+    *,
+    request: Request | None = None,
+) -> None:
+    """Register an error-level admin alert."""
+    _register_alert(title, details, level="error", request=request)
+
+
+def register_success_alert(
+    title: str,
+    details: str,
+    *,
+    request: Request | None = None,
+) -> None:
+    """Register a success-level admin alert."""
+    _register_alert(title, details, level="success", request=request)
+
+
+def get_current_error_alert(request: Request | None = None) -> dict[str, str] | None:
     """
-    Get the current error alert from the context (used for global context in jinja templates)
+    Consume the current error alert (used as a global helper in admin templates).
     """
+    if request is not None:
+        session_alert = request.session.pop(ERROR_ALERT_SESSION_KEY, None)
+        if isinstance(session_alert, dict):
+            title = session_alert.get("title")
+            details = session_alert.get("details")
+            level = session_alert.get("level", "error")
+            if (
+                isinstance(title, str)
+                and isinstance(details, str)
+                and level in ("error", "success")
+            ):
+                alert_context_var.set(None)
+                return {"title": title, "details": details, "level": level}
+
     current_error = alert_context_var.get()
     if current_error is None:
         return None
@@ -45,6 +96,7 @@ def get_current_error_alert() -> dict[str, str] | None:
     return {
         "title": current_error["title"],
         "details": current_error["details"],
+        "level": current_error["level"],
     }
 
 

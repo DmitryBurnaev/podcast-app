@@ -31,6 +31,7 @@ from sqlalchemy import (
     ColumnElement,
 )
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 from sqlalchemy.sql.elements import SQLCoreOperations
 from sqlalchemy.sql.operators import isnot
 from sqlalchemy.sql.roles import ColumnsClauseRole
@@ -737,6 +738,36 @@ class FileRepository(BaseRepository[File]):
     """
 
     model = File
+
+    async def first_with_episodes(self, file_id: int) -> File | None:
+        """Load a file and the episodes that reference it."""
+        statement = (
+            select(File)
+            .where(File.id == file_id)
+            .options(
+                selectinload(File.audio_episodes),
+                selectinload(File.image_episodes),
+            )
+        )
+        result = await self.session.execute(statement)
+        return result.scalar_one_or_none()
+
+    async def all_by_path(
+        self,
+        path: str,
+        *,
+        excluded_ids: Sequence[int] = (),
+    ) -> list[File]:
+        """Return files that reference one non-empty S3 object path."""
+        if not path:
+            return []
+
+        statement = select(File).where(File.path == path)
+        if excluded_ids:
+            statement = statement.where(File.id.not_in(excluded_ids))
+
+        result = await self.session.scalars(statement.order_by(File.id))
+        return list(result.all())
 
     async def first_by_access_token(self, access_token: str) -> File | None:
         """Lookup media file by public URL token (/m/{token}/, /r/{token}/)."""
