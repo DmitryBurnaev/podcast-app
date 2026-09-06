@@ -4,6 +4,7 @@ from typing import Literal
 
 from pydantic import Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
+from sqlalchemy.engine import URL
 
 from src.settings.utils import prepare_settings
 
@@ -44,7 +45,14 @@ class DBSettings(BaseSettings):
         password = self.password.get_secret_value() if self.password else ""
         host = self.host or "localhost"
         port = self.port or 5432
-        return f"{self.driver}://{username}:{password}@{host}:{port}/{self.name}"
+        return URL.create(
+            drivername=self.driver,
+            username=username,
+            password=password,
+            host=host,
+            port=port,
+            database=self.name,
+        ).render_as_string(hide_password=False)
 
 
 class S3Settings(BaseSettings):
