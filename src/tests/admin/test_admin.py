@@ -1,10 +1,7 @@
-from unittest.mock import AsyncMock
-
 from litestar.testing import TestClient
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-import src.main as main
-from src.main import DbStartMode, PodcastApp, make_app
+from src.main import PodcastApp, make_app
 from src.modules.admin.app import ADMIN_VIEWS
 from src.modules.db.models import (
     Cookie,
@@ -19,6 +16,17 @@ from src.modules.db.models import (
 )
 from src.settings.app import AppSettings
 from src.tests.factories import make_user
+from src.providers import AppProviders
+from src.tests.fakes import (
+    FakeHTTPClient,
+    FakeLifecycle,
+    FakeMailer,
+    FakeMediaProcessor,
+    FakeMediaSource,
+    FakeRedis,
+    FakeStorage,
+    FakeTaskQueue,
+)
 
 
 class MockUOW:
@@ -70,16 +78,26 @@ def make_admin_client(
 ) -> TestClient[PodcastApp]:
     session_factory = async_sessionmaker(class_=AsyncSession)
     session_repository = FakeUserSessionRepository()
-
-    monkeypatch.setattr("src.main.initialize_database", AsyncMock(return_value=None))
-    monkeypatch.setitem(main._DB_STARTUP_CHECKS, DbStartMode.INIT, AsyncMock(return_value=None))
-    monkeypatch.setattr("src.main.close_database", AsyncMock(return_value=None))
-    monkeypatch.setattr("src.main.check_redis_connection", AsyncMock(return_value=None))
-    monkeypatch.setattr("src.main.close_async_redis_connection", AsyncMock(return_value=None))
-    monkeypatch.setattr("src.main.validate_s3_settings", lambda _: None)
-    monkeypatch.setattr(
-        "src.modules.admin.app.db_session.get_session_factory", lambda: session_factory
+    lifecycle = FakeLifecycle()
+    queue = FakeTaskQueue()
+    providers = AppProviders(
+        initialize_database=lifecycle.initialize_database,
+        verify_database=lifecycle.verify_database,
+        close_database=lifecycle.close_database,
+        session_factory=lambda: session_factory,
+        uow_factory=MockUOW,
+        validate_storage_settings=lambda _: None,
+        check_redis=lifecycle.check_redis,
+        close_redis=lifecycle.close_redis,
+        make_task_queue=lambda _: queue,
+        make_storage=FakeStorage,
+        make_redis=FakeRedis,
+        mailer=FakeMailer(),
+        http_client=FakeHTTPClient(),
+        media_source=FakeMediaSource(),
+        media_processor=FakeMediaProcessor(),
     )
+
     monkeypatch.setattr("src.modules.auth.backends.SASessionUOW", lambda: MockUOW())
     monkeypatch.setattr(
         "src.modules.auth.backends.UserRepository",
@@ -95,7 +113,7 @@ def make_admin_client(
         "src.modules.auth.backends.UserIPRepository", lambda session: FakeUserIPRepository()
     )
 
-    app = make_app(settings=settings)
+    app = make_app(settings=settings, providers=providers)
     return TestClient(app=app, raise_server_exceptions=False)
 
 

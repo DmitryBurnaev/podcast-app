@@ -14,7 +14,6 @@ from starlette.responses import Response
 from src.constants import AuthSkip
 from src.modules.admin.middlewares import PathFixMiddleware
 from src.modules.admin.counters import AdminCounter
-from src.modules.db import SASessionUOW
 from src.modules.admin.auth import AdminAuth
 from src.settings.app import APP_DIR
 from src.modules.admin.utils import get_current_error_alert
@@ -32,7 +31,7 @@ from src.modules.admin.views import (
     CookieAdminView,
     MediaFileAdminView,
 )
-from src.modules.db import session as db_session
+from src.providers import AppProviders
 
 if TYPE_CHECKING:
     from src.main import PodcastApp
@@ -58,7 +57,8 @@ class AdminApp(Admin):
     custom_templates_dir = "modules/admin/templates"
     # app: "PodcastApp"
 
-    def __init__(self, *args: Any, **kwargs: Any) -> None:
+    def __init__(self, *args: Any, providers: AppProviders, **kwargs: Any) -> None:
+        self.providers = providers
         self._starlette_app = Starlette()
         kwargs["app"] = self._starlette_app
         super().__init__(*args, **kwargs)
@@ -74,7 +74,7 @@ class AdminApp(Admin):
     async def index(self, request: Request) -> Response:
         """Index route which can be overridden to create dashboards."""
 
-        async with SASessionUOW() as uow:
+        async with self.providers.uow_factory() as uow:
             dashboard_stat = await AdminCounter().get_stat(session=uow.session)
 
         context = {
@@ -157,7 +157,8 @@ def make_admin(app: "PodcastApp") -> Admin:
     admin = AdminApp(
         base_url=app.settings.admin.base_url,
         title=app.settings.admin.title,
-        session_maker=db_session.get_session_factory(),
+        session_maker=app.providers.session_factory(),
+        providers=app.providers,
         authentication_backend=AdminAuth(
             secret_key=app.settings.app_secret_key.get_secret_value(),
             settings=app.settings,
