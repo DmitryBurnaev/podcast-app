@@ -117,7 +117,7 @@ class AuthCoreAPIController(BaseAuthAPIController):
                 is_active=True,
                 is_superuser=False,
             )
-            await uow.session.flush()
+            await uow.flush()
             await invite_repository.update(invite, is_applied=True, user_id=user.id)
             await PodcastRepository(uow.session).create(
                 publish_id=Podcast.generate_publish_id(),
@@ -273,7 +273,7 @@ class AuthInviteAPIController(BaseAuthAPIController):
                     user_id=None,
                 )
 
-            await uow.session.flush()
+            await uow.flush()
             response = UserInviteResponse.model_validate(invite, from_attributes=True)
 
         await send_invitation_email(email, token, settings=settings)
@@ -383,7 +383,7 @@ class AuthAccessTokenAPIController(BaseAuthAPIController):
                 name=data.name,
                 expires_in=utcnow() + timedelta(days=data.expires_in_days),
             )
-            await uow.session.flush()
+            await uow.flush()
             response = CreatedUserAccessTokenResponse(
                 **UserAccessTokenResponse.model_validate(
                     access_token,

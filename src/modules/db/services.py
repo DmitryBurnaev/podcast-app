@@ -1,12 +1,13 @@
 import logging
 from types import TracebackType
-from typing import Self
+from typing import Self, TypeVar
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.modules.db import session as db_session
 
 logger = logging.getLogger(__name__)
+ModelT = TypeVar("ModelT")
 
 
 class SASessionUOW:
@@ -79,7 +80,7 @@ class SASessionUOW:
 
         try:
             # Flush any pending changes
-            await self.__session.flush()
+            await self.flush()
 
             # Handle transaction based on ownership and commit flag
             if self.__owns_session:
@@ -119,6 +120,15 @@ class SASessionUOW:
     def session(self) -> AsyncSession:
         """Provide the current session for repository operations."""
         return self.__session
+
+    async def flush(self) -> None:
+        """Synchronize pending repository changes with the database."""
+        await self.__session.flush()
+
+    async def refresh(self, instance: ModelT) -> ModelT:
+        """Reload one persisted model instance and return it with its concrete type."""
+        await self.__session.refresh(instance)
+        return instance
 
     async def commit(self) -> None:
         """Explicitly commit the current transaction."""

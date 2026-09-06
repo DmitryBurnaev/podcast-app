@@ -53,7 +53,7 @@ class PodcastAPIController(BaseApiController):
                 download_automatically=data.download_automatically,
                 owner_id=current_user.id,
             )
-            await uow.session.flush()
+            await uow.flush()
             created_podcast = await podcast_repository.get_first_with_aggregations(
                 ids=[podcast.id],
                 owner_id=current_user.id,
@@ -154,7 +154,7 @@ class PodcastAPIController(BaseApiController):
             )
             if update_data:
                 await podcast_repository.update(podcast, **update_data)
-                await uow.session.flush()
+                await uow.flush()
 
             updated_podcast = await podcast_repository.get_first_with_aggregations(
                 ids=[podcast_id],
@@ -224,9 +224,9 @@ class PodcastAPIController(BaseApiController):
                 access_token=File.generate_token(),
                 owner_id=current_user.id,
             )
-            await uow.session.flush()
+            await uow.flush()
             await podcast_repository.update(podcast, image_id=image_file.id)
-            await uow.session.flush()
+            await uow.flush()
             updated_podcast = await podcast_repository.get_first_with_aggregations(
                 ids=[podcast_id],
                 owner_id=current_user.id,

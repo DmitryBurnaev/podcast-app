@@ -13,11 +13,11 @@ from typing import Any, Awaitable, cast, Optional, Protocol, Self
 
 import aioboto3
 import botocore.exceptions
-from sqlalchemy import select
-from sqlalchemy.orm import selectinload
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.exceptions import StorageConfigurationError
 from src.modules.db.models import File
+from src.modules.db.repositories import FileRepository
 from src.modules.db.services import SASessionUOW
 from src.modules.services.redis import RedisClient
 from src.settings.app import get_app_settings
@@ -113,7 +113,7 @@ class StorageCleanupBackend(Protocol):
 class CleanupUnitOfWork(Protocol):
     """Transaction boundary required by the cleanup service."""
 
-    session: Any
+    session: AsyncSession
 
     async def __aenter__(self) -> Self: ...
 
@@ -464,16 +464,8 @@ class FileStorageCleanupService:
 
         try:
             async with self.uow_factory() as uow:
-                statement = (
-                    select(File)
-                    .where(File.id.in_(normalized_ids))
-                    .options(
-                        selectinload(File.audio_episodes),
-                        selectinload(File.image_episodes),
-                    )
-                )
-                query_result = await uow.session.execute(statement)
-                files = list(query_result.scalars().unique().all())
+                file_repository = FileRepository(uow.session)
+                files = await file_repository.all_by_ids_with_episode_references(normalized_ids)
                 files_by_id = {file.id: file for file in files}
 
                 for file_id in normalized_ids:
@@ -497,7 +489,7 @@ class FileStorageCleanupService:
                 self._log_file_context(files)
 
                 conflicts = await self._find_shared_path_conflicts(
-                    uow=uow,
+                    repository=file_repository,
                     paths=tuple(path_groups),
                     selected_ids=set(normalized_ids),
                 )
@@ -575,23 +567,14 @@ class FileStorageCleanupService:
     async def _find_shared_path_conflicts(
         self,
         *,
-        uow: CleanupUnitOfWork,
+        repository: FileRepository,
         paths: tuple[str, ...],
         selected_ids: set[int],
     ) -> dict[str, tuple[int, ...]]:
         if not paths:
             return {}
 
-        statement = select(File.id, File.path).where(
-            File.path.in_(paths),
-            File.id.not_in(selected_ids),
-        )
-        query_result = await uow.session.execute(statement)
-        conflicts: dict[str, list[int]] = {}
-        for file_id, path in query_result.all():
-            conflicts.setdefault(path, []).append(file_id)
-
-        normalized = {path: tuple(sorted(file_ids)) for path, file_ids in conflicts.items()}
+        normalized = await repository.find_path_references(paths, excluded_ids=selected_ids)
         if normalized:
             logger.warning(
                 "File storage cleanup batch blocked by shared S3 paths: conflicts=%s "

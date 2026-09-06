@@ -54,7 +54,7 @@ class CookieAPIController(BaseApiController):
                 created_at=utcnow(),
                 updated_at=utcnow(),
             )
-            await uow.session.flush()
+            await uow.flush()
 
         return CookieResponse.model_validate(cookie)
 

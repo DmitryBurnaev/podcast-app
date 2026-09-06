@@ -1,11 +1,9 @@
 import dataclasses
 
-from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.constants import format_file_size
-from src.modules.db.models import File
-from src.modules.db.repositories import PodcastRepository, EpisodeRepository
+from src.modules.db.repositories import EpisodeRepository, FileRepository, PodcastRepository
 
 
 @dataclasses.dataclass(frozen=True)
@@ -26,7 +24,7 @@ class AdminCounter:
         """Get vendors counts"""
         total_podcasts = await PodcastRepository(session).get_total_count()
         total_episodes = await EpisodeRepository(session).get_total_count()
-        total_file_size = await session.scalar(select(func.coalesce(func.sum(File.size), 0))) or 0
+        total_file_size = await FileRepository(session).get_total_size()
         return DashboardCounts(
             total_podcasts=total_podcasts,
             total_episodes=total_episodes,
