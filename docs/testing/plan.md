@@ -35,8 +35,10 @@
 
 ## Текущий этап
 
-- [ ] **P1. Подготовить изолированную PostgreSQL-инфраструктуру.** Безопасная
-  per-run/worker test DB, migrations, очистка и typed entity fixtures.
+- [x] **P1. Подготовить изолированную PostgreSQL-инфраструктуру.** Обязательный
+  `TEST_DB_NAME`, отдельная DB на worker, Alembic, `TRUNCATE … CASCADE`,
+  typed `user`/`podcast` fixtures. Проверки: 401 passed, coverage 80%,
+  PostgreSQL smoke и `pytest -n 2` зелёные.
 
 ## Дальнейшие этапы
 

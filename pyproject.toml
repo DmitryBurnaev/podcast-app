@@ -34,6 +34,7 @@ dev = [
     # testing
     "pytest>=9,<10",
     "pytest-asyncio==1.4.0",
+    "pytest-xdist==3.8.0",
     "coverage==7.14.1",
     # format and linting
     "black>=26.1,<27.0",
