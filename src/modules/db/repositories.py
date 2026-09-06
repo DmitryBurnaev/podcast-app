@@ -2,6 +2,7 @@
 
 import logging
 import uuid
+from collections.abc import Collection
 from pathlib import Path
 from datetime import UTC, datetime
 from typing import (
@@ -30,6 +31,7 @@ from sqlalchemy import (
     and_,
     ColumnElement,
 )
+from sqlalchemy.engine import Result, ScalarResult
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 from sqlalchemy.sql.elements import SQLCoreOperations
@@ -39,7 +41,7 @@ from sqlalchemy.sql.roles import ColumnsClauseRole
 from src.exceptions import NotFoundError
 from src.modules.db.models import BaseModel, User, UserSession, File
 from src.modules.db.models.users import UserAccessToken, UserIP, UserInvite
-from src.modules.db.models.podcasts import Episode, Podcast, Cookie
+from src.modules.db.models.podcasts import Cookie, Episode, EpisodeStatus, Podcast
 
 __all__ = (
     "UserRepository",
@@ -474,6 +476,25 @@ class EpisodeRepository(BaseRepository[Episode]):
 
     model = Episode
 
+    async def all_in_progress(self) -> list[Episode]:
+        """Return current owner's episodes that are being processed."""
+        statement = select(self.model).where(self.model.status.in_(self.model.PROGRESS_STATUSES))
+        owner_filter = self._get_owner_kwarg()
+        if owner_filter:
+            statement = statement.filter_by(**owner_filter)
+
+        result: ScalarResult[Episode] = await self.session.scalars(statement)
+        return list(result.all())
+
+    async def count_by_status(self) -> dict[EpisodeStatus, int]:
+        """Return episode totals for every status, including statuses with no rows."""
+        statement = select(Episode.status, func.count(Episode.id)).group_by(Episode.status)
+        result: Result[tuple[EpisodeStatus, int]] = await self.session.execute(statement)
+        counts = {status: 0 for status in EpisodeStatus}
+        for status, count in result.tuples():
+            counts[status] = count
+        return counts
+
     async def safe_delete(self, episode: Episode) -> None:
         """Delete an episode row and unreferenced linked file rows without touching S3."""
         if episode.status in Episode.PROGRESS_STATUSES:
@@ -738,6 +759,56 @@ class FileRepository(BaseRepository[File]):
     """
 
     model = File
+
+    async def get_total_size(self) -> int:
+        """Return the total size of all file rows in bytes."""
+        statement = select(func.coalesce(func.sum(File.size), 0))
+        total_size = await self.session.scalar(statement)
+        return int(total_size or 0)
+
+    async def all_by_ids_with_episode_references(
+        self,
+        file_ids: Collection[int],
+    ) -> list[File]:
+        """Load selected files together with every episode that references them."""
+        normalized_ids = tuple(dict.fromkeys(file_ids))
+        if not normalized_ids:
+            return []
+
+        statement = (
+            select(File)
+            .where(File.id.in_(normalized_ids))
+            .options(
+                selectinload(File.audio_episodes),
+                selectinload(File.image_episodes),
+            )
+            .order_by(File.id)
+        )
+        result: ScalarResult[File] = await self.session.scalars(statement)
+        return list(result.unique().all())
+
+    async def find_path_references(
+        self,
+        paths: Collection[str],
+        *,
+        excluded_ids: Collection[int] = (),
+    ) -> dict[str, tuple[int, ...]]:
+        """Return file IDs outside ``excluded_ids`` that reuse one of the given paths."""
+        normalized_paths = tuple(dict.fromkeys(path for path in paths if path))
+        if not normalized_paths:
+            return {}
+
+        statement = select(File.id, File.path).where(File.path.in_(normalized_paths))
+        if excluded_ids:
+            statement = statement.where(File.id.not_in(excluded_ids))
+
+        result: Result[tuple[int, str]] = await self.session.execute(
+            statement.order_by(File.path, File.id)
+        )
+        references: dict[str, list[int]] = {}
+        for file_id, path in result.tuples():
+            references.setdefault(path, []).append(file_id)
+        return {path: tuple(file_ids) for path, file_ids in references.items()}
 
     async def first_with_episodes(self, file_id: int) -> File | None:
         """Load a file and the episodes that reference it."""

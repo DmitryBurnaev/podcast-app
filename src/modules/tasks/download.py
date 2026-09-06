@@ -268,7 +268,7 @@ class DownloadEpisodeTask(RQTask):
         }
         logger.debug("Episodes update filter: %s | data: %s", filter_kwargs, update_data)
         await self.episode_repository.update_by_filters(filters=filter_kwargs, value=update_data)
-        await self.db_session.refresh(episode)
+        await self.uow.refresh(episode)
 
     async def _update_files(self, episode: Episode, update_data: dict) -> None:
         """Updating data for stored files"""
@@ -334,7 +334,7 @@ class UploadedEpisodeTask(DownloadEpisodeTask):
             available=True,
         )
         await self._update_all_rss(episode.source_id)
-        await self.db_session.flush()
+        await self.uow.flush()
         logger.info("=== [%s] DOWNLOADING total finished ===", episode.source_id)
         return TaskResultCode.SUCCESS
 

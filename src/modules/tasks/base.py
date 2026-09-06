@@ -26,6 +26,7 @@ class RQTask:
 
     def __init__(self, db_session: AsyncSession | None = None):
         self._db_session: AsyncSession | None = db_session
+        self._uow: SASessionUOW | None = None
         self._task_context: TaskContext | None = None
         self.settings: AppSettings = get_app_settings()
 
@@ -61,9 +62,10 @@ class RQTask:
 
         try:
             async with SASessionUOW() as uow:
+                self._uow = uow
                 self.db_session = uow.session
                 result = await self.run(*args, **kwargs)
-                await self.db_session.commit()
+                await uow.commit()
 
         except Exception as exc:
             if self._db_session is not None:
@@ -72,7 +74,17 @@ class RQTask:
             result = TaskResultCode.ERROR
             logger.exception("Couldn't perform task %s | error %r", self.name, exc)
 
+        finally:
+            self._uow = None
+
         return result
+
+    @property
+    def uow(self) -> SASessionUOW:
+        """Return the transaction boundary active for the current task run."""
+        if self._uow is None:
+            raise RuntimeError("No unit of work available")
+        return self._uow
 
     @property
     def db_session(self) -> AsyncSession:

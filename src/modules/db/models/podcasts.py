@@ -13,7 +13,6 @@ from dataclasses import asdict, dataclass
 
 import sqlalchemy as sa
 from sqlalchemy.dialects.postgresql import JSONB
-from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from src.constants import SourceType
@@ -270,19 +269,6 @@ class Episode(BaseModel):
     @property
     def admin_link_name(self) -> str:
         return self.title
-
-    @classmethod
-    async def get_in_progress(cls, db_session: AsyncSession, user_id: int):
-        """Return downloading episodes"""
-        # TODO: move to repository
-
-        statement = (
-            sa.select(cls)
-            .filter(cls.status.in_(Episode.PROGRESS_STATUSES))
-            .filter(cls.owner_id == user_id)
-        )
-        result = await db_session.execute(statement)
-        return list(result.scalars().all())
 
     @property
     def image_url(self) -> str | None:
