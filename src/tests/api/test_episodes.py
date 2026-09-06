@@ -22,14 +22,14 @@ def episode_repository(monkeypatch: pytest.MonkeyPatch) -> SimpleNamespace:
         update=AsyncMock(),
     )
     monkeypatch.setattr("src.modules.api.episodes.SASessionUOW", lambda: MockUOW())
-    monkeypatch.setattr("src.modules.api.episodes.EpisodeRepository", lambda session: repository)
+    monkeypatch.setattr("src.modules.api.episodes.EpisodeRepository", lambda session, **_: repository)
     return repository
 
 
 @pytest.fixture
 def podcast_repository(monkeypatch: pytest.MonkeyPatch) -> SimpleNamespace:
     repository = SimpleNamespace(first=AsyncMock())
-    monkeypatch.setattr("src.modules.api.episodes.PodcastRepository", lambda session: repository)
+    monkeypatch.setattr("src.modules.api.episodes.PodcastRepository", lambda session, **_: repository)
     return repository
 
 
@@ -39,7 +39,7 @@ def file_repository(monkeypatch: pytest.MonkeyPatch) -> SimpleNamespace:
         create=AsyncMock(),
         first=AsyncMock(),
     )
-    monkeypatch.setattr("src.modules.api.episodes.FileRepository", lambda session: repository)
+    monkeypatch.setattr("src.modules.api.episodes.FileRepository", lambda session, **_: repository)
     return repository
 
 
@@ -82,7 +82,6 @@ class TestEpisodeListAPI:
         assert response.json()["items"][0]["podcast_id"] == podcast.id
         podcast_repository.first.assert_awaited_once_with(id=podcast.id, owner_id=current_user.id)
         episode_repository.all_paginated.assert_awaited_once_with(
-            owner_id=current_user.id,
             podcast_id=podcast.id,
             limit=10,
             offset=0,
@@ -164,7 +163,7 @@ class TestPodcastEpisodeCreateAPI:
             code="NOT_FOUND",
             message="Podcast with id 404 not found",
         )
-        podcast_repository.first.assert_awaited_once_with(id=404, owner_id=current_user.id)
+        podcast_repository.first.assert_awaited_once_with(id=404)
 
     def test_create__creator_validation_error__fail(
         self,
@@ -226,7 +225,6 @@ class TestPodcastEpisodeCreateAPI:
         assert response.status_code == 201, response.text
         file_repository.first.assert_awaited_once_with(
             hash=audio_file.hash,
-            owner_id=current_user.id,
             type=FileType.AUDIO,
         )
         episode_repository.create.assert_awaited_once()
@@ -259,7 +257,6 @@ class TestPodcastEpisodeCreateAPI:
         )
         file_repository.first.assert_awaited_once_with(
             hash="missinghash",
-            owner_id=current_user.id,
             type=FileType.AUDIO,
         )
         episode_repository.create.assert_not_awaited()

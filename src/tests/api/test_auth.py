@@ -9,6 +9,7 @@ from src.main import PodcastApp
 from src.modules.api.auth import (
     AuthAccessTokenAPIController,
     AuthCoreAPIController,
+    AuthExtendedAPIController,
     AuthInviteAPIController,
 )
 from src.modules.services.email import send_invitation_email
@@ -57,8 +58,8 @@ class TestAuthSignInAPI:
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         user_repository = SimpleNamespace(get_by_email=AsyncMock(return_value=None))
-        monkeypatch.setattr("src.modules.api.auth.SASessionUOW", lambda: MockUOW())
-        monkeypatch.setattr("src.modules.api.auth.UserRepository", lambda session: user_repository)
+        monkeypatch.setattr("src.modules.auth.backends.SASessionUOW", lambda: MockUOW())
+        monkeypatch.setattr("src.modules.auth.backends.UserRepository", lambda session: user_repository)
 
         response = client.post(
             self.url,
@@ -88,9 +89,14 @@ class TestAuthSignInAPI:
             access_token="access-token", refresh_token="refresh-token"
         )
         create_user_session = AsyncMock(return_value=token_collection)
-        monkeypatch.setattr("src.modules.api.auth.SASessionUOW", lambda: MockUOW())
-        monkeypatch.setattr("src.modules.api.auth.UserRepository", lambda session: user_repository)
-        monkeypatch.setattr("src.modules.api.auth.create_user_session", create_user_session)
+        monkeypatch.setattr("src.modules.auth.backends.SASessionUOW", lambda: MockUOW())
+        monkeypatch.setattr("src.modules.auth.backends.UserRepository", lambda session: user_repository)
+        monkeypatch.setattr(
+            "src.modules.auth.backends.APIAuthBackend.create_user_session", create_user_session
+        )
+        monkeypatch.setattr(
+            "src.modules.auth.backends.APIAuthBackend.register_user_ip", AsyncMock()
+        )
 
         response = client.post(
             self.url,
@@ -131,7 +137,9 @@ class TestAuthRefreshTokenAPI:
             refresh_token="new-refresh-token",
         )
         refresh_user_session = AsyncMock(return_value=token_collection)
-        monkeypatch.setattr("src.modules.api.auth.refresh_user_session", refresh_user_session)
+        monkeypatch.setattr(
+            "src.modules.auth.backends.APIAuthBackend.refresh_user_session", refresh_user_session
+        )
 
         response = client.post(self.url, json={"refresh_token": "refresh-token"})
 
@@ -148,7 +156,7 @@ class TestAuthSessionAPI:
         response = client.delete("/api/auth/sign-out/")
 
         assert response.status_code == 200, response.text
-        assert response.json() == {"ok": True}
+        assert response.json() == {"status": "ok"}
 
     async def test_sign_out__with_api_session__deactivates_session(
         self,
@@ -156,18 +164,16 @@ class TestAuthSessionAPI:
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         session_repository = SimpleNamespace(deactivate_by_public_id=AsyncMock(return_value=None))
-        request = SimpleNamespace(
-            state=SimpleNamespace(api_auth=SimpleNamespace(session_id="session-public-id"))
-        )
-        monkeypatch.setattr("src.modules.api.auth.SASessionUOW", lambda: MockUOW())
+        request = SimpleNamespace(auth={"session_id": "session-public-id"})
+        monkeypatch.setattr("src.modules.auth.backends.SASessionUOW", lambda: MockUOW())
         monkeypatch.setattr(
-            "src.modules.api.auth.UserSessionRepository",
+            "src.modules.auth.backends.UserSessionRepository",
             lambda session: session_repository,
         )
 
-        response = await AuthCoreAPIController.sign_out.fn(None, current_user, request)
+        response = await AuthExtendedAPIController.sign_out.fn(None, current_user, request)
 
-        assert response == {"ok": True}
+        assert response.status == "ok"
         session_repository.deactivate_by_public_id.assert_awaited_once_with("session-public-id")
 
     def test_me__ok(self, client: TestClient[PodcastApp]) -> None:
@@ -212,7 +218,9 @@ class TestAuthAccountManagementAPI:
             "src.modules.api.auth.PodcastRepository",
             lambda session: podcast_repository,
         )
-        monkeypatch.setattr("src.modules.api.auth.create_user_session", create_user_session)
+        monkeypatch.setattr(
+            "src.modules.auth.backends.APIAuthBackend.create_user_session", create_user_session
+        )
         monkeypatch.setattr("src.modules.api.auth.User.make_password", Mock(return_value="hashed"))
 
         response = await AuthCoreAPIController.sign_up.fn(
@@ -223,6 +231,7 @@ class TestAuthAccountManagementAPI:
                 password_1="secret",
                 password_2="secret",
             ),
+            SimpleNamespace(),
             app_settings,
         )
 
@@ -230,7 +239,7 @@ class TestAuthAccountManagementAPI:
         invite_repository.get_valid.assert_awaited_once_with("invite", "new@podcast.dev")
         invite_repository.update.assert_awaited_once_with(invite, is_applied=True, user_id=7)
         podcast_repository.create.assert_awaited_once()
-        create_user_session.assert_awaited_once_with(user, settings=app_settings)
+        create_user_session.assert_awaited_once_with(user)
 
     async def test_reset_password__does_not_expose_token(
         self,
@@ -250,7 +259,7 @@ class TestAuthAccountManagementAPI:
             app_settings,
         )
 
-        assert response == {"ok": True}
+        assert response.status == "ok"
         send_reset_email.assert_awaited_once()
         assert send_reset_email.await_args.args[0] is user
 
@@ -283,7 +292,7 @@ class TestAuthAccountManagementAPI:
             app_settings,
         )
 
-        assert response == {"ok": True}
+        assert response.status == "ok"
         user_repository.update.assert_awaited_once_with(user, password="hashed")
         session_repository.deactivate_for_user.assert_awaited_once_with(7)
 
@@ -357,6 +366,7 @@ class TestAuthEmail:
         app_settings,
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
+        app_settings.flags.send_invites = True
         send_email = AsyncMock()
         monkeypatch.setattr("src.modules.services.email.send_email", send_email)
         invite = UserInviteResponse(

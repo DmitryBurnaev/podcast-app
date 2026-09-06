@@ -22,11 +22,11 @@ def misc_repositories(monkeypatch: pytest.MonkeyPatch) -> SimpleNamespace:
     monkeypatch.setattr("src.modules.api.misc.SASessionUOW", lambda: MockUOW())
     monkeypatch.setattr(
         "src.modules.api.misc.EpisodeRepository",
-        lambda session: episode_repository,
+        lambda session, **_: episode_repository,
     )
     monkeypatch.setattr(
         "src.modules.api.misc.PodcastRepository",
-        lambda session: podcast_repository,
+        lambda session, **_: podcast_repository,
     )
     return SimpleNamespace(episodes=episode_repository, podcasts=podcast_repository)
 
@@ -216,7 +216,7 @@ class TestProgressAPI:
         )
         misc_repositories.podcasts.all.return_value = [podcast]
         misc_repositories.episodes.first.return_value = episode
-        get_in_progress = AsyncMock(return_value=[episode])
+        misc_repositories.episodes.all_in_progress = AsyncMock(return_value=[episode])
         check_state = AsyncMock(
             return_value=[
                 {
@@ -229,7 +229,6 @@ class TestProgressAPI:
                 }
             ]
         )
-        monkeypatch.setattr("src.modules.api.misc.Episode.get_in_progress", get_in_progress)
         monkeypatch.setattr("src.modules.api.misc.check_state", check_state)
 
         response = client.get(f"/api/progress/{query}")
@@ -238,7 +237,7 @@ class TestProgressAPI:
         response_data = response.json()
         assert response_data["progressItems"][0]["episode"]["id"] == episode.id
         assert response_data["progressItems"][0]["podcast"]["id"] == podcast.id
-        misc_repositories.podcasts.all.assert_awaited_once_with(owner_id=current_user.id)
+        misc_repositories.podcasts.all.assert_awaited_once_with()
 
 
 @pytest.mark.parametrize(

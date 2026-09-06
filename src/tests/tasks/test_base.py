@@ -41,12 +41,12 @@ class TestRQTaskMetadata:
     @pytest.mark.parametrize(
         ("args", "kwargs", "expected"),
         [
-            ((1, 2), {"kwarg": 123}, "successfultaskfortest_1_2_kwarg=123_"),
+            ((1, 2), {"kwarg": 123}, "successfultaskfortest_1_2_kwarg_123_"),
             ((), {}, "successfultaskfortest___"),
             (
                 ("episode",),
                 {"force": True, "attempt": 2},
-                "successfultaskfortest_episode_force=True_attempt=2_",
+                "successfultaskfortest_episode_force_True_attempt_2_",
             ),
         ],
     )
@@ -85,7 +85,7 @@ class TestRQTaskRun:
 
         assert result == TaskResultCode.SUCCESS
         assert task.db_session is session
-        assert task.task_context.job_id == "successfultaskfortest_1_force=True_"
+        assert task.task_context.job_id == "successfultaskfortest_1_force_True_"
         session.commit.assert_awaited_once_with()
         session.rollback.assert_not_awaited()
 
@@ -150,7 +150,7 @@ class TestRQTaskCancel:
         SuccessfulTaskForTest.cancel_task(1, 2, kwarg=123)
 
         fetch.assert_called_once_with(
-            "successfultaskfortest_1_2_kwarg=123_",
+            "successfultaskfortest_1_2_kwarg_123_",
             connection=sync_redis,
         )
         job.cancel.assert_called_once_with()

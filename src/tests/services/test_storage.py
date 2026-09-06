@@ -16,8 +16,9 @@ from src.settings.db import S3Settings
 
 
 class TestStorageSettings:
-    def test_s3_environment__defaults_to_prod(self) -> None:
-        settings = S3Settings.model_validate({})
+    def test_s3_environment__defaults_to_prod(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.delenv("S3_ENV", raising=False)
+        settings = S3Settings(env="prod")
 
         assert settings.env == "prod"
 

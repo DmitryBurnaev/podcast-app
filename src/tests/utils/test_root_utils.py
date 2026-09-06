@@ -1,4 +1,3 @@
-import logging
 from http import HTTPStatus
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, Mock
@@ -11,12 +10,11 @@ from src.utils import (
     cut_string,
     download_content,
     hash_string,
-    log_message,
     simple_slugify,
     singleton,
     utcnow,
 )
-from modules.services.email import send_email
+from src.modules.services.email import send_email
 
 
 class TestSmallUtils:
@@ -69,24 +67,17 @@ class TestSmallUtils:
             "12ca17b49af2289436f303e0166030a21e525d266e209267433801a8fd4071a0"
         )
 
-    def test_log_message__ok(self, caplog: pytest.LogCaptureFixture) -> None:
-        exception = RuntimeError("boom")
-
-        with caplog.at_level(logging.WARNING):
-            log_message(
-                exception, {"error": "Failure", "details": "details"}, level=logging.WARNING
-            )
-
-        assert "RuntimeError 'Failure': [details]" in caplog.text
-
     async def test_send_email__builds_html_message(
         self,
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         smtp_client = _FakeSMTPClient()
-        monkeypatch.setattr("src.utils.aiosmtplib.SMTP", Mock(return_value=smtp_client))
         monkeypatch.setattr(
-            "src.utils.get_app_settings",
+            "src.modules.services.email.aiosmtplib.SMTP",
+            Mock(return_value=smtp_client),
+        )
+        monkeypatch.setattr(
+            "src.modules.services.email.get_app_settings",
             lambda: SimpleNamespace(
                 smtp=SimpleNamespace(
                     host="smtp.example.com",

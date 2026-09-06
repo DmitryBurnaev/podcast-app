@@ -27,15 +27,19 @@
   - Проверка: `uv run pytest --collect-only -q` — 385 сценариев, один
     зафиксированный collection error в legacy `test_root_utils.py`.
 
-## Следующий этап
+## Выполненные этапы
 
-- [ ] **P0. Восстановить зелёный исходный набор.** Исправить устаревшие
-  imports, fixtures, сигнатуры и ожидания; collection и полный набор зелёные.
+- [x] **P0. Восстановить зелёный исходный набор.** Исправлены устаревшие
+  imports, auth/app fixtures, сигнатуры views, ожидания repository/UoW и
+  task job IDs. Проверки: 399 collected, 399 passed, total coverage 79%.
 
-## Дальнейшие этапы
+## Текущий этап
 
 - [ ] **P1. Подготовить изолированную PostgreSQL-инфраструктуру.** Безопасная
   per-run/worker test DB, migrations, очистка и typed entity fixtures.
+
+## Дальнейшие этапы
+
 - [ ] **P2. Ввести тестируемые providers и class-based fakes.** AppProviders,
   Protocol-интерфейсы, function-scoped fakes внешних границ.
 - [ ] **P3. Мигрировать Podcasts API на реальную БД.** CRUD, ownership,

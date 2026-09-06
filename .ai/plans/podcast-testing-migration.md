@@ -26,9 +26,9 @@
   - Проверка: повторить collection baseline.
   - Предварительный commit message: `[#10] API improvements and fixes: document test migration baseline`.
 
-- [ ] **P0. Восстановить зелёный исходный набор.** Исправить устаревшие imports,
-  app fixture, сигнатуры views, job IDs, UoW, repository filters и сервисные
-  контракты; прогнать collection, профильные тесты и полный coverage.
+- [x] **P0. Восстановить зелёный исходный набор.** Исправлены устаревшие imports,
+  auth/app fixtures, сигнатуры views, job IDs, UoW, repository filters и сервисные
+  контракты; collection, профильные тесты и полный coverage зелёные.
 
 - [ ] **P1. Изолированная PostgreSQL-инфраструктура.** Безопасный
   `TEST_DB_NAME`, отдельная БД на run/worker, migrations, очистка таблиц и
@@ -65,4 +65,5 @@
 
 | Этап | Дата | Профильный прогон | Полный прогон / coverage | Commit |
 | --- | --- | --- | --- | --- |
-| D0 | 2026-09-06 | `uv run pytest --collect-only -q`: 385 collected, 1 expected collection error | Baseline совпал со snapshot; coverage не запускался, потому что этап документационный | `[#10] API improvements and fixes: document test migration baseline` — ожидает согласования |
+| D0 | 2026-09-06 | `uv run pytest --collect-only -q`: 385 collected, 1 expected collection error | Baseline совпал со snapshot; coverage не запускался, потому что этап документационный | `222274d` — `[#10] API improvements and fixes: document test migration baseline` |
+| P0 | 2026-09-06 | `pytest --collect-only -q`: 399 collected; API: 110 passed; views: 32 passed; services/tasks: 120 passed | `coverage run -m pytest -q --disable-warnings`: 399 passed; total coverage 79% | подготовлен: `[#10] API improvements and fixes: stabilize existing test suite` |

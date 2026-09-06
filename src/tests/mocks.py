@@ -12,6 +12,9 @@ class MockUOW:
     def __init__(self, session: MockSession | None = None) -> None:
         self.session = session or MockSession()
         self.mark_for_commit = Mock(return_value=None)
+        self.flush = self.session.flush
+        self.commit = self.session.commit
+        self.rollback = self.session.rollback
 
     async def __aenter__(self) -> "MockUOW":
         return self
