@@ -2,7 +2,7 @@ from collections.abc import Generator
 from unittest.mock import AsyncMock
 
 import pytest
-from litestar import Request
+from litestar.middleware import AuthenticationResult
 from litestar.testing import TestClient
 from pydantic import SecretStr
 
@@ -55,10 +55,15 @@ def app(
     current_user: User,
     monkeypatch: pytest.MonkeyPatch,
 ) -> PodcastApp:
-    def get_test_current_user(request: Request) -> User:
-        return current_user
+    async def authenticate_as_current_user(
+        _: object, __: object
+    ) -> AuthenticationResult:
+        return AuthenticationResult(user=current_user, auth=None)
 
-    monkeypatch.setattr("src.main.get_current_user", get_test_current_user)
+    monkeypatch.setattr(
+        "src.modules.auth.middlewares.APIAuthMiddleware.authenticate_request",
+        authenticate_as_current_user,
+    )
     return make_app(settings=app_settings)
 
 

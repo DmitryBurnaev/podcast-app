@@ -11,7 +11,7 @@ from src.modules.tasks.base import TaskResultCode
 from src.modules.tasks.download import DownloadEpisodeTask, UploadedEpisodeTask
 from src.modules.db.models import Episode
 from src.tests.factories import make_episode, make_file, make_podcast
-from src.tests.mocks import MockSession, MockStorageS3
+from src.tests.mocks import MockSession, MockStorageS3, MockUOW
 
 
 def _episode_with_audio(**kwargs) -> Episode:
@@ -274,6 +274,7 @@ class TestUploadedEpisodeTask:
     async def test_perform_run__copies_and_publishes(self) -> None:
         episode = _episode_with_audio(status=EpisodeStatus.NEW)
         task = UploadedEpisodeTask(db_session=MockSession())
+        task._uow = MockUOW(task.db_session)
         task.storage = MockStorageS3()
         task.storage.get_file_size.side_effect = [episode.audio.size, 999]
         task.episode_repository = SimpleNamespace(

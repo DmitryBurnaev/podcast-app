@@ -27,14 +27,14 @@ def cookie_repository(monkeypatch: pytest.MonkeyPatch) -> SimpleNamespace:
         update=AsyncMock(),
     )
     monkeypatch.setattr("src.modules.api.cookies.SASessionUOW", lambda: MockUOW())
-    monkeypatch.setattr("src.modules.api.cookies.CookieRepository", lambda session: repository)
+    monkeypatch.setattr("src.modules.api.cookies.CookieRepository", lambda session, **_: repository)
     return repository
 
 
 @pytest.fixture
 def cookie_episode_repository(monkeypatch: pytest.MonkeyPatch) -> SimpleNamespace:
     repository = SimpleNamespace(get_total_count=AsyncMock(return_value=0))
-    monkeypatch.setattr("src.modules.api.cookies.EpisodeRepository", lambda session: repository)
+    monkeypatch.setattr("src.modules.api.cookies.EpisodeRepository", lambda session, **_: repository)
     return repository
 
 
@@ -73,7 +73,7 @@ class TestCookieListAPI:
         assert response.status_code == 200, response.text
         response_data = response.json()
         assert {item["id"] for item in response_data} == {new_youtube.id, yandex.id}
-        cookie_repository.all.assert_awaited_once_with(owner_id=current_user.id)
+        cookie_repository.all.assert_awaited_once_with()
 
 
 class TestCookieCreateAPI:
@@ -104,7 +104,7 @@ class TestCookieCreateAPI:
         create_kwargs = cookie_repository.create.await_args.kwargs
         assert create_kwargs["source_type"] == SourceType.YOUTUBE
         assert create_kwargs["data"] == "encrypted:raw-cookie"
-        assert create_kwargs["owner_id"] == current_user.id
+        assert "owner_id" not in create_kwargs
 
     @pytest.mark.parametrize(
         ("data", "files", "details"),
@@ -171,7 +171,7 @@ class TestCookieDetailsAPI:
 
         assert response.status_code == 200, response.text
         assert response.json()["id"] == cookie.id
-        cookie_repository.first.assert_awaited_once_with(id=cookie.id, owner_id=current_user.id)
+        cookie_repository.first.assert_awaited_once_with(id=cookie.id)
 
     def test_get_details__not_found__fail(
         self,
@@ -189,7 +189,7 @@ class TestCookieDetailsAPI:
             code="NOT_FOUND",
             message="Requested object was not found.",
         )
-        cookie_repository.first.assert_awaited_once_with(id=404, owner_id=current_user.id)
+        cookie_repository.first.assert_awaited_once_with(id=404)
 
     def test_update__ok(
         self,
@@ -280,7 +280,7 @@ class TestCookieDetailsAPI:
             code="NOT_FOUND",
             message="Requested object was not found.",
         )
-        cookie_repository.first.assert_awaited_once_with(id=404, owner_id=current_user.id)
+        cookie_repository.first.assert_awaited_once_with(id=404)
 
     def test_delete__linked_episodes__fail(
         self,

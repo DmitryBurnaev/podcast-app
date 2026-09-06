@@ -68,7 +68,9 @@ class TestStatisticService:
             ),
         )
 
-        result = await StatisticService(SimpleNamespace(session=MockSession())).get_app_statistics()
+        result = await StatisticService(SimpleNamespace(session=MockSession())).get_app_statistics(
+            owner_id=1
+        )
 
         assert result.recent_activity.text == "No episodes yet"
         assert result.recent_activity.time is None
@@ -88,7 +90,7 @@ class TestStatisticService:
 
         result = await StatisticService(
             SimpleNamespace(session=MockSession())
-        ).get_podcast_statistics(10)
+        ).get_podcast_statistics(10, user_id=1)
 
         assert result.episodes_count == 4
         assert result.total_duration == 99

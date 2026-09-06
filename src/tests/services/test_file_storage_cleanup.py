@@ -27,12 +27,21 @@ class FakeQueryResult:
     def all(self) -> list[Any]:
         return self.rows
 
+    def tuples(self) -> "FakeQueryResult":
+        return self
+
+    def __iter__(self):
+        return iter(self.rows)
+
 
 class FakeSession:
     def __init__(self, execute_results: list[FakeQueryResult]) -> None:
         self.execute_results = execute_results
 
     async def execute(self, _: Any) -> FakeQueryResult:
+        return self.execute_results.pop(0)
+
+    async def scalars(self, _: Any) -> FakeQueryResult:
         return self.execute_results.pop(0)
 
 

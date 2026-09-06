@@ -1,5 +1,5 @@
 from types import SimpleNamespace
-from unittest.mock import Mock
+from unittest.mock import AsyncMock, Mock
 
 import pytest
 
@@ -19,12 +19,12 @@ class TestProfileController:
         self,
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
-        request = SimpleNamespace()
         user = SimpleNamespace(display_name="Test User")
+        request = SimpleNamespace(user=user)
         template = object()
         controller = _controller()
         controller.get_response_template = Mock(return_value=template)
-        monkeypatch.setattr("src.modules.views.users.get_current_user", Mock(return_value=user))
+        monkeypatch.setattr("src.modules.views.users.WebAuthBackend.register_user_ip", AsyncMock())
 
         result = await _get(controller, request)
 

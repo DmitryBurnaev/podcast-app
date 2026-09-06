@@ -320,7 +320,7 @@ class APIAuthBackend(BaseAuthBackend):
 
     async def logout(self) -> None:
         """Logout the user by deactivating the session."""
-        session_id: str | None = self.request.auth.get("session_id")
+        session_id: str | None = (self.request.auth or {}).get("session_id")
         if session_id is not None:
             async with SASessionUOW() as uow:
                 session_repo = UserSessionRepository(uow.session)

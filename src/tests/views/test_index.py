@@ -20,7 +20,7 @@ class TestIndexController:
         self,
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
-        request = SimpleNamespace()
+        request = SimpleNamespace(user=SimpleNamespace(id=1))
         template = object()
         podcasts = [object()]
         recent_episodes = [object()]
@@ -51,8 +51,8 @@ class TestIndexController:
         result = await _get(controller, request)
 
         assert result is template
-        podcast_repository.all_with_aggregations.assert_awaited_once_with(owner_id=1)
-        episode_repository.all_paginated.assert_awaited_once_with(owner_id=1, limit=7)
+        podcast_repository.all_with_aggregations.assert_awaited_once_with()
+        episode_repository.all_paginated.assert_awaited_once_with(limit=7)
         statistic_service.get_app_statistics.assert_awaited_once_with(owner_id=1)
         controller.get_response_template.assert_called_once_with(
             template_name="index.html",

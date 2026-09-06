@@ -41,13 +41,7 @@ class TestAPIAuthGate:
         auth_required_client: TestClient[PodcastApp],
         path: str,
     ) -> None:
-        from src.tests.helpers import assert_error_response
+        response = auth_required_client.get(path, follow_redirects=False)
 
-        response = auth_required_client.get(path)
-
-        assert_error_response(
-            response,
-            status_code=401,
-            code="AUTH_MISSING",
-            message="Authentication credentials were not provided.",
-        )
+        assert response.status_code == 302
+        assert response.headers["location"] == "/login"

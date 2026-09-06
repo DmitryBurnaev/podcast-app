@@ -6,6 +6,7 @@ from litestar.response import Template
 
 from src import constants as const
 from src.modules.views.base import BaseViewController
+from src.tests.factories import make_user
 
 
 class ChildControllerForTest(BaseViewController):
@@ -32,22 +33,14 @@ class TestBaseControllerContext:
                 {"name": None, "email": None, "avatar": None},
             ),
             (
-                SimpleNamespace(
-                    email_local_part="test",
-                    display_name="Test User",
-                    email="test@podcast.dev",
-                ),
+                make_user(email="test@podcast.dev"),
                 True,
                 {"name": "test", "email": "test@podcast.dev", "avatar": None},
             ),
             (
-                SimpleNamespace(
-                    email_local_part="",
-                    display_name="Fallback Name",
-                    email="fallback@podcast.dev",
-                ),
+                make_user(email="fallback@podcast.dev"),
                 True,
-                {"name": "Fallback Name", "email": "fallback@podcast.dev", "avatar": None},
+                {"name": "fallback", "email": "fallback@podcast.dev", "avatar": None},
             ),
         ],
     )
@@ -58,11 +51,7 @@ class TestBaseControllerContext:
         is_authenticated: bool,
         user_data: dict[str, str | None],
     ) -> None:
-        request = SimpleNamespace()
-        monkeypatch.setattr(
-            "src.modules.views.base.get_current_user_or_none",
-            Mock(return_value=user),
-        )
+        request = type("Request", (), {"scope": {"user": user}})()
 
         result = BaseViewController.get_base_context(request)
 

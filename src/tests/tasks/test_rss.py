@@ -161,5 +161,5 @@ class TestGenerateRSSTaskGenerate:
         episode_repository.all.assert_awaited_once_with(
             podcast_id=podcast.id,
             status=EpisodeStatus.PUBLISHED,
-            published_at__ne=None,
+            published_at__isnot=None,
         )
