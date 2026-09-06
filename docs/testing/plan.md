@@ -42,8 +42,10 @@
 
 ## Дальнейшие этапы
 
-- [ ] **P2. Ввести тестируемые providers и class-based fakes.** AppProviders,
-  Protocol-интерфейсы, function-scoped fakes внешних границ.
+- [x] **P2. Ввести тестируемые providers и class-based fakes.** `AppProviders`
+  владеет queue и lifecycle DB/Redis/S3; SQLAdmin получает их от app. Добавлены
+  Protocol-интерфейсы и stateful fakes storage/Redis/queue/mail/HTTP/media.
+  Проверки: 14 профильных и 408 полных passed, coverage 80%.
 - [ ] **P3. Мигрировать Podcasts API на реальную БД.** CRUD, ownership,
   pagination, image/RSS и fake side effects.
 - [ ] **P4. Мигрировать Episodes, media и cookies API на реальную БД.**

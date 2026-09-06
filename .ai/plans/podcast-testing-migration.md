@@ -34,9 +34,9 @@
   `TEST_DB_NAME`, отдельная БД на worker, migrations, очистка таблиц и typed
   entity fixtures; последовательный и xdist-запуски проверены.
 
-- [ ] **P2. Providers и class-based fakes.** `AppProviders` в `make_app()`,
-  Protocol-интерфейсы и function-scoped storage/Redis/queue/mail/HTTP/media
-  fakes с contract tests.
+- [x] **P2. Providers и class-based fakes.** `AppProviders` в `make_app()`,
+  production adapters и function-scoped stateful storage/Redis/queue/mail/HTTP/
+  media fakes с contract tests; admin использует providers приложения.
 
 - [ ] **P3. Podcasts API на PostgreSQL.** CRUD, ownership, pagination,
   image/RSS и fake side effects; доменный тест запускается дважды.
@@ -67,4 +67,5 @@
 | --- | --- | --- | --- | --- |
 | D0 | 2026-09-06 | `uv run pytest --collect-only -q`: 385 collected, 1 expected collection error | Baseline совпал со snapshot; coverage не запускался, потому что этап документационный | `222274d` — `[#10] API improvements and fixes: document test migration baseline` |
 | P0 | 2026-09-06 | `pytest --collect-only -q`: 399 collected; API: 110 passed; views: 32 passed; services/tasks: 120 passed | `coverage run -m pytest -q --disable-warnings`: 399 passed; total coverage 79% | `39f0b59` — `[#10] API improvements and fixes: stabilize existing test suite` |
-| P1 | 2026-09-06 | Docker PostgreSQL smoke: 2 passed; повторный `pytest -n 2`: 2 passed | `coverage run -m pytest -q --disable-warnings`: 401 passed, total coverage 80% | подготовлен: `[#10] API improvements and fixes: add isolated PostgreSQL test harness` |
+| P1 | 2026-09-06 | Docker PostgreSQL smoke: 2 passed; повторный `pytest -n 2`: 2 passed | `coverage run -m pytest -q --disable-warnings`: 401 passed, total coverage 80% | `d494bfd` — `[#10] API improvements and fixes: add isolated PostgreSQL test harness` |
+| P2 | 2026-09-06 | `pytest src/tests/test_providers.py src/tests/admin/test_admin.py`: 14 passed; `mypy` providers/app/admin и `ruff` зелёные | Docker: `coverage run -m pytest -q --disable-warnings`: 408 passed, total coverage 80% | подготовлен: `[#10] API improvements and fixes: add typed test providers and service fakes` |
