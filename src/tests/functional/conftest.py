@@ -23,7 +23,6 @@ from src.modules.db.models import BaseModel, Podcast, User
 from src.modules.db.repositories import UserRepository
 from src.modules.db.services import SASessionUOW
 from src.settings.db import DBSettings
-from src.tests.factories import make_podcast, make_user
 
 _DATABASE_NAME_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 
@@ -133,7 +132,12 @@ async def functional_uow(functional_session: AsyncSession) -> AsyncIterator[SASe
 
 @pytest.fixture
 async def db_user(functional_session: AsyncSession) -> User:
-    user = make_user(email="functional-user@podcast.dev")
+    user = User(
+        email="functional-user@podcast.dev",
+        password="hashed-password",
+        is_active=True,
+        is_superuser=False,
+    )
     functional_session.add(user)
     await functional_session.commit()
     await functional_session.refresh(user)
@@ -142,7 +146,13 @@ async def db_user(functional_session: AsyncSession) -> User:
 
 @pytest.fixture
 async def db_podcast(functional_session: AsyncSession, db_user: User) -> Podcast:
-    podcast = make_podcast(owner_id=db_user.id)
+    podcast = Podcast(
+        publish_id=Podcast.generate_publish_id(),
+        name="Functional podcast",
+        description="Functional podcast description",
+        download_automatically=False,
+        owner_id=db_user.id,
+    )
     functional_session.add(podcast)
     await functional_session.commit()
     await functional_session.refresh(podcast)

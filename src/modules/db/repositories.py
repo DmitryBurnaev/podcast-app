@@ -393,7 +393,24 @@ class PodcastRepository(BaseRepository[Podcast]):
         logger.debug("[DB] Getting podcasts with aggregations: %s", filters)
         filters_dict = dict(filters) | self._get_owner_kwarg()
 
-        # Build aggregation query with LEFT JOINs to include podcasts without episodes
+        # Select page IDs before joining episode/file rows. Applying OFFSET/LIMIT
+        # to a grouped aggregate query produced empty non-first pages on PostgreSQL.
+        filters_stmts: list[BinaryExpression[bool]] = []
+        if (ids := filters_dict.pop("ids", None)) and isinstance(ids, list):
+            filters_stmts.append(Podcast.id.in_(ids))
+
+        filters_dict |= self._get_owner_kwarg()
+        page_statement = select(Podcast.id).filter_by(**filters_dict)
+        if filters_stmts:
+            page_statement = page_statement.filter(*filters_stmts)
+        page = (
+            page_statement.order_by(self._sort_criteria(order_by))
+            .offset(offset)
+            .limit(limit)
+            .subquery()
+        )
+
+        # Build aggregation query with LEFT JOINs to include podcasts without episodes.
         statement = (
             select(
                 Podcast,
@@ -403,24 +420,12 @@ class PodcastRepository(BaseRepository[Podcast]):
                 func.max(Episode.published_at).label("last_published_at"),
                 func.max(Episode.created_at).label("last_created_at"),
             )
+            .join(page, Podcast.id == page.c.id)
             .outerjoin(Episode, Podcast.id == Episode.podcast_id)
             .outerjoin(File, Episode.audio_id == File.id)
             .group_by(Podcast.id)
-            .offset(offset)
-            .limit(limit)
+            .order_by(self._sort_criteria(order_by))
         )
-
-        # Apply filters similar to _prepare_statement logic
-        filters_stmts: list[BinaryExpression[bool]] = []
-        if (ids := filters_dict.pop("ids", None)) and isinstance(ids, list):
-            filters_stmts.append(Podcast.id.in_(ids))
-
-        filters_dict |= self._get_owner_kwarg()
-        statement = statement.filter_by(**filters_dict)
-        if filters_stmts:
-            statement = statement.filter(*filters_stmts)
-
-        statement = statement.order_by(self._sort_criteria(order_by))
 
         result = await self.session.execute(statement)
         rows = result.all()

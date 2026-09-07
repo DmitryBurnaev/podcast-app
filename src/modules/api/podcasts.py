@@ -14,7 +14,6 @@ from src.modules.db import User
 from src.modules.db.models import File
 from src.modules.db.models.podcasts import Podcast
 from src.modules.db.repositories import EpisodeRepository, FileRepository, PodcastOrderT
-from src.modules.services.storage import StorageS3
 from src.modules.tasks import GenerateRSSTask
 from src.modules.tasks.base import RQTask
 from src.modules.utils.processing import get_file_size, save_uploaded_file
@@ -27,8 +26,9 @@ from src.modules.schemas.podcasts import (
 )
 from src.modules.api.base import BaseApiController
 from src.modules.db.repositories import PodcastRepository
-from src.modules.db.services import SASessionUOW
-from src.settings.app import get_app_settings
+from src.providers import Storage
+from src.modules.schemas.statistics import PodcastStatistics
+from src.settings.app import AppSettings
 
 logger = logging.getLogger(__name__)
 
@@ -40,11 +40,12 @@ class PodcastAPIController(BaseApiController):
     @post("/", status_code=HTTP_201_CREATED)
     async def create(
         self,
+        request: Request,
         data: PodcastCreateRequest,
         current_user: User,
     ) -> PodcastResponse:
         """Create a podcast for the current user."""
-        async with SASessionUOW() as uow:
+        async with _get_uow(request) as uow:
             podcast_repository = PodcastRepository(session=uow.session)
             podcast = await podcast_repository.create(
                 publish_id=Podcast.generate_publish_id(),
@@ -54,20 +55,24 @@ class PodcastAPIController(BaseApiController):
                 owner_id=current_user.id,
             )
             await uow.flush()
-            created_podcast = await podcast_repository.get_first_with_aggregations(
-                ids=[podcast.id],
-                owner_id=current_user.id,
-            )
+            uow.mark_for_commit()
 
-        if not created_podcast:
-            raise NotFoundException("Podcast was not created")
-
-        logger.info("[API] Created podcast #%i | user #%i", created_podcast.id, current_user.id)
-        return PodcastResponse.model_validate(created_podcast)
+        logger.info("[API] Created podcast #%i | user #%i", podcast.id, current_user.id)
+        return PodcastResponse(
+            id=podcast.id,
+            name=podcast.name,
+            description=podcast.description,
+            created_at=podcast.created_at,
+            image_url=None,
+            rss_url=None,
+            download_automatically=podcast.download_automatically,
+            stat=PodcastStatistics(),
+        )
 
     @get("/")
     async def get_list(
         self,
+        request: Request,
         current_user: User,
         limit: int = 10,
         offset: int = 0,
@@ -86,7 +91,7 @@ class PodcastAPIController(BaseApiController):
             Paginated list of podcasts
         """
         logger.info("[API] Getting paginated list of podcasts | user #%i", current_user.id)
-        async with SASessionUOW() as uow:
+        async with _get_uow(request) as uow:
             podcast_repository = PodcastRepository(session=uow.session)
             podcasts, total = await podcast_repository.all_with_aggregations(
                 limit=limit,
@@ -108,7 +113,9 @@ class PodcastAPIController(BaseApiController):
         )
 
     @get("/{podcast_id:int}/")
-    async def get_details(self, podcast_id: int, current_user: User) -> PodcastResponse:
+    async def get_details(
+        self, request: Request, podcast_id: int, current_user: User
+    ) -> PodcastResponse:
         """
         Get details of a podcast
 
@@ -119,7 +126,7 @@ class PodcastAPIController(BaseApiController):
         Returns:
             Details of the podcast
         """
-        async with SASessionUOW() as uow:
+        async with _get_uow(request) as uow:
             podcast_repository = PodcastRepository(session=uow.session)
             podcast = await podcast_repository.get_first_with_aggregations(
                 ids=[podcast_id],
@@ -139,13 +146,14 @@ class PodcastAPIController(BaseApiController):
     @patch("/{podcast_id:int}/")
     async def update(
         self,
+        request: Request,
         podcast_id: int,
         data: PodcastUpdateRequest,
         current_user: User,
     ) -> PodcastResponse:
         """Update editable fields for a podcast owned by the current user."""
         update_data = data.model_dump(exclude_unset=True)
-        async with SASessionUOW() as uow:
+        async with _get_uow(request) as uow:
             podcast_repository = PodcastRepository(session=uow.session)
             podcast = await _get_owned_podcast(
                 repository=podcast_repository,
@@ -155,6 +163,7 @@ class PodcastAPIController(BaseApiController):
             if update_data:
                 await podcast_repository.update(podcast, **update_data)
                 await uow.flush()
+                uow.mark_for_commit()
 
             updated_podcast = await podcast_repository.get_first_with_aggregations(
                 ids=[podcast_id],
@@ -168,9 +177,9 @@ class PodcastAPIController(BaseApiController):
         return PodcastResponse.model_validate(updated_podcast)
 
     @delete("/{podcast_id:int}/", status_code=HTTP_204_NO_CONTENT)
-    async def delete(self, podcast_id: int, current_user: User) -> None:
+    async def delete(self, request: Request, podcast_id: int, current_user: User) -> None:
         """Delete a podcast owned by the current user."""
-        async with SASessionUOW() as uow:
+        async with _get_uow(request) as uow:
             podcast_repository = PodcastRepository(session=uow.session)
             episode_repository = EpisodeRepository(session=uow.session)
             podcast = await _get_owned_podcast(
@@ -186,12 +195,14 @@ class PodcastAPIController(BaseApiController):
                 await episode_repository.safe_delete(episode)
 
             await podcast_repository.delete(podcast)
+            uow.mark_for_commit()
 
         logger.info("[API] Deleted podcast #%i | user #%i", podcast_id, current_user.id)
 
     @post("/{podcast_id:int}/upload-image/")
     async def upload_image(
         self,
+        request: Request,
         podcast_id: int,
         data: Annotated[dict[str, UploadFile], Body(media_type=RequestEncodingType.MULTI_PART)],
         current_user: User,
@@ -201,7 +212,7 @@ class PodcastAPIController(BaseApiController):
         if not isinstance(uploaded_file, UploadFile):
             raise HTTPException(status_code=400, detail="Image file is required")
 
-        async with SASessionUOW() as uow:
+        async with _get_uow(request) as uow:
             podcast_repository = PodcastRepository(session=uow.session)
             file_repository = FileRepository(session=uow.session)
             podcast = await _get_owned_podcast(
@@ -212,6 +223,8 @@ class PodcastAPIController(BaseApiController):
             try:
                 remote_path, file_size = await _upload_podcast_image(
                     uploaded_file=uploaded_file,
+                    storage=_get_storage(request),
+                    settings=cast(AppSettings, cast(Any, request.app).settings),
                 )
             except ValueError as exc:
                 raise HTTPException(status_code=400, detail=str(exc)) from exc
@@ -227,6 +240,7 @@ class PodcastAPIController(BaseApiController):
             await uow.flush()
             await podcast_repository.update(podcast, image_id=image_file.id)
             await uow.flush()
+            uow.mark_for_commit()
             updated_podcast = await podcast_repository.get_first_with_aggregations(
                 ids=[podcast_id],
                 owner_id=current_user.id,
@@ -246,7 +260,7 @@ class PodcastAPIController(BaseApiController):
         current_user: User,
     ) -> PodcastTaskResponse:
         """Enqueue RSS generation for a podcast."""
-        async with SASessionUOW() as uow:
+        async with _get_uow(request) as uow:
             podcast_repository = PodcastRepository(session=uow.session)
             await _get_owned_podcast(
                 repository=podcast_repository,
@@ -274,6 +288,14 @@ async def _enqueue_task(
     return job_id
 
 
+def _get_uow(request: Request) -> Any:
+    return cast(Any, request.app).providers.uow_factory()
+
+
+def _get_storage(request: Request) -> Storage:
+    return cast(Any, request.app).providers.make_storage()
+
+
 async def _get_owned_podcast(
     repository: PodcastRepository, podcast_id: int, owner_id: int
 ) -> Podcast:
@@ -284,15 +306,18 @@ async def _get_owned_podcast(
     return podcast
 
 
-async def _upload_podcast_image(uploaded_file: UploadFile) -> tuple[str, int]:
-    settings = get_app_settings()
+async def _upload_podcast_image(
+    uploaded_file: UploadFile,
+    storage: Storage,
+    settings: AppSettings,
+) -> tuple[str, int]:
     local_path = await save_uploaded_file(
         uploaded_file=uploaded_file,
         prefix="podcast_image_",
         max_file_size=settings.max_upload_image_filesize,
         tmp_path=settings.tmp_image_path,
     )
-    remote_path = await StorageS3().upload_file(
+    remote_path = await storage.upload_file(
         local_path,
         dst_path=settings.s3.bucket_podcast_images_path,
     )
