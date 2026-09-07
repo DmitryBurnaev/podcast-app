@@ -41,8 +41,9 @@
 - [x] **P3. Podcasts API на PostgreSQL.** CRUD, ownership, pagination,
   image/RSS и fake side effects; доменный тест повторно зелёный.
 
-- [ ] **P4. Episodes, media и cookies API на PostgreSQL.** URL/upload creation,
-  transitions, delete/cancel/download, cookie conflicts и media failures.
+- [x] **P4. Episodes, media и cookies API на PostgreSQL.** URL/upload creation,
+  transitions, delete/cancel/download, cookie conflicts и media failures через
+  PostgreSQL и stateful queue/Redis/storage/media-source fakes.
 
 - [ ] **P5. Auth, profile и system API на PostgreSQL.** Users/sessions/invites/
   tokens, profile/IP/access-token flows, roles, expiration и fake SMTP/health.
@@ -69,4 +70,5 @@
 | P0 | 2026-09-06 | `pytest --collect-only -q`: 399 collected; API: 110 passed; views: 32 passed; services/tasks: 120 passed | `coverage run -m pytest -q --disable-warnings`: 399 passed; total coverage 79% | `39f0b59` — `[#10] API improvements and fixes: stabilize existing test suite` |
 | P1 | 2026-09-06 | Docker PostgreSQL smoke: 2 passed; повторный `pytest -n 2`: 2 passed | `coverage run -m pytest -q --disable-warnings`: 401 passed, total coverage 80% | `d494bfd` — `[#10] API improvements and fixes: add isolated PostgreSQL test harness` |
 | P2 | 2026-09-06 | `pytest src/tests/test_providers.py src/tests/admin/test_admin.py`: 14 passed; `mypy` providers/app/admin и `ruff` зелёные | Docker: `coverage run -m pytest -q --disable-warnings`: 408 passed, total coverage 80% | `df02774` — `[#10] API improvements and fixes: add typed test providers and service fakes` |
-| P3 | 2026-09-07 | Docker: `pytest src/tests/functional/test_podcasts_api.py`: 6 passed; повторный прогон: 6 passed | Docker: `coverage run -m pytest -q --disable-warnings`: 388 passed, total coverage 81%; `ruff`, `mypy`, `git diff --check` зелёные | подготовлен: `[#10] API improvements and fixes: migrate podcast API tests to PostgreSQL` |
+| P3 | 2026-09-07 | Docker: `pytest src/tests/functional/test_podcasts_api.py`: 6 passed; повторный прогон: 6 passed | Docker: `coverage run -m pytest -q --disable-warnings`: 388 passed, total coverage 81%; `ruff`, `mypy`, `git diff --check` зелёные | `b12b112` — `[#10] API improvements and fixes: migrate podcast API tests to PostgreSQL` |
+| P4 | 2026-09-07 | Docker: `pytest src/tests/functional/test_episode_media_cookie_api.py`: 8 passed; повторный прогон: 8 passed | Docker: `coverage run -m pytest -q --disable-warnings`: 350 passed, total coverage 81%; `ruff`, `mypy`, `git diff --check` зелёные | подготовлен: `[#10] API improvements and fixes: migrate episode media and cookie API tests` |

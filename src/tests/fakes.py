@@ -41,6 +41,7 @@ class SentEmail:
 class FakeTaskQueue(TaskQueue):
     def __init__(self, error: Exception | None = None) -> None:
         self.enqueued: list[EnqueuedTask] = []
+        self.cancelled: list[tuple[type[Any], tuple[Any, ...], dict[str, Any]]] = []
         self.error = error
 
     def enqueue(self, task: Any, *args: Any, **kwargs: Any) -> EnqueuedTask:
@@ -50,15 +51,21 @@ class FakeTaskQueue(TaskQueue):
         self.enqueued.append(entry)
         return entry
 
+    def cancel_task(self, task_class: type[Any], *args: Any, **kwargs: Any) -> None:
+        if self.error is not None:
+            raise self.error
+        self.cancelled.append((task_class, args, kwargs))
+
 
 class FakeStorage(Storage):
-    def __init__(self, error: Exception | None = None) -> None:
+    def __init__(self, error: Exception | None = None, *, return_none: bool = False) -> None:
         self.files: dict[str, bytes] = {}
         self.uploads: list[StoredFile] = []
         self.downloads: list[StoredFile] = []
         self.copies: list[StoredFile] = []
         self.deleted_paths: list[str] = []
         self.error = error
+        self.return_none = return_none
 
     def _raise_if_configured(self) -> None:
         if self.error is not None:
@@ -70,7 +77,7 @@ class FakeStorage(Storage):
         dst_path: str | Path,
         filename: str | None = None,
         callback: Callable[..., Any] | None = None,
-    ) -> str:
+    ) -> str | None:
         self._raise_if_configured()
         source = str(src_path)
         name = filename or Path(source).name
@@ -79,6 +86,8 @@ class FakeStorage(Storage):
         self.uploads.append(StoredFile(source=source, destination=destination))
         if callback is not None:
             callback(0)
+        if self.return_none:
+            return None
         return destination
 
     async def download_file(self, src_path: str | Path, dst_path: str | Path) -> str | None:
@@ -166,8 +175,14 @@ class FakeHTTPClient(HTTPClient):
 
 
 class FakeMediaSource(MediaSource):
-    def __init__(self, results: dict[str, dict[str, Any]] | None = None, error: Exception | None = None) -> None:
+    def __init__(
+        self,
+        results: dict[str, dict[str, Any]] | None = None,
+        error: Exception | None = None,
+        media_info: dict[str, tuple[str, Any]] | None = None,
+    ) -> None:
         self.results = dict(results or {})
+        self.media_info = dict(media_info or {})
         self.extractions: list[tuple[str, bool]] = []
         self.error = error
 
@@ -176,6 +191,13 @@ class FakeMediaSource(MediaSource):
             raise self.error
         self.extractions.append((url, playlist))
         return self.results[url]
+
+    async def get_source_media_info(self, source_info: Any) -> tuple[str, Any]:
+        if self.error is not None:
+            raise self.error
+        url = str(source_info.url)
+        self.extractions.append((url, False))
+        return self.media_info.get(url, ("No configured source media", None))
 
 
 class FakeMediaProcessor(MediaProcessor):

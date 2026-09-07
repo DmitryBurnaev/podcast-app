@@ -49,7 +49,10 @@
 - [x] **P3. Мигрировать Podcasts API на реальную БД.** CRUD, ownership,
   pagination, image/RSS и fake side effects через class-based fakes. Проверки:
   два domain-прогона по 6 passed; полный набор 388 passed, coverage 81%.
-- [ ] **P4. Мигрировать Episodes, media и cookies API на реальную БД.**
+- [x] **P4. Мигрировать Episodes, media и cookies API на реальную БД.** URL и
+  uploaded creation, ownership, update/delete/download/cancel, cookies и media
+  uploads проверяются через PostgreSQL и class-based queue/Redis/storage/media fakes.
+  Проверки: два доменных прогона по 8 passed; полный набор 350 passed, coverage 81%.
 - [ ] **P5. Мигрировать Auth, profile и system API на реальную БД.**
 - [ ] **P6. Полностью покрыть HTML views.** Template/context, auth, ownership,
   errors и episodes views без HTML snapshots.

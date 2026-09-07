@@ -118,7 +118,7 @@ class File(BaseModel):
             MediaType.IMAGE: f"/m/{self.access_token}/",
             MediaType.AUDIO: f"/m/{self.access_token}/",
         }
-        return urllib.parse.urljoin(app_settings.service_url, pattern[self.type])
+        return urllib.parse.urljoin(app_settings.service_url, pattern[MediaType(str(self.type).lower())])
 
     async def fetch_presigned_url(self) -> str:
         """Time-limited S3 GET URL; ``path`` is the object key (e.g. ``audio/...``)."""
