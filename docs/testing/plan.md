@@ -53,7 +53,10 @@
   uploaded creation, ownership, update/delete/download/cancel, cookies и media
   uploads проверяются через PostgreSQL и class-based queue/Redis/storage/media fakes.
   Проверки: два доменных прогона по 8 passed; полный набор 350 passed, coverage 81%.
-- [ ] **P5. Мигрировать Auth, profile и system API на реальную БД.**
+- [x] **P5. Мигрировать Auth, profile и system API на реальную БД.** Signup,
+  signin/refresh rotation, profile/IP/access-token lifecycle, admin invites,
+  reset mailer и health проверяются через PostgreSQL и fakes. Проверки: два
+  доменных прогона по 5 passed; полный набор 334 passed, coverage 82%.
 - [ ] **P6. Полностью покрыть HTML views.** Template/context, auth, ownership,
   errors и episodes views без HTML snapshots.
 - [ ] **P7. Расширить SQLAdmin coverage.** Dashboard, роли и custom workflows.

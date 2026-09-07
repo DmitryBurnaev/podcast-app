@@ -45,8 +45,8 @@
   transitions, delete/cancel/download, cookie conflicts и media failures через
   PostgreSQL и stateful queue/Redis/storage/media-source fakes.
 
-- [ ] **P5. Auth, profile и system API на PostgreSQL.** Users/sessions/invites/
-  tokens, profile/IP/access-token flows, roles, expiration и fake SMTP/health.
+- [x] **P5. Auth, profile и system API на PostgreSQL.** Users/sessions/invites/
+  tokens, profile/IP/access-token flows, admin role, refresh rotation и fake SMTP/health.
 
 - [ ] **P6. HTML views.** Template name и полный context без snapshots,
   episodes views, auth/ownership/errors/task effects и route smoke tests.
@@ -72,3 +72,4 @@
 | P2 | 2026-09-06 | `pytest src/tests/test_providers.py src/tests/admin/test_admin.py`: 14 passed; `mypy` providers/app/admin и `ruff` зелёные | Docker: `coverage run -m pytest -q --disable-warnings`: 408 passed, total coverage 80% | `df02774` — `[#10] API improvements and fixes: add typed test providers and service fakes` |
 | P3 | 2026-09-07 | Docker: `pytest src/tests/functional/test_podcasts_api.py`: 6 passed; повторный прогон: 6 passed | Docker: `coverage run -m pytest -q --disable-warnings`: 388 passed, total coverage 81%; `ruff`, `mypy`, `git diff --check` зелёные | `b12b112` — `[#10] API improvements and fixes: migrate podcast API tests to PostgreSQL` |
 | P4 | 2026-09-07 | Docker: `pytest src/tests/functional/test_episode_media_cookie_api.py`: 8 passed; повторный прогон: 8 passed | Docker: `coverage run -m pytest -q --disable-warnings`: 350 passed, total coverage 81%; `ruff`, `mypy`, `git diff --check` зелёные | подготовлен: `[#10] API improvements and fixes: migrate episode media and cookie API tests` |
+| P5 | 2026-09-07 | Docker: `pytest src/tests/functional/test_auth_system_api.py`: 5 passed; повторный прогон: 5 passed | Docker: `coverage run -m pytest -q --disable-warnings`: 334 passed, total coverage 82%; `ruff`, `mypy`, `git diff --check` зелёные | подготовлен: `[#10] API improvements and fixes: migrate auth and system API tests` |

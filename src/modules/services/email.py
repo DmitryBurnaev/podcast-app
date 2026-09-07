@@ -7,6 +7,7 @@ import aiosmtplib
 from src.exceptions import EmailSendingError, ImproperlyConfiguredError
 
 from src.modules.db.models import User
+from src.providers import Mailer
 from src.settings.app import AppSettings, get_app_settings
 from src.utils import get_invites_link
 
@@ -58,6 +59,7 @@ async def send_invitation_email(
     email: str,
     token: str,
     settings: AppSettings,
+    mailer: Mailer | None = None,
 ) -> None:
     if not settings.flags.send_invites:
         logger.debug("Skipping sending invitation email")
@@ -69,21 +71,32 @@ async def send_invitation_email(
         f"<p>Hello! You have been invited to {settings.site_url}</p>"
         f"<p>Please follow the link:</p><p><a href='{link}'>{link}</a></p>"
     )
-    await send_email(
-        recipient_email=email,
-        subject=f"Welcome to {settings.site_url}",
-        html_content=body,
-    )
+    if mailer is None:
+        await send_email(
+            recipient_email=email,
+            subject=f"Welcome to {settings.site_url}",
+            html_content=body,
+        )
+    else:
+        await mailer.send(email, f"Welcome to {settings.site_url}", body)
 
 
-async def send_reset_password_email(user: User, token: str, settings: AppSettings) -> None:
+async def send_reset_password_email(
+    user: User,
+    token: str,
+    settings: AppSettings,
+    mailer: Mailer | None = None,
+) -> None:
     link = f"{settings.site_url.rstrip('/')}/change-password/?t={token}"
     body = (
         f"<p>You can reset your password for {settings.site_url}</p>"
         f"<p>Please follow the link:</p><p><a href='{link}'>{link}</a></p>"
     )
-    await send_email(
-        recipient_email=user.email,
-        subject=f"Welcome back to {settings.site_url}",
-        html_content=body,
-    )
+    if mailer is None:
+        await send_email(
+            recipient_email=user.email,
+            subject=f"Welcome back to {settings.site_url}",
+            html_content=body,
+        )
+    else:
+        await mailer.send(user.email, f"Welcome back to {settings.site_url}", body)

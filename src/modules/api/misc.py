@@ -4,7 +4,7 @@ from functools import partial
 from typing import Any, Iterable, cast
 
 import yt_dlp
-from litestar import get
+from litestar import Request, get
 
 from src.constants import AuthSkip
 from src.modules.api.base import BaseApiController
@@ -13,7 +13,6 @@ from src.modules.db import User
 from src.modules.db.repositories import EpisodeRepository, PodcastRepository
 from src.modules.db.services import SASessionUOW
 from src.modules.db.utils import cookie_file_ctx
-from src.modules.services.redis import check_redis_connection
 from src.modules.utils import common as common_utils
 from src.modules.utils.processing import check_state
 from src.modules.schemas.playlist import PlaylistEntryResponse, PlaylistResponse
@@ -39,9 +38,9 @@ class SystemAPIController(BaseApiController):
         return SystemInfo(status="ok", vendors=[settings.app_version])
 
     @get("/api/system/health/")
-    async def system_health(self) -> HealthCheck:
+    async def system_health(self, request: Request) -> HealthCheck:
         """Run lightweight dependency checks and return health status."""
-        await check_redis_connection()
+        await cast(Any, request.app).providers.check_redis()
         return HealthCheck(status="ok", timestamp=utcnow())
 
 
