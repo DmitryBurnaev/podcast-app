@@ -45,6 +45,7 @@ def podcast_api_client(
         check_redis=lifecycle.check_redis,
         close_redis=lifecycle.close_redis,
         make_task_queue=lambda _: queue,
+        cancel_task=queue.cancel_task,
         make_storage=lambda: storage,
         make_redis=FakeRedis,
         mailer=FakeMailer(),

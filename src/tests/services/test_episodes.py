@@ -4,7 +4,8 @@ from unittest.mock import AsyncMock, Mock
 
 import pytest
 
-from src.constants import FileType, SourceType
+from src.constants import SourceType
+from src.modules.db.models.media import MediaType
 from src.exceptions import SourceFetchError
 from src.modules.db.models.podcasts import EpisodeChapter
 from src.modules.services.episodes import EpisodeCreator
@@ -290,9 +291,9 @@ class TestEpisodeCreatorFiles:
         result = await creator._create_files(same_episode=None, source_info=source_info)
 
         assert result == (audio_file, image_file)
-        assert file_repository.create.await_args_list[0].kwargs["type"] == FileType.IMAGE
+        assert file_repository.create.await_args_list[0].kwargs["type"] == MediaType.IMAGE
         assert file_repository.create.await_args_list[0].kwargs["source_url"] == "https://thumb"
-        assert file_repository.create.await_args_list[1].kwargs["type"] == FileType.AUDIO
+        assert file_repository.create.await_args_list[1].kwargs["type"] == MediaType.AUDIO
         assert file_repository.create.await_args_list[1].kwargs["source_url"] == "https://watch"
 
     async def test_create_files__without_source__fail(self) -> None:

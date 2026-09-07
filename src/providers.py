@@ -77,6 +77,8 @@ class MediaSource(Protocol):
 
     async def extract(self, url: str, *, playlist: bool = False) -> dict[str, Any]: ...
 
+    async def get_source_media_info(self, source_info: Any) -> tuple[str, Any]: ...
+
 
 class MediaProcessor(Protocol):
     """Media-processing boundary (ffmpeg and local metadata tooling)."""
@@ -103,6 +105,7 @@ class AppProviders:
     check_redis: Callable[[], Awaitable[None]]
     close_redis: Callable[[], Awaitable[None]]
     make_task_queue: Callable[[AppSettings], TaskQueue]
+    cancel_task: Callable[..., None]
     make_storage: Callable[[], Storage]
     make_redis: Callable[[], RedisStore]
     mailer: Mailer
@@ -140,11 +143,12 @@ class AppProviders:
                     default_timeout=settings.rq_default_timeout,
                 ),
             ),
+            cancel_task=lambda task_class, *args, **kwargs: task_class.cancel_task(*args, **kwargs),
             make_storage=StorageS3,
             make_redis=RedisClient,
             mailer=_ProductionMailer(),
             http_client=_UnsupportedHTTPClient(),
-            media_source=_UnsupportedMediaSource(),
+            media_source=_ProductionMediaSource(),
             media_processor=_FFmpegProcessor(ffmpeg),
         )
 
@@ -161,9 +165,14 @@ class _UnsupportedHTTPClient:
         raise NotImplementedError("No generic HTTP client is configured for this application.")
 
 
-class _UnsupportedMediaSource:
+class _ProductionMediaSource:
     async def extract(self, url: str, *, playlist: bool = False) -> dict[str, Any]:
-        raise NotImplementedError("Source-media extraction is provided by a dedicated adapter.")
+        raise NotImplementedError("Playlist extraction is provided by a dedicated adapter.")
+
+    async def get_source_media_info(self, source_info: Any) -> tuple[str, Any]:
+        from src.modules.utils.common import get_source_media_info
+
+        return await get_source_media_info(source_info)
 
 
 class _FFmpegProcessor:

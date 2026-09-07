@@ -35,6 +35,7 @@ def fake_providers() -> tuple[AppProviders, FakeLifecycle, FakeTaskQueue]:
         check_redis=lifecycle.check_redis,
         close_redis=lifecycle.close_redis,
         make_task_queue=lambda _: queue,
+        cancel_task=queue.cancel_task,
         make_storage=FakeStorage,
         make_redis=FakeRedis,
         mailer=FakeMailer(),
