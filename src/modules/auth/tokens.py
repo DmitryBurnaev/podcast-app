@@ -1,6 +1,7 @@
 import dataclasses
 import datetime
 import logging
+import uuid
 from enum import StrEnum
 from typing import Any, NamedTuple
 
@@ -54,8 +55,9 @@ class TokenPayload:
     session_id: str | None = None
     token_type: AuthTokenType = AuthTokenType.ACCESS
     exp: datetime.datetime | None = None
+    jti: str = dataclasses.field(default_factory=lambda: uuid.uuid4().hex)
 
-    def as_dict(self) -> dict[str, int | str | None]:
+    def as_dict(self) -> dict[str, int | str | datetime.datetime | None]:
         """Return the JWT-serializable payload dictionary."""
         data = dataclasses.asdict(self)
         data["token_type"] = str(self.token_type)

@@ -1,5 +1,4 @@
 from collections.abc import Generator
-from unittest.mock import AsyncMock
 
 import pytest
 from litestar.middleware import AuthenticationResult
@@ -35,13 +34,6 @@ def auth_required_settings(monkeypatch: pytest.MonkeyPatch) -> AppSettings:
     settings = _make_settings(api_debug_mode=False)
     monkeypatch.setattr("src.main.get_app_settings", lambda: settings)
     return settings
-
-
-@pytest.fixture(autouse=True)
-def mocked_redis_health(monkeypatch: pytest.MonkeyPatch) -> AsyncMock:
-    mocked_check = AsyncMock(return_value=None)
-    monkeypatch.setattr("src.modules.api.misc.check_redis_connection", mocked_check)
-    return mocked_check
 
 
 @pytest.fixture
