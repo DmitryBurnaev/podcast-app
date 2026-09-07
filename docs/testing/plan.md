@@ -46,8 +46,9 @@
   владеет queue и lifecycle DB/Redis/S3; SQLAdmin получает их от app. Добавлены
   Protocol-интерфейсы и stateful fakes storage/Redis/queue/mail/HTTP/media.
   Проверки: 14 профильных и 408 полных passed, coverage 80%.
-- [ ] **P3. Мигрировать Podcasts API на реальную БД.** CRUD, ownership,
-  pagination, image/RSS и fake side effects.
+- [x] **P3. Мигрировать Podcasts API на реальную БД.** CRUD, ownership,
+  pagination, image/RSS и fake side effects через class-based fakes. Проверки:
+  два domain-прогона по 6 passed; полный набор 388 passed, coverage 81%.
 - [ ] **P4. Мигрировать Episodes, media и cookies API на реальную БД.**
 - [ ] **P5. Мигрировать Auth, profile и system API на реальную БД.**
 - [ ] **P6. Полностью покрыть HTML views.** Template/context, auth, ownership,
