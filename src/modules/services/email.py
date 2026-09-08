@@ -6,8 +6,8 @@ import aiosmtplib
 
 from src.exceptions import EmailSendingError, ImproperlyConfiguredError
 
+from src.modules.common.contracts import Mailer
 from src.modules.db.models import User
-from src.providers import Mailer
 from src.settings.app import AppSettings, get_app_settings
 from src.utils import get_invites_link
 

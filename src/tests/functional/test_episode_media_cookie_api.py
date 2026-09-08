@@ -126,7 +126,9 @@ async def _create_episode(
 class TestEpisodeAPI:
     async def test_url_creation_persists_source_episode_and_enqueues_tasks(
         self,
-        episode_api_client: tuple[TestClient[PodcastApp], FakeTaskQueue, FakeStorage, FakeMediaSource],
+        episode_api_client: tuple[
+            TestClient[PodcastApp], FakeTaskQueue, FakeStorage, FakeMediaSource
+        ],
         db_user: User,
         functional_session: AsyncSession,
     ) -> None:
@@ -167,7 +169,9 @@ class TestEpisodeAPI:
 
     async def test_uploaded_creation_is_idempotent_and_persists_audio_and_cover(
         self,
-        episode_api_client: tuple[TestClient[PodcastApp], FakeTaskQueue, FakeStorage, FakeMediaSource],
+        episode_api_client: tuple[
+            TestClient[PodcastApp], FakeTaskQueue, FakeStorage, FakeMediaSource
+        ],
         db_user: User,
         functional_session: AsyncSession,
     ) -> None:
@@ -199,7 +203,9 @@ class TestEpisodeAPI:
 
     async def test_ownership_update_download_and_delete_transitions_are_persisted(
         self,
-        episode_api_client: tuple[TestClient[PodcastApp], FakeTaskQueue, FakeStorage, FakeMediaSource],
+        episode_api_client: tuple[
+            TestClient[PodcastApp], FakeTaskQueue, FakeStorage, FakeMediaSource
+        ],
         db_user: User,
         functional_session: AsyncSession,
     ) -> None:
@@ -218,11 +224,16 @@ class TestEpisodeAPI:
         conflict = client.put(f"/api/episodes/{episode.id}/download/")
 
         assert_error_response(
-            denied, status_code=404, code="NOT_FOUND", message=f"Episode with id {foreign_episode.id} not found"
+            denied,
+            status_code=404,
+            code="NOT_FOUND",
+            message=f"Episode with id {foreign_episode.id} not found",
         )
         assert updated.status_code == 200, updated.text
         assert downloaded.status_code == 200, downloaded.text
-        assert_error_response(conflict, status_code=409, code="CONFLICT", message="Episode is already in progress")
+        assert_error_response(
+            conflict, status_code=409, code="CONFLICT", message="Episode is already in progress"
+        )
         episode_id = episode.id
         functional_session.expire_all()
         persisted = await functional_session.get(Episode, episode_id)
@@ -239,7 +250,9 @@ class TestEpisodeAPI:
 
     async def test_cancel_downloading_persists_transition_and_records_fake_effects(
         self,
-        episode_api_client: tuple[TestClient[PodcastApp], FakeTaskQueue, FakeStorage, FakeMediaSource],
+        episode_api_client: tuple[
+            TestClient[PodcastApp], FakeTaskQueue, FakeStorage, FakeMediaSource
+        ],
         db_user: User,
         functional_session: AsyncSession,
     ) -> None:
@@ -268,7 +281,9 @@ class TestEpisodeAPI:
 class TestCookieAPI:
     async def test_create_list_update_and_delete_persist_cookie_for_owner(
         self,
-        episode_api_client: tuple[TestClient[PodcastApp], FakeTaskQueue, FakeStorage, FakeMediaSource],
+        episode_api_client: tuple[
+            TestClient[PodcastApp], FakeTaskQueue, FakeStorage, FakeMediaSource
+        ],
         functional_session: AsyncSession,
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
@@ -304,7 +319,9 @@ class TestCookieAPI:
 
     async def test_cookie_delete_rejects_linked_episode_and_foreign_cookie(
         self,
-        episode_api_client: tuple[TestClient[PodcastApp], FakeTaskQueue, FakeStorage, FakeMediaSource],
+        episode_api_client: tuple[
+            TestClient[PodcastApp], FakeTaskQueue, FakeStorage, FakeMediaSource
+        ],
         db_user: User,
         functional_session: AsyncSession,
     ) -> None:
@@ -343,7 +360,9 @@ class TestCookieAPI:
 class TestMediaUploadAPI:
     async def test_audio_and_image_uploads_use_fake_storage_and_media_processor(
         self,
-        episode_api_client: tuple[TestClient[PodcastApp], FakeTaskQueue, FakeStorage, FakeMediaSource],
+        episode_api_client: tuple[
+            TestClient[PodcastApp], FakeTaskQueue, FakeStorage, FakeMediaSource
+        ],
     ) -> None:
         client, _, storage, _ = episode_api_client
 

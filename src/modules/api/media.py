@@ -11,7 +11,7 @@ from src.exceptions import InvalidParametersAPIError
 from src.modules.api.base import BaseApiController
 from src.modules.utils.processing import get_file_size, save_uploaded_file
 from src.modules.schemas.media import UploadedAudioData, UploadedImageData
-from src.providers import MediaProcessor, Storage
+from src.modules.common.contracts import MediaProcessor, Storage
 
 
 class MediaUploadAPIController(BaseApiController):

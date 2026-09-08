@@ -205,7 +205,9 @@ class TestMediaFileAdminView:
         fetch_presigned_url = AsyncMock(
             return_value="https://s3.example.test/signed?signature=temporary"
         )
-        monkeypatch.setattr(media_file, "fetch_presigned_url", fetch_presigned_url)
+        monkeypatch.setattr(
+            "src.modules.admin.views.media.get_file_presigned_url", fetch_presigned_url
+        )
         repository = create_autospec(FileRepository, instance=True)
         repository.first.return_value = media_file
         use_file_repository(monkeypatch, repository)
@@ -215,7 +217,7 @@ class TestMediaFileAdminView:
         action_handler = MediaFileAdminView.open_external_file.__wrapped__
         response = await action_handler(view, request)
 
-        fetch_presigned_url.assert_awaited_once_with()
+        fetch_presigned_url.assert_awaited_once_with(media_file)
         repository.first.assert_awaited_once_with(7)
         assert response.status_code == 307
         assert response.headers["location"] == (
