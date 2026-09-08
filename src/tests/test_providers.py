@@ -120,9 +120,18 @@ class TestExternalFakes:
     @pytest.mark.parametrize(
         ("factory", "invoke"),
         [
-            (lambda: FakeTaskQueue(error=RuntimeError("queue unavailable")), lambda fake: fake.enqueue("task")),
-            (lambda: FakeStorage(error=RuntimeError("storage unavailable")), lambda fake: fake.get_presigned_url("file")),
-            (lambda: FakeMailer(error=RuntimeError("mail unavailable")), lambda fake: fake.send("a@test", "s", "b")),
+            (
+                lambda: FakeTaskQueue(error=RuntimeError("queue unavailable")),
+                lambda fake: fake.enqueue("task"),
+            ),
+            (
+                lambda: FakeStorage(error=RuntimeError("storage unavailable")),
+                lambda fake: fake.get_presigned_url("file"),
+            ),
+            (
+                lambda: FakeMailer(error=RuntimeError("mail unavailable")),
+                lambda fake: fake.send("a@test", "s", "b"),
+            ),
         ],
     )
     async def test_fake_can_simulate_external_failure(

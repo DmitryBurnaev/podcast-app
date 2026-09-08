@@ -104,7 +104,9 @@ class TestAuthCoreAPI:
         signed_in = client.post(
             "/api/auth/sign-in/", json={"email": "new@podcast.dev", "password": "new-password"}
         )
-        refreshed = client.post("/api/auth/refresh-token/", json={"refresh_token": signed_in.json()["refresh_token"]})
+        refreshed = client.post(
+            "/api/auth/refresh-token/", json={"refresh_token": signed_in.json()["refresh_token"]}
+        )
 
         assert created.status_code == 201, created.text
         assert signed_in.status_code == 200, signed_in.text
@@ -125,7 +127,9 @@ class TestAuthCoreAPI:
     ) -> None:
         client, mailer, _ = auth_api_client
 
-        response = client.post("/api/auth/reset-password/", json={"email": "functional-user@podcast.dev"})
+        response = client.post(
+            "/api/auth/reset-password/", json={"email": "functional-user@podcast.dev"}
+        )
 
         assert response.status_code == 201 or response.status_code == 200, response.text
         assert response.json() == {"status": "ok"}
@@ -142,7 +146,9 @@ class TestProfileAndTokenAPI:
         client, _, _ = auth_api_client
         profile = client.patch("/api/auth/me/", json={"email": "updated@podcast.dev"})
         me = client.get("/api/auth/me/", headers={"X-Real-IP": "203.0.113.10"})
-        tokens = client.post("/api/auth/access-tokens/", json={"name": "automation", "expires_in_days": 7})
+        tokens = client.post(
+            "/api/auth/access-tokens/", json={"name": "automation", "expires_in_days": 7}
+        )
         token_id = tokens.json()["id"]
         listed = client.get("/api/auth/access-tokens/")
         updated = client.patch(f"/api/auth/access-tokens/{token_id}/", json={"enabled": False})

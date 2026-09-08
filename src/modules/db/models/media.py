@@ -11,7 +11,6 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import expression
 
 from src.constants import StringEnumMixin
-from src.exceptions import NotSupportedError
 from src.modules.auth.hashers import get_random_hash
 from src.modules.db.models import BaseModel
 from src.settings.app import get_app_settings
@@ -118,19 +117,9 @@ class File(BaseModel):
             MediaType.IMAGE: f"/m/{self.access_token}/",
             MediaType.AUDIO: f"/m/{self.access_token}/",
         }
-        return urllib.parse.urljoin(app_settings.service_url, pattern[MediaType(str(self.type).lower())])
-
-    async def fetch_presigned_url(self) -> str:
-        """Time-limited S3 GET URL; ``path`` is the object key (e.g. ``audio/...``)."""
-        if not self.path:
-            raise NotSupportedError(f"File {self} has no S3 key; cannot presign.")
-
-        from src.modules.services.storage import StorageS3
-
-        url = await StorageS3().get_presigned_url(self.path)
-        if not url:
-            raise NotSupportedError(f"Presign failed for path {self.path!r}.")
-        return url
+        return urllib.parse.urljoin(
+            app_settings.service_url, pattern[MediaType(str(self.type).lower())]
+        )
 
     @property
     def content_type(self) -> str:

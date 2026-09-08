@@ -8,6 +8,7 @@ from litestar.testing import TestClient
 
 from src.constants import EpisodeStatus, SourceType
 from src.main import PodcastApp
+from src.modules.api import misc as misc_api
 from src.modules.api.misc import _prepare_description
 from src.modules.db.models import User
 from src.tests.factories import make_episode, make_podcast
@@ -179,9 +180,7 @@ class TestPlaylistAPI:
                 return None
 
             def extract_info(self, url: str, download: bool) -> dict:
-                from src.modules.api.misc import yt_dlp
-
-                raise yt_dlp.utils.DownloadError("download failed")
+                raise misc_api.yt_dlp.utils.DownloadError("download failed")
 
         monkeypatch.setattr("src.modules.api.misc.cookie_file_ctx", cookie_ctx)
         monkeypatch.setattr("src.modules.api.misc.yt_dlp.YoutubeDL", FakeYoutubeDL)

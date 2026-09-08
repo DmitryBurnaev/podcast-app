@@ -15,6 +15,7 @@ from litestar.static_files import StaticFilesConfig
 from litestar.template import TemplateConfig
 
 from src.constants import AuthSkip
+from src.composition import create_production_providers
 from src.exceptions import (
     BaseApplicationError,
     StartupError,
@@ -25,6 +26,7 @@ from src.exceptions import (
 )
 from src.modules.admin.app import make_admin
 from src.modules.auth.middlewares import APIAuthMiddleware, WebAuthMiddleware
+from src.modules.common.contracts import TaskQueue
 from src.modules.api import BaseApiController
 from src.modules.api.errors import (
     api_error_handler,
@@ -35,7 +37,7 @@ from src.modules.api.errors import (
 )
 from src.modules.views.base import BaseViewController, PodcastOpenAPIController
 from src.settings.app import APP_DIR, AppSettings, get_app_settings
-from src.providers import AppProviders, TaskQueue
+from src.providers import AppProviders
 
 logger = logging.getLogger("app")
 
@@ -77,7 +79,9 @@ async def lifespan(
 ) -> AsyncGenerator[None, Any]:
     """Application lifespan context manager for startup and shutdown events."""
     logger.info("Starting up %s...", start_msg_suffix or "PodcastApp")
-    app_providers = providers or (app.providers if app is not None else AppProviders.from_production())
+    app_providers = providers or (
+        app.providers if app is not None else create_production_providers()
+    )
     db_startup_check = (
         app_providers.initialize_database
         if db_start_mode is DbStartMode.INIT
@@ -139,7 +143,7 @@ def make_app(
 ) -> PodcastApp:
     """Forming Application instance with required settings and dependencies"""
     app_settings: AppSettings = settings or get_app_settings()
-    app_providers = providers or AppProviders.from_production()
+    app_providers = providers or create_production_providers()
 
     def provide_settings(_: Any) -> AppSettings:
         return app_settings

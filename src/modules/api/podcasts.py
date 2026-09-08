@@ -26,7 +26,7 @@ from src.modules.schemas.podcasts import (
 )
 from src.modules.api.base import BaseApiController
 from src.modules.db.repositories import PodcastRepository
-from src.providers import Storage
+from src.modules.common.contracts import Storage
 from src.modules.schemas.statistics import PodcastStatistics
 from src.settings.app import AppSettings
 

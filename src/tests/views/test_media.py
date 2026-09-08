@@ -22,7 +22,6 @@ def _mock_media_file(
         id=1,
         type=media_type,
         available=available,
-        fetch_presigned_url=AsyncMock(return_value=presigned_url),
     )
 
 
@@ -57,6 +56,8 @@ class TestMediaByTokenController:
     ) -> None:
         media_file = _mock_media_file(media_type=media_type)
         repository = _mock_file_repository(monkeypatch, media_file)
+        fetch_presigned_url = AsyncMock(return_value="https://storage/presigned")
+        monkeypatch.setattr("src.modules.views.media.get_file_presigned_url", fetch_presigned_url)
         controller = _controller()
 
         result = await _get_private_media(controller, "token")
@@ -65,7 +66,7 @@ class TestMediaByTokenController:
         assert result.status_code == HTTP_307_TEMPORARY_REDIRECT
         assert result.url == "https://storage/presigned"
         repository.first_by_access_token.assert_awaited_once_with("token")
-        media_file.fetch_presigned_url.assert_awaited_once()
+        fetch_presigned_url.assert_awaited_once_with(media_file)
 
     async def test_get_rss_media__redirects_allowed_media(
         self,
@@ -73,6 +74,8 @@ class TestMediaByTokenController:
     ) -> None:
         media_file = _mock_media_file(media_type=MediaType.RSS)
         repository = _mock_file_repository(monkeypatch, media_file)
+        fetch_presigned_url = AsyncMock(return_value="https://storage/presigned")
+        monkeypatch.setattr("src.modules.views.media.get_file_presigned_url", fetch_presigned_url)
         controller = _controller()
 
         result = await _get_rss_media(controller, "token")
@@ -81,7 +84,7 @@ class TestMediaByTokenController:
         assert result.status_code == HTTP_307_TEMPORARY_REDIRECT
         assert result.url == "https://storage/presigned"
         repository.first_by_access_token.assert_awaited_once_with("token")
-        media_file.fetch_presigned_url.assert_awaited_once()
+        fetch_presigned_url.assert_awaited_once_with(media_file)
 
     @pytest.mark.parametrize("access_token", ["", "x" * 129])
     async def test_redirect_presigned__invalid_token__fail(
@@ -121,11 +124,12 @@ class TestMediaByTokenController:
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         media_file = _mock_media_file()
-        media_file.fetch_presigned_url.side_effect = NotSupportedError("no path")
+        fetch_presigned_url = AsyncMock(side_effect=NotSupportedError("no path"))
+        monkeypatch.setattr("src.modules.views.media.get_file_presigned_url", fetch_presigned_url)
         _mock_file_repository(monkeypatch, media_file)
         controller = _controller()
 
         with pytest.raises(NotFoundException, match="Media not found"):
             await _get_private_media(controller, "token")
 
-        media_file.fetch_presigned_url.assert_awaited_once()
+        fetch_presigned_url.assert_awaited_once_with(media_file)

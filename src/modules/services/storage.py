@@ -15,7 +15,7 @@ import aioboto3
 import botocore.exceptions
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.exceptions import StorageConfigurationError
+from src.exceptions import NotSupportedError, StorageConfigurationError
 from src.modules.db.models import File
 from src.modules.db.repositories import FileRepository
 from src.modules.db.services import SASessionUOW
@@ -110,6 +110,12 @@ class StorageCleanupBackend(Protocol):
     async def delete_file_result(self, *, dst_path: str) -> StorageDeleteResult: ...
 
 
+class PresignedURLStorage(Protocol):
+    """Storage boundary required to generate a temporary read URL."""
+
+    async def get_presigned_url(self, remote_path: str) -> str: ...
+
+
 class CleanupUnitOfWork(Protocol):
     """Transaction boundary required by the cleanup service."""
 
@@ -142,6 +148,20 @@ def validate_s3_settings(s3_settings: S3Settings) -> None:
         if not s3_settings.bucket_name:
             missing.append("S3_BUCKET_NAME")
         raise StorageConfigurationError(details=f"Missing S3 settings: {', '.join(missing)}")
+
+
+async def get_file_presigned_url(
+    file: File,
+    storage: PresignedURLStorage | None = None,
+) -> str:
+    """Generate a temporary read URL without coupling the ORM model to S3."""
+    if not file.path:
+        raise NotSupportedError(f"File {file} has no S3 key; cannot presign.")
+
+    url = await (storage or StorageS3()).get_presigned_url(file.path)
+    if not url:
+        raise NotSupportedError(f"Presign failed for path {file.path!r}.")
+    return url
 
 
 class StorageS3:

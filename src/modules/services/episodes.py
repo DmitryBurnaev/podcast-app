@@ -17,7 +17,7 @@ from src.modules.db.utils import cookie_file_ctx
 from src.modules.utils import common as common_utils
 from src.modules.utils.common import SourceInfo, SourceConfig, SOURCE_CFG_MAP, SourceMediaInfo
 from src.settings.app import AppSettings, get_app_settings
-from src.providers import MediaSource
+from src.modules.common.contracts import MediaSource
 
 logger = logging.getLogger(__name__)
 __all__ = ("EpisodeCreator",)
@@ -145,7 +145,9 @@ class EpisodeCreator:
             self.source_info.proxy_url = source_config.proxy_url
             media_source = getattr(self, "media_source", None)
             if media_source is None:
-                extract_error, source_info = await common_utils.get_source_media_info(self.source_info)
+                extract_error, source_info = await common_utils.get_source_media_info(
+                    self.source_info
+                )
             else:
                 extract_error, source_info = await media_source.get_source_media_info(
                     self.source_info

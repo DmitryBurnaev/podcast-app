@@ -6,13 +6,16 @@ import botocore.exceptions
 import pytest
 from pydantic import SecretStr, ValidationError
 
-from src.exceptions import StorageConfigurationError
+from src.exceptions import NotSupportedError, StorageConfigurationError
 from src.modules.services.storage import (
     StorageDeleteStatus,
     StorageS3,
+    get_file_presigned_url,
     validate_s3_settings,
 )
 from src.settings.db import S3Settings
+from src.tests.factories import make_file
+from src.tests.fakes import FakeStorage
 
 
 class TestStorageSettings:
@@ -53,6 +56,19 @@ class TestStorageSettings:
 
 
 class TestStorageS3Operations:
+    async def test_get_file_presigned_url__uses_injected_storage(self) -> None:
+        file = make_file(path="audio/episode.mp3")
+        storage = FakeStorage()
+
+        result = await get_file_presigned_url(file, storage)
+
+        assert result == "fake-storage://audio/episode.mp3"
+        assert storage.presigned_paths == ["audio/episode.mp3"]
+
+    async def test_get_file_presigned_url__empty_path__fail(self) -> None:
+        with pytest.raises(NotSupportedError, match="has no S3 key"):
+            await get_file_presigned_url(make_file(path=""), FakeStorage())
+
     async def test_upload_file__ok(self, tmp_path: Path) -> None:
         storage, s3 = _make_storage()
         src_path = tmp_path / "audio.mp3"

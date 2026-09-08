@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from src.providers import (
+from src.modules.common.contracts import (
     HTTPClient,
     Mailer,
     MediaProcessor,
@@ -64,6 +64,7 @@ class FakeStorage(Storage):
         self.downloads: list[StoredFile] = []
         self.copies: list[StoredFile] = []
         self.deleted_paths: list[str] = []
+        self.presigned_paths: list[str] = []
         self.error = error
         self.return_none = return_none
 
@@ -113,11 +114,14 @@ class FakeStorage(Storage):
 
     async def get_presigned_url(self, remote_path: str) -> str:
         self._raise_if_configured()
+        self.presigned_paths.append(remote_path)
         return f"fake-storage://{remote_path}"
 
 
 class FakeRedis(RedisStore):
-    def __init__(self, content: dict[str, Any] | None = None, error: Exception | None = None) -> None:
+    def __init__(
+        self, content: dict[str, Any] | None = None, error: Exception | None = None
+    ) -> None:
         self.content = dict(content or {})
         self.set_calls: list[tuple[str, Any, int]] = []
         self.published: list[tuple[str, str]] = []
@@ -162,7 +166,9 @@ class FakeMailer(Mailer):
 
 
 class FakeHTTPClient(HTTPClient):
-    def __init__(self, responses: dict[str, bytes] | None = None, error: Exception | None = None) -> None:
+    def __init__(
+        self, responses: dict[str, bytes] | None = None, error: Exception | None = None
+    ) -> None:
         self.responses = dict(responses or {})
         self.requested_urls: list[str] = []
         self.error = error
@@ -201,7 +207,9 @@ class FakeMediaSource(MediaSource):
 
 
 class FakeMediaProcessor(MediaProcessor):
-    def __init__(self, metadata: Any = None, cover: Any = None, error: Exception | None = None) -> None:
+    def __init__(
+        self, metadata: Any = None, cover: Any = None, error: Exception | None = None
+    ) -> None:
         self.metadata = metadata
         self.cover = cover
         self.metadata_paths: list[str] = []

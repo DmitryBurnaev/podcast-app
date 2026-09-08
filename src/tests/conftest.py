@@ -47,9 +47,7 @@ def app(
     current_user: User,
     monkeypatch: pytest.MonkeyPatch,
 ) -> PodcastApp:
-    async def authenticate_as_current_user(
-        _: object, __: object
-    ) -> AuthenticationResult:
+    async def authenticate_as_current_user(_: object, __: object) -> AuthenticationResult:
         return AuthenticationResult(user=current_user, auth=None)
 
     monkeypatch.setattr(

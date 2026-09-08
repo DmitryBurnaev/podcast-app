@@ -11,6 +11,7 @@ from src.exceptions import NotSupportedError
 from src.modules.db import SASessionUOW
 from src.modules.db.models.media import MediaType
 from src.modules.db.repositories import FileRepository
+from src.modules.services.storage import get_file_presigned_url
 from src.modules.views.base import BaseViewController
 
 logger = logging.getLogger(__name__)
@@ -62,7 +63,7 @@ class MediaByTokenController(BaseViewController):
                 raise NotFoundException("Media not found")
 
         try:
-            url = await media_file.fetch_presigned_url()
+            url = await get_file_presigned_url(media_file)
         except NotSupportedError as exc:
             logger.warning(
                 "[media_token] presign failed file_id=%s type=%s: %s",

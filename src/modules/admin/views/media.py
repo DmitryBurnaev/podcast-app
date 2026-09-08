@@ -23,6 +23,7 @@ from src.modules.services.storage import (
     FileCleanupBatchResult,
     FileCleanupStatus,
     FileStorageCleanupService,
+    get_file_presigned_url,
 )
 from src.settings.app import get_app_settings
 
@@ -203,7 +204,7 @@ class MediaFileAdminView(BaseModelView, model=File):
             return RedirectResponse(url=url, status_code=302)
 
         try:
-            presigned_url = await media_file.fetch_presigned_url()
+            presigned_url = await get_file_presigned_url(media_file)
         except Exception as exc:
             register_error_alert("External file preview failed", str(exc), request=request)
             url = request.url_for("admin:edit", identity=self.identity, pk=file_id)
