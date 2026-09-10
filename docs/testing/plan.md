@@ -1,6 +1,6 @@
 # План миграции тестов
 
-Статус актуален на 2026-09-06. Этот документ является живым: после завершения
+Статус актуален на 2026-09-10. Этот документ является живым: после завершения
 этапа меняется его отметка, фиксируются проверки и commit. Полный baseline и
 рабочий журнал этапов находятся в `.ai/plans/`.
 
@@ -42,10 +42,9 @@
 
 ## Дальнейшие этапы
 
-- [x] **P2. Ввести тестируемые providers и class-based fakes.** `AppProviders`
-  владеет queue и lifecycle DB/Redis/S3; SQLAdmin получает их от app. Добавлены
-  Protocol-интерфейсы и stateful fakes storage/Redis/queue/mail/HTTP/media.
-  Проверки: 14 профильных и 408 полных passed, coverage 80%.
+- [x] **P2. Ввести тестируемые providers и class-based fakes (superseded).**
+  Исторический этап дал stateful fakes, но app-level `AppProviders` и
+  composition root оказались избыточными и заменяются этапом P2R.
 - [x] **P3. Мигрировать Podcasts API на реальную БД.** CRUD, ownership,
   pagination, image/RSS и fake side effects через class-based fakes. Проверки:
   два domain-прогона по 6 passed; полный набор 388 passed, coverage 81%.
@@ -57,6 +56,11 @@
   signin/refresh rotation, profile/IP/access-token lifecycle, admin invites,
   reset mailer и health проверяются через PostgreSQL и fakes. Проверки: два
   доменных прогона по 5 passed; полный набор 334 passed, coverage 82%.
+- [x] **P2R. Убрать app-level providers.** Production-код снова напрямую
+  собирает реальные зависимости; PostgreSQL остаётся реальной, а RQ/S3/Redis/
+  SMTP/media подменяются function-scoped BaseMock/monkeypatch fixtures.
+  Проверки: 343 passed, coverage 82%; повторный изолированный и xdist-прогоны —
+  по 322 passed; `ruff`, `mypy`, `git diff --check` зелёные.
 - [ ] **P6. Полностью покрыть HTML views.** Template/context, auth, ownership,
   errors и episodes views без HTML snapshots.
 - [ ] **P7. Расширить SQLAdmin coverage.** Dashboard, роли и custom workflows.
@@ -65,6 +69,6 @@
 
 ## Порядок выполнения
 
-D0 → P0 → P1 → P2 обязательны для появления первого эталонного functional test.
-P3–P5 идут доменами API, затем P6–P8 закрывают HTML/admin и изолированный
-слой. P9 включается после стабилизации всех ключевых доменов.
+D0 → P0 → P1 → P2 дали первый эталонный functional test; после P3–P5 выполняется
+P2R, заменяющий app-level DI на тестовые monkeypatch-границы. Затем P6–P8
+закрывают HTML/admin и изолированный слой, P9 включает финальные CI gates.

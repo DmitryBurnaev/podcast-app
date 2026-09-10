@@ -1,7 +1,5 @@
 from typing import Annotated
 
-from typing import Any, cast
-
 from litestar import Request, delete, get, post, put
 from litestar.datastructures import UploadFile
 from litestar.enums import RequestEncodingType
@@ -24,9 +22,9 @@ class CookieAPIController(BaseApiController):
     tags = ["Cookies"]
 
     @get("/")
-    async def get_list(self, request: Request, current_user: User) -> list[CookieResponse]:
+    async def get_list(self, current_user: User) -> list[CookieResponse]:
         """Return the latest cookie for each source type owned by the current user."""
-        async with _get_uow(request) as uow:
+        async with SASessionUOW() as uow:
             cookie_repository = CookieRepository(uow.session, user_id=current_user.id)
             # TODO: paginate response
             cookies = await cookie_repository.all()
@@ -43,13 +41,12 @@ class CookieAPIController(BaseApiController):
     @post("/", status_code=HTTP_201_CREATED)
     async def create(
         self,
-        request: Request,
         current_user: User,
         data: Annotated[dict[str, object], Body(media_type=RequestEncodingType.MULTI_PART)],
     ) -> CookieResponse:
         """Create an encrypted cookie file record."""
         source_type, encrypted_data = await self._parse_cookie_form(data)
-        async with _get_uow(request) as uow:
+        async with SASessionUOW() as uow:
             cookie = await CookieRepository(uow.session, user_id=current_user.id).create(
                 source_type=source_type,
                 data=encrypted_data,
@@ -62,11 +59,9 @@ class CookieAPIController(BaseApiController):
         return CookieResponse.model_validate(cookie)
 
     @get("/{cookie_id:int}/")
-    async def get_details(
-        self, cookie_id: int, request: Request, current_user: User
-    ) -> CookieResponse:
+    async def get_details(self, cookie_id: int, current_user: User) -> CookieResponse:
         """Return details for a cookie owned by the current user."""
-        async with _get_uow(request) as uow:
+        async with SASessionUOW() as uow:
             cookie_repository = CookieRepository(uow.session, user_id=current_user.id)
             cookie = await cookie_repository.first(id=cookie_id)
 
@@ -84,7 +79,7 @@ class CookieAPIController(BaseApiController):
     ) -> CookieResponse:
         """Replace an encrypted cookie file record."""
         source_type, encrypted_data = await self._parse_cookie_form(data)
-        async with _get_uow(request) as uow:
+        async with SASessionUOW() as uow:
             cookie_repository = CookieRepository(uow.session, user_id=request.user.id)
             cookie = await cookie_repository.first(id=cookie_id, owner_id=request.user.id)
             if cookie is None:
@@ -104,7 +99,7 @@ class CookieAPIController(BaseApiController):
     @delete("/{cookie_id:int}/", status_code=HTTP_204_NO_CONTENT)
     async def delete(self, cookie_id: int, request: Request) -> None:
         """Delete a cookie owned by the current user."""
-        async with _get_uow(request) as uow:
+        async with SASessionUOW() as uow:
             cookie_repository = CookieRepository(uow.session, user_id=request.user.id)
             cookie = await cookie_repository.first(id=cookie_id)
             if cookie is None:
@@ -146,7 +141,3 @@ class CookieAPIController(BaseApiController):
             raise InvalidParametersAPIError(details={"file": str(exc)}) from exc
 
         return source_type, Cookie.get_encrypted_data(file_content)
-
-
-def _get_uow(request: Request) -> SASessionUOW:
-    return cast(Any, request.app).providers.uow_factory()

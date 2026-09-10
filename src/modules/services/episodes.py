@@ -17,7 +17,6 @@ from src.modules.db.utils import cookie_file_ctx
 from src.modules.utils import common as common_utils
 from src.modules.utils.common import SourceInfo, SourceConfig, SOURCE_CFG_MAP, SourceMediaInfo
 from src.settings.app import AppSettings, get_app_settings
-from src.modules.common.contracts import MediaSource
 
 logger = logging.getLogger(__name__)
 __all__ = ("EpisodeCreator",)
@@ -54,24 +53,18 @@ class EpisodeCreator:
     source_info: SourceInfo
     source_id: str
 
-    def __init__(
-        self,
-        db_session: AsyncSession,
-        user_id: int,
-        media_source: MediaSource | None = None,
-    ):
+    def __init__(self, db_session: AsyncSession, user_id: int):
         self.db_session: AsyncSession = db_session
         self.user_id: int = user_id
         self.settings: AppSettings = get_app_settings()
         self.episode_repository: EpisodeRepository = EpisodeRepository(db_session)
         self.podcast_repository: PodcastRepository = PodcastRepository(db_session)
-        self.media_source = media_source
 
     async def create(self, podcast_id: int, source_url: str) -> Episode:
         """
         Allows to create new or return exists episode for current podcast
 
-        :raise: `modules.providers.exceptions.SourceFetchError`
+        :raise: `src.exceptions.SourceFetchError`
         :return: New <Episode> object
         """
         self.podcast_id: int = podcast_id
@@ -143,15 +136,7 @@ class EpisodeCreator:
             source_config: SourceConfig = SOURCE_CFG_MAP[self.source_info.type]
             self.source_info.cookie_path = cookie.file_path if cookie else None
             self.source_info.proxy_url = source_config.proxy_url
-            media_source = getattr(self, "media_source", None)
-            if media_source is None:
-                extract_error, source_info = await common_utils.get_source_media_info(
-                    self.source_info
-                )
-            else:
-                extract_error, source_info = await media_source.get_source_media_info(
-                    self.source_info
-                )
+            extract_error, source_info = await common_utils.get_source_media_info(self.source_info)
 
         if source_info:
             chapters = None

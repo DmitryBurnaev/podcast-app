@@ -6,22 +6,15 @@ import pytest
 from litestar.middleware import AuthenticationResult
 from litestar.testing import TestClient
 from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.main import PodcastApp, make_app
 from src.modules.db.models import Podcast, User, UserInvite, UserSession
 from src.modules.db.models.users import UserAccessToken, UserIP
-from src.modules.db.services import SASessionUOW
-from src.providers import AppProviders
 from src.tests.conftest import _make_settings
 from src.tests.fakes import (
-    FakeHTTPClient,
     FakeLifecycle,
     FakeMailer,
-    FakeMediaProcessor,
-    FakeMediaSource,
-    FakeRedis,
-    FakeStorage,
     FakeTaskQueue,
 )
 from src.tests.helpers import assert_error_response
@@ -31,34 +24,15 @@ from src.utils import utcnow
 @pytest.fixture
 def auth_api_client(
     db_user: User,
-    functional_session_factory: async_sessionmaker[AsyncSession],
+    mocked_app_lifecycle: FakeLifecycle,
+    mocked_rq_queue: FakeTaskQueue,
+    mocked_mailer: FakeMailer,
     monkeypatch: pytest.MonkeyPatch,
 ) -> Generator[tuple[TestClient[PodcastApp], FakeMailer, FakeLifecycle], None, None]:
     """Return an app using isolated PostgreSQL and its class-based external fakes."""
-    lifecycle = FakeLifecycle()
-    mailer = FakeMailer()
-    queue = FakeTaskQueue()
     settings = _make_settings(api_debug_mode=True)
     settings.flags.send_invites = True
     db_user.is_superuser = True
-    providers = AppProviders(
-        initialize_database=lifecycle.initialize_database,
-        verify_database=lifecycle.verify_database,
-        close_database=lifecycle.close_database,
-        session_factory=lambda: functional_session_factory,
-        uow_factory=lambda: SASessionUOW(session_factory=functional_session_factory),
-        validate_storage_settings=lambda _: None,
-        check_redis=lifecycle.check_redis,
-        close_redis=lifecycle.close_redis,
-        make_task_queue=lambda _: queue,
-        cancel_task=queue.cancel_task,
-        make_storage=FakeStorage,
-        make_redis=FakeRedis,
-        mailer=mailer,
-        http_client=FakeHTTPClient(),
-        media_source=FakeMediaSource(),
-        media_processor=FakeMediaProcessor(),
-    )
 
     async def authenticate_as_db_user(_: object, __: object) -> AuthenticationResult:
         return AuthenticationResult(user=db_user, auth={"session_id": None})
@@ -67,10 +41,14 @@ def auth_api_client(
         "src.modules.auth.middlewares.APIAuthMiddleware.authenticate_request",
         authenticate_as_db_user,
     )
+    monkeypatch.setattr(
+        "src.modules.api.misc.check_redis_connection",
+        mocked_app_lifecycle.check_redis,
+    )
     with TestClient(
-        app=make_app(settings=settings, providers=providers), raise_server_exceptions=False
+        app=make_app(settings=settings), raise_server_exceptions=False
     ) as client:
-        yield client, mailer, lifecycle
+        yield client, mocked_mailer, mocked_app_lifecycle
 
 
 class TestAuthCoreAPI:

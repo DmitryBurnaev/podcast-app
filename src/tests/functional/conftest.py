@@ -24,6 +24,7 @@ from sqlalchemy.ext.asyncio import (
 )
 from sqlalchemy.pool import NullPool
 
+from src.modules.db import session as db_session
 from src.modules.db.models import BaseModel, Podcast, User
 from src.modules.db.repositories import UserRepository
 from src.modules.db.services import SASessionUOW
@@ -108,6 +109,19 @@ def functional_session_factory(
     functional_engine: AsyncEngine,
 ) -> async_sessionmaker[AsyncSession]:
     return async_sessionmaker(functional_engine, expire_on_commit=False)
+
+
+@pytest.fixture(autouse=True)
+def use_functional_session_factory(
+    functional_session_factory: async_sessionmaker[AsyncSession],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Route every production-created UOW to the isolated functional database."""
+    monkeypatch.setattr(
+        db_session,
+        "get_session_factory",
+        lambda: functional_session_factory,
+    )
 
 
 async def _truncate_all_tables(engine: AsyncEngine) -> None:

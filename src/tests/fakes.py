@@ -5,17 +5,13 @@ from __future__ import annotations
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, ClassVar
 
-from src.modules.common.contracts import (
-    HTTPClient,
-    Mailer,
-    MediaProcessor,
-    MediaSource,
-    RedisStore,
-    Storage,
-    TaskQueue,
-)
+import rq
+
+from src.modules.services.redis import RedisClient
+from src.modules.services.storage import StorageS3
+from src.tests.mocks import BaseMock
 
 
 @dataclass(frozen=True, slots=True)
@@ -38,8 +34,12 @@ class SentEmail:
     html_content: str
 
 
-class FakeTaskQueue(TaskQueue):
+class FakeTaskQueue(BaseMock):
+    target_class: ClassVar[type[Any]] = rq.Queue
+    mocked_methods = ("enqueue",)
+
     def __init__(self, error: Exception | None = None) -> None:
+        super().__init__()
         self.enqueued: list[EnqueuedTask] = []
         self.cancelled: list[tuple[type[Any], tuple[Any, ...], dict[str, Any]]] = []
         self.error = error
@@ -57,8 +57,18 @@ class FakeTaskQueue(TaskQueue):
         self.cancelled.append((task_class, args, kwargs))
 
 
-class FakeStorage(Storage):
+class FakeStorage(BaseMock):
+    target_class: ClassVar[type[Any]] = StorageS3
+    mocked_methods = (
+        "upload_file",
+        "download_file",
+        "copy_file",
+        "delete_file",
+        "get_presigned_url",
+    )
+
     def __init__(self, error: Exception | None = None, *, return_none: bool = False) -> None:
+        super().__init__()
         self.files: dict[str, bytes] = {}
         self.uploads: list[StoredFile] = []
         self.downloads: list[StoredFile] = []
@@ -118,10 +128,21 @@ class FakeStorage(Storage):
         return f"fake-storage://{remote_path}"
 
 
-class FakeRedis(RedisStore):
+class FakeRedis(BaseMock):
+    target_class: ClassVar[type[Any]] = RedisClient
+    mocked_methods = (
+        "get",
+        "set",
+        "publish",
+        "async_get",
+        "async_set",
+        "async_publish",
+    )
+
     def __init__(
         self, content: dict[str, Any] | None = None, error: Exception | None = None
     ) -> None:
+        super().__init__()
         self.content = dict(content or {})
         self.set_calls: list[tuple[str, Any, int]] = []
         self.published: list[tuple[str, str]] = []
@@ -154,7 +175,7 @@ class FakeRedis(RedisStore):
         self.publish(channel, message)
 
 
-class FakeMailer(Mailer):
+class FakeMailer:
     def __init__(self, error: Exception | None = None) -> None:
         self.sent: list[SentEmail] = []
         self.error = error
@@ -165,22 +186,7 @@ class FakeMailer(Mailer):
         self.sent.append(SentEmail(recipient_email, subject, html_content))
 
 
-class FakeHTTPClient(HTTPClient):
-    def __init__(
-        self, responses: dict[str, bytes] | None = None, error: Exception | None = None
-    ) -> None:
-        self.responses = dict(responses or {})
-        self.requested_urls: list[str] = []
-        self.error = error
-
-    async def get(self, url: str) -> bytes:
-        if self.error is not None:
-            raise self.error
-        self.requested_urls.append(url)
-        return self.responses[url]
-
-
-class FakeMediaSource(MediaSource):
+class FakeMediaSource:
     def __init__(
         self,
         results: dict[str, dict[str, Any]] | None = None,
@@ -206,7 +212,7 @@ class FakeMediaSource(MediaSource):
         return self.media_info.get(url, ("No configured source media", None))
 
 
-class FakeMediaProcessor(MediaProcessor):
+class FakeMediaProcessor:
     def __init__(
         self, metadata: Any = None, cover: Any = None, error: Exception | None = None
     ) -> None:

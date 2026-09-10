@@ -1,5 +1,4 @@
 import logging
-from collections.abc import Callable
 from types import TracebackType
 from typing import Self, TypeVar
 
@@ -41,7 +40,6 @@ class SASessionUOW:
     def __init__(
         self,
         session: AsyncSession | None = None,
-        session_factory: Callable[[], AsyncSession] | None = None,
     ) -> None:
         """
         Initialize UOW with optional session.
@@ -52,12 +50,9 @@ class SASessionUOW:
         """
         self.__need_to_commit: bool = False
         self.__owns_session: bool = False
-        if session is not None and session_factory is not None:
-            raise ValueError("Specify either session or session_factory, not both.")
-
         if session is None:
             # Standalone mode: create new session
-            factory = session_factory or db_session.get_session_factory()
+            factory = db_session.get_session_factory()
             self.__session: AsyncSession = factory()
             self.__owns_session = True
         else:

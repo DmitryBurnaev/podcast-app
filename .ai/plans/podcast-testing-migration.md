@@ -1,6 +1,6 @@
 # Поэтапная миграция тестов
 
-Статус актуален на 2026-09-06. Этот файл — рабочий журнал миграции;
+Статус актуален на 2026-09-10. Этот файл — рабочий журнал миграции;
 канонический краткий план поддерживается в `docs/testing/plan.md`.
 
 ## Условные обозначения
@@ -34,9 +34,8 @@
   `TEST_DB_NAME`, отдельная БД на worker, migrations, очистка таблиц и typed
   entity fixtures; последовательный и xdist-запуски проверены.
 
-- [x] **P2. Providers и class-based fakes.** `AppProviders` в `make_app()`,
-  production adapters и function-scoped stateful storage/Redis/queue/mail/HTTP/
-  media fakes с contract tests; admin использует providers приложения.
+- [x] **P2. Providers и class-based fakes (superseded).** Исторический этап
+  добавил stateful fakes; app-level container и adapters заменяются P2R.
 
 - [x] **P3. Podcasts API на PostgreSQL.** CRUD, ownership, pagination,
   image/RSS и fake side effects; доменный тест повторно зелёный.
@@ -47,6 +46,10 @@
 
 - [x] **P5. Auth, profile и system API на PostgreSQL.** Users/sessions/invites/
   tokens, profile/IP/access-token flows, admin role, refresh rotation и fake SMTP/health.
+
+- [x] **P2R. Удаление app-level providers.** `make_app()` и production-код
+  напрямую используют реальные constructors/functions; тестовая БД выбирается
+  патчем session factory, внешние границы — BaseMock/monkeypatch fixtures.
 
 - [ ] **P6. HTML views.** Template name и полный context без snapshots,
   episodes views, auth/ownership/errors/task effects и route smoke tests.
@@ -73,3 +76,4 @@
 | P3 | 2026-09-07 | Docker: `pytest src/tests/functional/test_podcasts_api.py`: 6 passed; повторный прогон: 6 passed | Docker: `coverage run -m pytest -q --disable-warnings`: 388 passed, total coverage 81%; `ruff`, `mypy`, `git diff --check` зелёные | `b12b112` — `[#10] API improvements and fixes: migrate podcast API tests to PostgreSQL` |
 | P4 | 2026-09-07 | Docker: `pytest src/tests/functional/test_episode_media_cookie_api.py`: 8 passed; повторный прогон: 8 passed | Docker: `coverage run -m pytest -q --disable-warnings`: 350 passed, total coverage 81%; `ruff`, `mypy`, `git diff --check` зелёные | подготовлен: `[#10] API improvements and fixes: migrate episode media and cookie API tests` |
 | P5 | 2026-09-07 | Docker: `pytest src/tests/functional/test_auth_system_api.py`: 5 passed; повторный прогон: 5 passed | Docker: `coverage run -m pytest -q --disable-warnings`: 334 passed, total coverage 82%; `ruff`, `mypy`, `git diff --check` зелёные | подготовлен: `[#10] API improvements and fixes: migrate auth and system API tests` |
+| P2R | 2026-09-10 | `test_mocks.py`: 14 passed; без functional: 322 passed, повторно 322 passed; `pytest -n 2`: 322 passed | PostgreSQL/full coverage: 343 passed, 82%; `ruff`, `mypy`, `git diff --check` и структурный поиск зелёные | — |

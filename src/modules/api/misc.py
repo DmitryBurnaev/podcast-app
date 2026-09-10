@@ -4,7 +4,7 @@ from functools import partial
 from typing import Any, Iterable, cast
 
 import yt_dlp
-from litestar import Request, get
+from litestar import get
 
 from src.constants import AuthSkip
 from src.modules.api.base import BaseApiController
@@ -22,6 +22,7 @@ from src.modules.schemas.progress import (
     ProgressPodcastResponse,
 )
 from src.modules.schemas.system import HealthCheck, SystemInfo
+from src.modules.services.redis import check_redis_connection
 from src.settings.app import AppSettings
 from src.utils import cut_string, utcnow
 
@@ -38,9 +39,9 @@ class SystemAPIController(BaseApiController):
         return SystemInfo(status="ok", vendors=[settings.app_version])
 
     @get("/api/system/health/")
-    async def system_health(self, request: Request) -> HealthCheck:
+    async def system_health(self) -> HealthCheck:
         """Run lightweight dependency checks and return health status."""
-        await cast(Any, request.app).providers.check_redis()
+        await check_redis_connection()
         return HealthCheck(status="ok", timestamp=utcnow())
 
 
