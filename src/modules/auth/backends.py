@@ -2,7 +2,7 @@ import abc
 import uuid
 import logging
 from datetime import datetime
-from typing import NamedTuple, cast
+from typing import NamedTuple
 
 from jwt import InvalidTokenError, ExpiredSignatureError
 from litestar.connection import ASGIConnection
@@ -70,14 +70,6 @@ class BaseAuthBackend(abc.ABC):
         self.request: ASGIConnection = request
         self.settings: AppSettings = settings or get_app_settings()
         self.header_keyword: str = header_keyword if header_keyword else self.keyword
-
-    def _uow(self) -> SASessionUOW:
-        """Return the request application's transaction factory when available."""
-        app = getattr(self.request, "app", None)
-        providers = getattr(app, "providers", None)
-        if providers is not None:
-            return cast(SASessionUOW, providers.uow_factory())
-        return SASessionUOW()
 
     @abc.abstractmethod
     async def authenticate(self) -> AuthenticatedUserResult:
@@ -147,7 +139,7 @@ class BaseAuthBackend(abc.ABC):
         token_type: AuthTokenType = AuthTokenType.COOKIE,
     ) -> AuthenticatedUserResult:
         """Authenticate a JWT held by an adapter-specific session store."""
-        async with self._uow() as uow:
+        async with SASessionUOW() as uow:
             return await self._authenticate_user(token, uow.session, token_type)
 
     async def _authenticate_credentials(
@@ -161,7 +153,7 @@ class BaseAuthBackend(abc.ABC):
         if not email or not password:
             raise AuthCredentialsInvalidError("Email or password is required.")
 
-        async with self._uow() as uow:
+        async with SASessionUOW() as uow:
             user = await UserRepository(uow.session).get_by_email(email)
 
         if user is None or not user.is_active:
@@ -186,7 +178,7 @@ class BaseAuthBackend(abc.ABC):
             expires_in=expires_in,
         )
         now = utcnow()
-        async with self._uow() as uow:
+        async with SASessionUOW() as uow:
             await UserSessionRepository(uow.session).create(
                 public_id=session_id,
                 user_id=user.id,
@@ -205,7 +197,7 @@ class BaseAuthBackend(abc.ABC):
         except AuthCredentialsInvalidError, SignatureExpiredError:
             return
 
-        async with self._uow() as uow:
+        async with SASessionUOW() as uow:
             await UserSessionRepository(uow.session).deactivate_by_public_id(session_id)
 
     def _decode_jwt(self, token: str, token_type: AuthTokenType) -> ByTokenData:
@@ -286,7 +278,7 @@ class BaseAuthBackend(abc.ABC):
         _user: User = user or request.user
         hashed_address = hash_string(address or settings.default_request_user_ip)
         try:
-            async with self._uow() as uow:
+            async with SASessionUOW() as uow:
                 repository = UserIPRepository(uow.session)
                 await repository.get_or_create(
                     index_fields=["user_id", "hashed_address"],
@@ -321,7 +313,7 @@ class APIAuthBackend(BaseAuthBackend):
         if auth[0] != self.header_keyword:
             raise AuthCredentialsInvalidError("Invalid token header. Keyword mismatch.")
 
-        async with self._uow() as uow:
+        async with SASessionUOW() as uow:
             auth_result = await self._authenticate_user(jwt_token=auth[1], db_session=uow.session)
 
         return auth_result
@@ -330,7 +322,7 @@ class APIAuthBackend(BaseAuthBackend):
         """Logout the user by deactivating the session."""
         session_id: str | None = (self.request.auth or {}).get("session_id")
         if session_id is not None:
-            async with self._uow() as uow:
+            async with SASessionUOW() as uow:
                 session_repo = UserSessionRepository(uow.session)
                 await session_repo.deactivate_by_public_id(session_id)
 
@@ -341,7 +333,7 @@ class APIAuthBackend(BaseAuthBackend):
         :param password: the password of the user
         :return: the success login data
         """
-        async with self._uow() as uow:
+        async with SASessionUOW() as uow:
             user_repo = UserRepository(uow.session)
             user = await user_repo.get_by_email(email)
 
@@ -368,7 +360,7 @@ class APIAuthBackend(BaseAuthBackend):
             session_id=auth.session.public_id,
             settings=self.settings,
         )
-        async with self._uow() as uow:
+        async with SASessionUOW() as uow:
             session_repo = UserSessionRepository(uow.session)
             user_session = await session_repo.get(auth.session.id)
             await session_repo.update(
@@ -389,7 +381,7 @@ class APIAuthBackend(BaseAuthBackend):
         """
         session_id = str(uuid.uuid4())
         tokens = issue_token_pair(user_id=user.id, session_id=session_id, settings=self.settings)
-        async with self._uow() as uow:
+        async with SASessionUOW() as uow:
             session_repo = UserSessionRepository(uow.session)
             await session_repo.create(
                 public_id=session_id,
@@ -416,7 +408,7 @@ class APIAuthBackend(BaseAuthBackend):
             settings=self.settings,
         )
 
-        async with self._uow() as uow:
+        async with SASessionUOW() as uow:
             session_repo = UserSessionRepository(uow.session)
             pair = await session_repo.get_active_with_user(payload["session_id"])
             if pair is None:
@@ -450,7 +442,7 @@ class WebAuthBackend(BaseAuthBackend):
         if not cookie_jwt:
             raise AuthMissingCredentialsError("Missing token from session cookie")
 
-        async with self._uow() as uow:
+        async with SASessionUOW() as uow:
             auth_result = await self._authenticate_user(
                 jwt_token=cookie_jwt,
                 db_session=uow.session,

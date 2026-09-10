@@ -7,7 +7,7 @@ import pytest
 from litestar.middleware import AuthenticationResult
 from litestar.testing import TestClient
 from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.constants import SourceType
 from src.main import PodcastApp, make_app
@@ -15,14 +15,10 @@ from src.modules.db.models import Episode, File, Podcast, User
 from src.modules.db.models.media import MediaType
 from src.modules.db.models.podcasts import EpisodeStatus
 from src.modules.db.models.podcasts import Cookie
-from src.modules.db.services import SASessionUOW
 from src.modules.utils.common import SourceMediaInfo
-from src.providers import AppProviders
 from src.tests.conftest import _make_settings
 from src.tests.fakes import (
-    FakeHTTPClient,
     FakeLifecycle,
-    FakeMailer,
     FakeMediaProcessor,
     FakeMediaSource,
     FakeRedis,
@@ -41,35 +37,18 @@ class AudioMetadata(NamedTuple):
 @pytest.fixture
 def episode_api_client(
     db_user: User,
-    functional_session_factory: async_sessionmaker[AsyncSession],
+    mocked_app_lifecycle: FakeLifecycle,
+    mocked_rq_queue: FakeTaskQueue,
+    mocked_storage: FakeStorage,
+    mocked_redis: FakeRedis,
+    mocked_media_source: FakeMediaSource,
+    mocked_media_processor: FakeMediaProcessor,
     monkeypatch: pytest.MonkeyPatch,
 ) -> Generator[
     tuple[TestClient[PodcastApp], FakeTaskQueue, FakeStorage, FakeMediaSource], None, None
 ]:
     """Build an app whose API works against isolated PostgreSQL and stateful fakes."""
-    lifecycle = FakeLifecycle()
-    queue = FakeTaskQueue()
-    storage = FakeStorage()
-    source = FakeMediaSource()
-    redis = FakeRedis()
-    providers = AppProviders(
-        initialize_database=lifecycle.initialize_database,
-        verify_database=lifecycle.verify_database,
-        close_database=lifecycle.close_database,
-        session_factory=lambda: functional_session_factory,
-        uow_factory=lambda: SASessionUOW(session_factory=functional_session_factory),
-        validate_storage_settings=lambda _: None,
-        check_redis=lifecycle.check_redis,
-        close_redis=lifecycle.close_redis,
-        make_task_queue=lambda _: queue,
-        cancel_task=queue.cancel_task,
-        make_storage=lambda: storage,
-        make_redis=lambda: redis,
-        mailer=FakeMailer(),
-        http_client=FakeHTTPClient(),
-        media_source=source,
-        media_processor=FakeMediaProcessor(metadata=AudioMetadata(duration=42, title="Upload")),
-    )
+    mocked_media_processor.metadata = AudioMetadata(duration=42, title="Upload")
 
     async def authenticate_as_db_user(_: object, __: object) -> AuthenticationResult:
         return AuthenticationResult(user=db_user, auth=None)
@@ -78,9 +57,9 @@ def episode_api_client(
         "src.modules.auth.middlewares.APIAuthMiddleware.authenticate_request",
         authenticate_as_db_user,
     )
-    app = make_app(settings=_make_settings(api_debug_mode=True), providers=providers)
+    app = make_app(settings=_make_settings(api_debug_mode=True))
     with TestClient(app=app, raise_server_exceptions=False) as client:
-        yield client, queue, storage, source
+        yield client, mocked_rq_queue, mocked_storage, mocked_media_source
 
 
 async def _create_podcast(session: AsyncSession, user: User, *, automatic: bool = False) -> Podcast:
@@ -255,6 +234,7 @@ class TestEpisodeAPI:
         ],
         db_user: User,
         functional_session: AsyncSession,
+        mocked_redis: FakeRedis,
     ) -> None:
         client, queue, _, _ = episode_api_client
         podcast = await _create_podcast(functional_session, db_user)
@@ -270,9 +250,7 @@ class TestEpisodeAPI:
             "DownloadEpisodeTask",
             "DownloadEpisodeImageTask",
         ]
-        redis = client.app.providers.make_redis()
-        assert isinstance(redis, FakeRedis)
-        assert len(redis.published) == 1
+        assert len(mocked_redis.published) == 1
         functional_session.expire_all()
         persisted = await functional_session.get(Episode, episode_id)
         assert persisted is not None and persisted.status == EpisodeStatus.CANCELING
@@ -384,29 +362,14 @@ class TestMediaUploadAPI:
     async def test_upload_failure_is_reported_without_external_storage(
         self,
         db_user: User,
-        functional_session_factory: async_sessionmaker[AsyncSession],
+        mocked_app_lifecycle: FakeLifecycle,
+        mocked_rq_queue: FakeTaskQueue,
+        mocked_storage: FakeStorage,
+        mocked_media_processor: FakeMediaProcessor,
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
-        lifecycle = FakeLifecycle()
-        storage = FakeStorage(return_none=True)
-        providers = AppProviders(
-            initialize_database=lifecycle.initialize_database,
-            verify_database=lifecycle.verify_database,
-            close_database=lifecycle.close_database,
-            session_factory=lambda: functional_session_factory,
-            uow_factory=lambda: SASessionUOW(session_factory=functional_session_factory),
-            validate_storage_settings=lambda _: None,
-            check_redis=lifecycle.check_redis,
-            close_redis=lifecycle.close_redis,
-            make_task_queue=FakeTaskQueue,
-            cancel_task=lambda task_class, *args, **kwargs: task_class.cancel_task(*args, **kwargs),
-            make_storage=lambda: storage,
-            make_redis=FakeRedis,
-            mailer=FakeMailer(),
-            http_client=FakeHTTPClient(),
-            media_source=FakeMediaSource(),
-            media_processor=FakeMediaProcessor(metadata=AudioMetadata(duration=1)),
-        )
+        mocked_storage.return_none = True
+        mocked_media_processor.metadata = AudioMetadata(duration=1)
 
         async def authenticate_as_db_user(_: object, __: object) -> AuthenticationResult:
             return AuthenticationResult(user=db_user, auth=None)
@@ -416,7 +379,7 @@ class TestMediaUploadAPI:
             authenticate_as_db_user,
         )
         with TestClient(
-            app=make_app(settings=_make_settings(api_debug_mode=True), providers=providers),
+            app=make_app(settings=_make_settings(api_debug_mode=True)),
             raise_server_exceptions=False,
         ) as client:
             response = client.post(

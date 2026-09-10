@@ -5,20 +5,13 @@ from collections.abc import Generator
 import pytest
 from litestar.middleware import AuthenticationResult
 from litestar.testing import TestClient
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.main import PodcastApp, make_app
 from src.modules.db.models import File, Podcast, User
-from src.modules.db.services import SASessionUOW
-from src.providers import AppProviders
 from src.tests.conftest import _make_settings
 from src.tests.fakes import (
-    FakeHTTPClient,
     FakeLifecycle,
-    FakeMailer,
-    FakeMediaProcessor,
-    FakeMediaSource,
-    FakeRedis,
     FakeStorage,
     FakeTaskQueue,
 )
@@ -28,31 +21,12 @@ from src.tests.helpers import assert_error_response
 @pytest.fixture
 def podcast_api_client(
     db_user: User,
-    functional_session_factory: async_sessionmaker[AsyncSession],
+    mocked_app_lifecycle: FakeLifecycle,
+    mocked_rq_queue: FakeTaskQueue,
+    mocked_storage: FakeStorage,
     monkeypatch: pytest.MonkeyPatch,
 ) -> Generator[tuple[TestClient[PodcastApp], FakeStorage, FakeTaskQueue], None, None]:
     """Build a fresh app whose Podcast API uses real PostgreSQL UoWs."""
-    lifecycle = FakeLifecycle()
-    storage = FakeStorage()
-    queue = FakeTaskQueue()
-    providers = AppProviders(
-        initialize_database=lifecycle.initialize_database,
-        verify_database=lifecycle.verify_database,
-        close_database=lifecycle.close_database,
-        session_factory=lambda: functional_session_factory,
-        uow_factory=lambda: SASessionUOW(session_factory=functional_session_factory),
-        validate_storage_settings=lambda _: None,
-        check_redis=lifecycle.check_redis,
-        close_redis=lifecycle.close_redis,
-        make_task_queue=lambda _: queue,
-        cancel_task=queue.cancel_task,
-        make_storage=lambda: storage,
-        make_redis=FakeRedis,
-        mailer=FakeMailer(),
-        http_client=FakeHTTPClient(),
-        media_source=FakeMediaSource(),
-        media_processor=FakeMediaProcessor(),
-    )
 
     async def authenticate_as_db_user(_: object, __: object) -> AuthenticationResult:
         return AuthenticationResult(user=db_user, auth=None)
@@ -61,9 +35,9 @@ def podcast_api_client(
         "src.modules.auth.middlewares.APIAuthMiddleware.authenticate_request",
         authenticate_as_db_user,
     )
-    app = make_app(settings=_make_settings(api_debug_mode=True), providers=providers)
+    app = make_app(settings=_make_settings(api_debug_mode=True))
     with TestClient(app=app, raise_server_exceptions=False) as client:
-        yield client, storage, queue
+        yield client, mocked_storage, mocked_rq_queue
 
 
 async def _create_podcast(session: AsyncSession, user: User, name: str) -> Podcast:

@@ -8,12 +8,14 @@ from src.constants import EpisodeStatus, FileType
 from src.modules.tasks.base import TaskResultCode
 from src.modules.tasks.rss import GenerateRSSTask
 from src.tests.factories import make_episode, make_file, make_podcast
+from src.tests.fakes import FakeStorage
 from src.tests.mocks import MockSession, MockStorageS3
 
 
 class TestGenerateRSSTaskRun:
     async def test_run__filters_requested_podcasts_and_returns_error_on_any_failure(
         self,
+        mocked_storage: FakeStorage,
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         podcasts = [make_podcast(id=1), make_podcast(id=2)]
@@ -39,7 +41,11 @@ class TestGenerateRSSTaskRun:
         assert result == TaskResultCode.ERROR
         podcast_repository.all.assert_awaited_once_with(ids=[1, 2])
 
-    async def test_run__all_generated__success(self, monkeypatch: pytest.MonkeyPatch) -> None:
+    async def test_run__all_generated__success(
+        self,
+        mocked_storage: FakeStorage,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
         podcast_repository = SimpleNamespace(all=AsyncMock(return_value=[make_podcast()]))
         monkeypatch.setattr(
             "src.modules.tasks.rss.PodcastRepository",

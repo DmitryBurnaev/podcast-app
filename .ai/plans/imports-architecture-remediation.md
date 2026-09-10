@@ -1,7 +1,13 @@
 # План: устранение импортов вне заголовка модуля
 
 Дата исследования: 2026-09-07
-Статус: реализация завершена; запуск Ruff/pytest ожидает доступного project runtime
+Статус: первоначальное решение superseded этапом P2R тестовой миграции
+
+После завершения этого этапа выяснилось, что вынесенный application composition
+root и `AppProviders` существуют преимущественно ради тестов и неоправданно
+усложняют production-код. P2R удаляет эти модули и переносит заменяемость во
+function-scoped BaseMock/monkeypatch fixtures, сохраняя module-level imports и
+нейтральные локальные контракты самостоятельных сервисов.
 
 ## Правило
 
@@ -52,10 +58,9 @@ ORM models  <-  storage service / adapter  <-  controllers and admin views
    web/admin callers, сохранив ответы и обработку `NotSupportedError`.
 3. [x] Исправить тестовый fake в `../../src/tests/api/test_misc.py`, добавив module
    alias в заголовок тестового файла.
-4. [~] Включить в Ruff правило `PLC0415` (`import-outside-toplevel`) без
+4. [x] Включить в Ruff правило `PLC0415` (`import-outside-toplevel`) без
    `noqa` или per-file исключений для production-кода. Type-only imports
-   остаются под `TYPE_CHECKING`; фактический запуск Ruff ожидает доступного
-   project runtime.
+   остаются под `TYPE_CHECKING`; `ruff check` повторно прошёл в P2R.
 5. [x] Обновить узкие unit-тесты: web/admin callers проверяют service boundary,
    а storage-service проверяется с injected fake. Перед этим прочитаны
    `../../docs/testing/knowledge-base.md` и `../../docs/testing/plan.md`; этапы миграции
@@ -69,15 +74,13 @@ ORM models  <-  storage service / adapter  <-  controllers and admin views
 - `uv run ruff check src` проходит с включённым `PLC0415` без `noqa`/per-file
   исключений для production-кода.
 - `uv run pytest -q` проходит; дополнительно проверены затронутые view/admin
-  сценарии и factory application providers.
+  сценарии, direct application composition и BaseMock fixtures.
 - В `../../src/modules/db/models` отсутствуют runtime-импорты из
   `src.modules.services`.
 
-## Выполненная проверка и ограничение среды
+## Выполненная проверка
 
 - Поиск вложенных импортов подтверждает, что в `src` остались только imports
   непосредственно в `if TYPE_CHECKING:`.
-- `uv run ruff check …` и профильный `uv run pytest …` не стартовали: binary
-  `/Users/dmitry/work/bin/uv` возвращает `Operation not permitted`; системный
-  Python также требует отсутствующие Xcode Command Line Tools. После
-  восстановления runtime нужно выполнить команды из критериев готовности.
+- P2R: `ruff check` и `mypy .` зелёные; изолированный pytest и xdist smoke —
+  по 322 passed; полный PostgreSQL-прогон — 343 passed, total coverage 82%.

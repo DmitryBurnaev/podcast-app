@@ -1,8 +1,9 @@
 import os
 from hashlib import md5
-from typing import Annotated, Any, cast
+from pathlib import Path
+from typing import Annotated
 
-from litestar import Request, post
+from litestar import post
 from litestar.datastructures import UploadFile
 from litestar.enums import RequestEncodingType
 from litestar.params import Body
@@ -10,8 +11,10 @@ from litestar.params import Body
 from src.exceptions import InvalidParametersAPIError
 from src.modules.api.base import BaseApiController
 from src.modules.utils.processing import get_file_size, save_uploaded_file
+from src.modules.utils import ffmpeg
 from src.modules.schemas.media import UploadedAudioData, UploadedImageData
-from src.modules.common.contracts import MediaProcessor, Storage
+from src.modules.services.storage import StorageS3
+from src.settings.app import get_app_settings
 
 
 class MediaUploadAPIController(BaseApiController):
@@ -21,7 +24,6 @@ class MediaUploadAPIController(BaseApiController):
     @post("/audio/")
     async def upload_audio(
         self,
-        request: Request,
         data: Annotated[dict[str, UploadFile], Body(media_type=RequestEncodingType.MULTI_PART)],
     ) -> UploadedAudioData:
         """Upload an audio file and return its stored metadata."""
@@ -29,22 +31,20 @@ class MediaUploadAPIController(BaseApiController):
         if not uploaded_file.content_type.startswith("audio/"):
             raise InvalidParametersAPIError(details={"file": "File must be audio."})
 
-        settings = cast(Any, request.app).settings
+        settings = get_app_settings()
         local_path = await save_uploaded_file(
             uploaded_file,
             prefix="uploaded_",
             max_file_size=settings.max_upload_audio_filesize,
             tmp_path=settings.tmp_audio_path,
         )
-        media_processor = _get_media_processor(request)
-        storage = _get_storage(request)
-        metadata = media_processor.audio_metadata(local_path)
+        metadata = ffmpeg.audio_metadata(local_path)
         metadata_dict = metadata._asdict()
         uploaded_hash = _hash_upload(
             uploaded_file.filename, get_file_size(local_path), metadata_dict
         )
         remote_name = f"uploaded_{uploaded_hash}{os.path.splitext(uploaded_file.filename)[-1]}"
-        remote_path = await storage.upload_file(
+        remote_path = await StorageS3().upload_file(
             local_path,
             dst_path=settings.s3.bucket_tmp_audio_path,
             filename=remote_name,
@@ -52,7 +52,7 @@ class MediaUploadAPIController(BaseApiController):
         if not remote_path:
             raise InvalidParametersAPIError(details={"file": "Could not upload audio file."})
 
-        cover_data = await _upload_audio_cover(local_path, storage, media_processor, settings)
+        cover_data = await _upload_audio_cover(local_path)
         return UploadedAudioData(
             name=uploaded_file.filename,
             path=remote_path,
@@ -65,7 +65,6 @@ class MediaUploadAPIController(BaseApiController):
     @post("/image/")
     async def upload_image(
         self,
-        request: Request,
         data: Annotated[dict[str, UploadFile], Body(media_type=RequestEncodingType.MULTI_PART)],
     ) -> UploadedImageData:
         """Upload an image file and return its stored metadata."""
@@ -73,7 +72,7 @@ class MediaUploadAPIController(BaseApiController):
         if not uploaded_file.content_type.startswith("image/"):
             raise InvalidParametersAPIError(details={"file": "File must be image."})
 
-        settings = cast(Any, request.app).settings
+        settings = get_app_settings()
         local_path = await save_uploaded_file(
             uploaded_file,
             prefix="uploaded_image_",
@@ -82,7 +81,7 @@ class MediaUploadAPIController(BaseApiController):
         )
         uploaded_hash = _hash_upload(uploaded_file.filename, get_file_size(local_path), None)
         remote_name = f"uploaded_{uploaded_hash}{os.path.splitext(uploaded_file.filename)[-1]}"
-        remote_path = await _get_storage(request).upload_file(
+        remote_path = await StorageS3().upload_file(
             local_path,
             dst_path=settings.s3.bucket_tmp_images_path,
             filename=remote_name,
@@ -90,7 +89,7 @@ class MediaUploadAPIController(BaseApiController):
         if not remote_path:
             raise InvalidParametersAPIError(details={"file": "Could not upload image file."})
 
-        preview_url = await _get_storage(request).get_presigned_url(remote_path)
+        preview_url = await StorageS3().get_presigned_url(remote_path)
         return UploadedImageData(
             name=uploaded_file.filename,
             path=remote_path,
@@ -114,17 +113,13 @@ def _hash_upload(filename: str, filesize: int, metadata: dict | None) -> str:
     return md5(str(data).encode()).hexdigest()
 
 
-async def _upload_audio_cover(
-    audio_path: Any,
-    storage: Storage,
-    media_processor: MediaProcessor,
-    settings: Any,
-) -> UploadedImageData | None:
-    cover = media_processor.audio_cover(audio_path)
+async def _upload_audio_cover(audio_path: Path) -> UploadedImageData | None:
+    settings = get_app_settings()
+    cover = ffmpeg.audio_cover(audio_path)
     if cover is None:
         return None
 
-    remote_path = await storage.upload_file(
+    remote_path = await StorageS3().upload_file(
         cover.path,
         dst_path=settings.s3.bucket_images_path,
         filename=cover.path.name,
@@ -137,13 +132,5 @@ async def _upload_audio_cover(
         path=remote_path,
         hash=cover.hash,
         size=cover.size,
-        preview_url=await storage.get_presigned_url(remote_path),
+        preview_url=await StorageS3().get_presigned_url(remote_path),
     )
-
-
-def _get_storage(request: Request) -> Storage:
-    return cast(Any, request.app).providers.make_storage()
-
-
-def _get_media_processor(request: Request) -> MediaProcessor:
-    return cast(Any, request.app).providers.media_processor

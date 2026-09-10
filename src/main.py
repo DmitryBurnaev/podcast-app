@@ -1,8 +1,10 @@
 import logging
+from collections.abc import Awaitable, Callable
 from contextlib import asynccontextmanager
 from enum import StrEnum
 from typing import Any, AsyncGenerator
 
+import rq
 import uvicorn
 from litestar import Litestar, Request
 from litestar.contrib.jinja import JinjaTemplateEngine
@@ -13,9 +15,9 @@ from litestar.middleware import DefineMiddleware
 from litestar.openapi import OpenAPIConfig
 from litestar.static_files import StaticFilesConfig
 from litestar.template import TemplateConfig
+from redis import Redis
 
 from src.constants import AuthSkip
-from src.composition import create_production_providers
 from src.exceptions import (
     BaseApplicationError,
     StartupError,
@@ -26,7 +28,9 @@ from src.exceptions import (
 )
 from src.modules.admin.app import make_admin
 from src.modules.auth.middlewares import APIAuthMiddleware, WebAuthMiddleware
-from src.modules.common.contracts import TaskQueue
+from src.modules.db import close_database, initialize_database, verify_database_reachable
+from src.modules.services.redis import check_redis_connection, close_async_redis_connection
+from src.modules.services.storage import validate_s3_settings
 from src.modules.api import BaseApiController
 from src.modules.api.errors import (
     api_error_handler,
@@ -37,7 +41,6 @@ from src.modules.api.errors import (
 )
 from src.modules.views.base import BaseViewController, PodcastOpenAPIController
 from src.settings.app import APP_DIR, AppSettings, get_app_settings
-from src.providers import AppProviders
 
 logger = logging.getLogger("app")
 
@@ -49,20 +52,26 @@ class DbStartMode(StrEnum):
     VERIFY = "verify"
 
 
+_DB_STARTUP_CHECKS: dict[DbStartMode, Callable[[], Awaitable[None]]] = {
+    DbStartMode.INIT: initialize_database,
+    DbStartMode.VERIFY: verify_database_reachable,
+}
+
+
 class PodcastApp(Litestar):
     """Podcast application instance"""
 
-    rq_queue: TaskQueue
+    rq_queue: rq.Queue
     settings: AppSettings
-    providers: AppProviders
 
-    def __init__(
-        self, *args: Any, settings: AppSettings, providers: AppProviders, **kwargs: Any
-    ) -> None:
+    def __init__(self, *args: Any, settings: AppSettings, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
         self.settings = settings
-        self.providers = providers
-        self.rq_queue = providers.make_task_queue(settings)
+        self.rq_queue = rq.Queue(
+            name=settings.rq_queue_name,
+            connection=Redis(*settings.redis.connection_tuple),
+            default_timeout=settings.rq_default_timeout,
+        )
 
     def __str__(self) -> str:
         return f"PodcastApp #{id(self)}"
@@ -75,31 +84,23 @@ async def lifespan(
     start_msg_suffix: str = "",
     *,
     db_start_mode: DbStartMode = DbStartMode.INIT,
-    providers: AppProviders | None = None,
 ) -> AsyncGenerator[None, Any]:
     """Application lifespan context manager for startup and shutdown events."""
     logger.info("Starting up %s...", start_msg_suffix or "PodcastApp")
-    app_providers = providers or (
-        app.providers if app is not None else create_production_providers()
-    )
-    db_startup_check = (
-        app_providers.initialize_database
-        if db_start_mode is DbStartMode.INIT
-        else app_providers.verify_database
-    )
+    db_startup_check = _DB_STARTUP_CHECKS[db_start_mode]
     try:
         await db_startup_check()
     except Exception as exc:
         raise StartupError("Failed to initialize DB connection") from exc
 
     try:
-        app_providers.validate_storage_settings(settings.s3)
+        validate_s3_settings(settings.s3)
     except StorageConfigurationError as exc:
         logger.error("Failed to validate S3 settings: %s", exc)
         raise StartupError(details=str(exc.details or exc)) from exc
 
     try:
-        await app_providers.check_redis()
+        await check_redis_connection()
     except Exception as exc:
         raise StartupError("Failed to initialize Redis connection") from exc
 
@@ -115,14 +116,14 @@ async def lifespan(
     logger.info("Shutting down this application...")
     if db_start_mode is DbStartMode.INIT:
         try:
-            await app_providers.close_database()
+            await close_database()
         except Exception as exc:
             logger.error("Error during application shutdown: %r", exc)
         else:
             logger.info("Application shutdown completed successfully")
 
     try:
-        await app_providers.close_redis()
+        await close_async_redis_connection()
     except Exception as exc:
         logger.debug("Async Redis shutdown: %r", exc)
 
@@ -137,13 +138,9 @@ def provide_current_user(request: Request):
     return request.user
 
 
-def make_app(
-    settings: AppSettings | None = None,
-    providers: AppProviders | None = None,
-) -> PodcastApp:
+def make_app(settings: AppSettings | None = None) -> PodcastApp:
     """Forming Application instance with required settings and dependencies"""
     app_settings: AppSettings = settings or get_app_settings()
-    app_providers = providers or create_production_providers()
 
     def provide_settings(_: Any) -> AppSettings:
         return app_settings
@@ -185,7 +182,7 @@ def make_app(
         template_config=TemplateConfig(directory=APP_DIR / "templates", engine=JinjaTemplateEngine),
         static_files_config=[static_file_config],
         openapi_config=openapi_config,
-        lifespan=[lambda app: lifespan(app_settings, app, providers=app_providers)],
+        lifespan=[lambda app: lifespan(app_settings, app)],
         debug=app_settings.flags.debug_mode,
         logging_config=logging_config,
         exception_handlers={
@@ -200,7 +197,6 @@ def make_app(
             "current_user": Provide(provide_current_user, sync_to_thread=False),
         },
         settings=app_settings,
-        providers=app_providers,
     )
     logger.info("Application configured!")
     return podcast_app
