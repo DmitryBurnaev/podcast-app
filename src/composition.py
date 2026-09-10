@@ -72,10 +72,13 @@ def create_production_providers() -> AppProviders:
         close_redis=close_async_redis_connection,
         make_task_queue=lambda settings: cast(
             TaskQueue,
-            rq.Queue(
-                name=settings.rq_queue_name,
-                connection=Redis(*settings.redis.connection_tuple),
-                default_timeout=settings.rq_default_timeout,
+            cast(
+                object,
+                rq.Queue(
+                    name=settings.rq_queue_name,
+                    connection=Redis(*settings.redis.connection_tuple),
+                    default_timeout=settings.rq_default_timeout,
+                ),
             ),
         ),
         cancel_task=lambda task_class, *args, **kwargs: task_class.cancel_task(*args, **kwargs),
