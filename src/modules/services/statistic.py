@@ -2,7 +2,7 @@
 
 from src.modules.schemas.statistics import AppStatistics, PodcastStatistics, RecentActivity
 from src.modules.db.services import SASessionUOW
-from src.modules.db.repositories import EpisodeRepository, PodcastRepository
+from src.modules.db.repositories import EpisodeRepository, OwnerScope, PodcastRepository
 
 __all__ = ("StatisticService",)
 
@@ -15,9 +15,9 @@ class StatisticService:
 
     async def get_app_statistics(self, owner_id: int) -> AppStatistics:
         """Build application-wide statistics (podcasts count, episodes agg, recent activity)."""
-        podcast_repo = PodcastRepository(session=self._uow.session, user_id=owner_id)
-        episode_repo = EpisodeRepository(session=self._uow.session, user_id=owner_id)
-        podcasts = await podcast_repo.all(owner_id=owner_id)
+        podcast_repo = PodcastRepository(session=self._uow.session, scope=OwnerScope(owner_id))
+        episode_repo = EpisodeRepository(session=self._uow.session, scope=OwnerScope(owner_id))
+        podcasts = await podcast_repo.all()
         episodes_agg = await episode_repo.get_aggregated()
 
         last_pub = episodes_agg.last_published_at
@@ -41,7 +41,7 @@ class StatisticService:
 
     async def get_podcast_statistics(self, podcast_id: int, user_id: int) -> PodcastStatistics:
         """Build statistics for a single podcast from its episodes aggregation."""
-        episode_repo = EpisodeRepository(session=self._uow.session, user_id=user_id)
+        episode_repo = EpisodeRepository(session=self._uow.session, scope=OwnerScope(user_id))
         agg = await episode_repo.get_aggregated(podcast_id=podcast_id)
         return PodcastStatistics(
             episodes_count=agg.total_count,

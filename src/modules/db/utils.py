@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.constants import SourceType
 from src.modules.db.models.podcasts import Cookie
-from src.modules.db.repositories import CookieRepository
+from src.modules.db.repositories import CookieRepository, OwnerScope, SystemScope
 from src.modules.utils import processing as processing_utils
 
 logger = logging.getLogger(__name__)
@@ -35,12 +35,13 @@ async def cookie_file_ctx(
         source_type,
         cookie_id,
     )
-    cookie_repository = CookieRepository(db_session)
+    scope = OwnerScope(user_id) if user_id is not None else SystemScope.ALL
+    cookie_repository = CookieRepository(db_session, scope=scope)
     cookie: Cookie | None = None
     if cookie_id:
         cookie = await cookie_repository.get(cookie_id)
     elif user_id and source_type:
-        cookie_filter: dict[str, str | int] = {"source_type": source_type, "owner_id": user_id}
+        cookie_filter: dict[str, str | int] = {"source_type": source_type}
         cookies = await cookie_repository.all(**cookie_filter)
         if cookies:
             cookie = cookies[0]

@@ -8,7 +8,7 @@ from litestar.response import File, Template
 from src.exceptions import NotFoundError
 from src.modules.db import SASessionUOW
 from src.modules.db.models import File as MediaFile
-from src.modules.db.repositories import EpisodeRepository, PodcastRepository
+from src.modules.db.repositories import EpisodeRepository, OwnerScope, PodcastRepository
 from src.modules.services.cover import CoverService
 from src.modules.services.statistic import StatisticService
 from src.modules.views.base import BaseViewController
@@ -23,9 +23,10 @@ class PodcastsController(BaseViewController):
         """Render the podcast list page."""
 
         async with SASessionUOW() as uow:
-            podcast_repository = PodcastRepository(session=uow.session)
-            owner_id = request.user.id
-            podcasts, _ = await podcast_repository.all_with_aggregations(owner_id=owner_id)
+            podcast_repository = PodcastRepository(
+                session=uow.session, scope=OwnerScope(request.user.id)
+            )
+            podcasts, _ = await podcast_repository.all_with_aggregations()
 
         return self.get_response_template(
             template_name="podcasts.html",
@@ -49,8 +50,12 @@ class PodcastsDetailsController(BaseViewController):
         """Get podcast detail page with episodes list"""
 
         async with SASessionUOW() as uow:
-            podcast_repository = PodcastRepository(session=uow.session, user_id=request.user.id)
-            episode_repository = EpisodeRepository(session=uow.session, user_id=request.user.id)
+            podcast_repository = PodcastRepository(
+                session=uow.session, scope=OwnerScope(request.user.id)
+            )
+            episode_repository = EpisodeRepository(
+                session=uow.session, scope=OwnerScope(request.user.id)
+            )
             podcast = await podcast_repository.get(podcast_id)
             episodes, _ = await episode_repository.all_paginated(
                 podcast_id=podcast_id, limit=settings.default_pagination_limit
@@ -83,7 +88,9 @@ class PodcastCoverController(BaseViewController):
         """Return podcast cover image; download from S3 or source_url and cache."""
 
         async with SASessionUOW() as uow:
-            podcast_repository = PodcastRepository(session=uow.session, user_id=request.user.id)
+            podcast_repository = PodcastRepository(
+                session=uow.session, scope=OwnerScope(request.user.id)
+            )
             podcast = await podcast_repository.get(podcast_id)
             if not podcast.image_id or not podcast.image:
                 raise NotFoundError(f"Podcast {podcast_id} has no cover image")

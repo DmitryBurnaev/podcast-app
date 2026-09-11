@@ -13,6 +13,7 @@ from src.modules.db.repositories import (
     FileRepository,
     EpisodeRepository,
     CreateT,
+    SystemScope,
 )
 
 __all__ = ["GenerateRSSTask"]
@@ -30,8 +31,8 @@ class GenerateRSSTask(RQTask):
         """Run process for generation and upload RSS to the cloud (S3)"""
 
         self.storage = StorageS3()
-        self.podcast_repository = PodcastRepository(self.db_session)
-        self.file_repository = FileRepository(self.db_session)
+        self.podcast_repository = PodcastRepository(self.db_session, scope=SystemScope.ALL)
+        self.file_repository = FileRepository(self.db_session, scope=SystemScope.ALL)
 
         filter_kwargs = {"ids": [int(pk) for pk in podcast_ids]} if podcast_ids else {}
         podcasts = await self.podcast_repository.all(**filter_kwargs)
@@ -84,7 +85,7 @@ class GenerateRSSTask(RQTask):
         """Generate rss for Podcast and Episodes marked as "published" """
 
         logger.info("Podcast #%i: RSS generation has been started", podcast.id)
-        episode_repository = EpisodeRepository(self.db_session)
+        episode_repository = EpisodeRepository(self.db_session, scope=SystemScope.ALL)
         episodes = await episode_repository.all(
             podcast_id=podcast.id,
             status=EpisodeStatus.PUBLISHED,

@@ -8,6 +8,7 @@ from src.modules.db.repositories import (
     EpisodeRepository,
     FileRepository,
     PodcastRepository,
+    SystemScope,
     UserRepository,
 )
 
@@ -17,12 +18,12 @@ async def collect_dashboard_stats(
 ) -> dict[str, Any]:
     """Collect aggregate data for the admin dashboard."""
     user_repository = UserRepository(session)
-    episode_repository = EpisodeRepository(session)
+    episode_repository = EpisodeRepository(session, scope=SystemScope.ALL)
     total_users = await user_repository.get_total_count()
     active_users = await user_repository.get_total_count(is_active=True)
-    podcasts = await PodcastRepository(session).get_total_count()
+    podcasts = await PodcastRepository(session, scope=SystemScope.ALL).get_total_count()
     episodes = await episode_repository.get_total_count()
-    media_storage_usage = await FileRepository(session).get_total_size()
+    media_storage_usage = await FileRepository(session, scope=SystemScope.ALL).get_total_size()
     status_counts = await episode_repository.count_by_status()
 
     grouped_by_status = {status.value: 0 for status in EpisodeStatus}

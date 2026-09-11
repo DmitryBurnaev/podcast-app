@@ -13,7 +13,7 @@ from src.constants import EpisodeStatus
 from src.modules import tasks
 from src.modules.db import SASessionUOW
 from src.modules.db.models import File as MediaFile
-from src.modules.db.repositories import EpisodeRepository, PodcastRepository
+from src.modules.db.repositories import EpisodeRepository, OwnerScope, PodcastRepository
 from src.modules.schemas.episodes import EpisodeCreateSchema
 from src.modules.services.cover import CoverService
 from src.modules.services.episodes import EpisodeCreator
@@ -56,7 +56,9 @@ class EpisodesController(BaseViewController):
         )
 
         async with SASessionUOW() as uow:
-            podcast_repository = PodcastRepository(session=uow.session, user_id=request.user.id)
+            podcast_repository = PodcastRepository(
+                session=uow.session, scope=OwnerScope(request.user.id)
+            )
             podcast = await podcast_repository.first(podcast_id)
             if not podcast:
                 raise NotFoundException(f"Podcast with id {podcast_id} not found")
@@ -71,7 +73,7 @@ class EpisodesController(BaseViewController):
                 logger.warning("Episode creation failed: %s", e)
                 raise HTTPException(status_code=500, detail=str(e)) from e
 
-            episode_repository = EpisodeRepository(uow.session)
+            episode_repository = EpisodeRepository(uow.session, scope=OwnerScope(request.user.id))
             if podcast.download_automatically:
                 await episode_repository.update(episode, status=EpisodeStatus.DOWNLOADING)
 
@@ -110,12 +112,16 @@ class EpisodesController(BaseViewController):
             filters["audio__size__lte"] = int(size_max)
 
         async with SASessionUOW() as uow:
-            podcast_repository = PodcastRepository(session=uow.session, user_id=request.user.id)
+            podcast_repository = PodcastRepository(
+                session=uow.session, scope=OwnerScope(request.user.id)
+            )
             podcasts, _ = await podcast_repository.all_paginated(
                 limit=settings.default_pagination_limit,
                 **filters,
             )
-            episodes_repository = EpisodeRepository(session=uow.session, user_id=request.user.id)
+            episodes_repository = EpisodeRepository(
+                session=uow.session, scope=OwnerScope(request.user.id)
+            )
             episodes, _ = await episodes_repository.all_paginated(
                 limit=settings.default_pagination_limit,
                 **filters,
@@ -150,7 +156,9 @@ class EpisodeDetailsController(BaseViewController):
     async def get_detail(self, episode_id: int, request: AppRequest) -> Template:
         """Get episode detail page with edit form"""
         async with SASessionUOW() as uow:
-            episode_repository = EpisodeRepository(session=uow.session, user_id=request.user.id)
+            episode_repository = EpisodeRepository(
+                session=uow.session, scope=OwnerScope(request.user.id)
+            )
             episode = await episode_repository.first(episode_id)
             if not episode:
                 raise NotFoundException(f"Episode with id {episode_id} not found")
@@ -198,7 +206,9 @@ class EpisodeCoverController(BaseViewController):
     async def get_cover(self, episode_id: int, request: AppRequest) -> File:
         """Return episode cover image; download from S3 or source_url and cache."""
         async with SASessionUOW() as uow:
-            episode_repository = EpisodeRepository(session=uow.session, user_id=request.user.id)
+            episode_repository = EpisodeRepository(
+                session=uow.session, scope=OwnerScope(request.user.id)
+            )
             episode = await episode_repository.first(episode_id)
             if not episode:
                 raise NotFoundException(f"Episode with id {episode_id} not found")

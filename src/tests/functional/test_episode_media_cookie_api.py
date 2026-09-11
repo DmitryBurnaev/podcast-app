@@ -103,6 +103,62 @@ async def _create_episode(
 
 
 class TestEpisodeAPI:
+    async def test_url_creation_does_not_reuse_foreign_source_when_extraction_fails(
+        self,
+        episode_api_client: tuple[
+            TestClient[PodcastApp], FakeTaskQueue, FakeStorage, FakeMediaSource
+        ],
+        db_user: User,
+        functional_session: AsyncSession,
+    ) -> None:
+        """A source cached by another owner must not become this user's fallback media."""
+        client, queue, _, source = episode_api_client
+        podcast = await _create_podcast(functional_session, db_user)
+        foreign_user = User(email="other@podcast.dev", password="hashed", is_active=True)
+        functional_session.add(foreign_user)
+        await functional_session.commit()
+        foreign_podcast = await _create_podcast(functional_session, foreign_user)
+        foreign_episode = await _create_episode(
+            functional_session,
+            foreign_user,
+            foreign_podcast,
+            source_type=SourceType.YOUTUBE,
+        )
+        foreign_episode.source_id = "abcDEF12345"
+        foreign_audio = File(
+            type=MediaType.AUDIO,
+            path="audio/foreign.mp3",
+            size=128,
+            owner_id=foreign_user.id,
+            access_token=File.generate_token(),
+        )
+        foreign_image = File(
+            type=MediaType.IMAGE,
+            path="image/foreign.jpg",
+            size=64,
+            owner_id=foreign_user.id,
+            access_token=File.generate_token(),
+        )
+        functional_session.add_all((foreign_audio, foreign_image))
+        await functional_session.flush()
+        foreign_episode.audio_id = foreign_audio.id
+        foreign_episode.image_id = foreign_image.id
+        await functional_session.commit()
+
+        response = client.post(
+            f"/api/podcasts/{podcast.id}/episodes/",
+            json={"sourceURL": "https://www.youtube.com/watch?v=abcDEF12345"},
+        )
+
+        assert response.status_code == 500, response.text
+        assert source.extractions == [("https://www.youtube.com/watch?v=abcDEF12345", False)]
+        assert queue.enqueued == []
+        functional_session.expire_all()
+        episodes = list((await functional_session.scalars(select(Episode))).all())
+        files = list((await functional_session.scalars(select(File))).all())
+        assert [episode.id for episode in episodes] == [foreign_episode.id]
+        assert [file.owner_id for file in files] == [foreign_user.id, foreign_user.id]
+
     async def test_url_creation_persists_source_episode_and_enqueues_tasks(
         self,
         episode_api_client: tuple[

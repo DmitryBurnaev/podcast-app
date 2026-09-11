@@ -6,7 +6,7 @@ from starlette.exceptions import HTTPException
 from starlette.requests import Request
 
 from src.modules.services.email import send_invitation_email
-from src.modules.db.repositories import UserInviteRepository
+from src.modules.db.repositories import SystemScope, UserInviteRepository
 from src.settings.app import get_app_settings
 from src.modules.admin.forms import UserAdminForm, ReadOnlyTextField
 from src.modules.db import SASessionUOW, UserRepository
@@ -128,7 +128,7 @@ class UserInviteAdminView(BaseModelView, model=UserInvite):
         """Create a new invite if email isn't already taken"""
         email = data.get("email", None)
         async with SASessionUOW() as uow:
-            invite_repository = UserInviteRepository(uow.session)
+            invite_repository = UserInviteRepository(uow.session, scope=SystemScope.ALL)
             invite = await invite_repository.first(email=email)
             if invite is not None:
                 raise HTTPException(status_code=400, detail="Email already taken")

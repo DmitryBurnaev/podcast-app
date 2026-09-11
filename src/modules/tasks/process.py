@@ -4,7 +4,7 @@ from pathlib import Path
 
 from src.settings.app import get_app_settings, AppSettings
 from src.modules.db.models import File, Episode
-from src.modules.db.repositories import EpisodeRepository, FileRepository
+from src.modules.db.repositories import EpisodeRepository, FileRepository, SystemScope
 from src.modules.services.storage import StorageS3
 from src.modules.tasks.base import RQTask, TaskResultCode
 from src.modules.utils import ffmpeg
@@ -25,8 +25,8 @@ class BaseEpisodePostProcessTask(RQTask):
     async def run(self, episode_id: int) -> TaskResultCode:
         """Prepare post-processing dependencies and run the episode task."""
         self.storage = StorageS3()
-        self.episode_repository = EpisodeRepository(self.db_session)
-        self.file_repository = FileRepository(self.db_session)
+        self.episode_repository = EpisodeRepository(self.db_session, scope=SystemScope.ALL)
+        self.file_repository = FileRepository(self.db_session, scope=SystemScope.ALL)
 
         try:
             code = await self.perform_run(episode_id)

@@ -17,7 +17,7 @@ from src.modules.admin.utils import (
 )
 from src.modules.db import SASessionUOW
 from src.modules.db.models import File
-from src.modules.db.repositories import FileRepository
+from src.modules.db.repositories import FileRepository, SystemScope
 from src.modules.admin.views.base import BaseModelView
 from src.modules.services.storage import (
     FileCleanupBatchResult,
@@ -105,7 +105,7 @@ class MediaFileAdminView(BaseModelView, model=File):
             return None
 
         async with SASessionUOW() as uow:
-            repository = FileRepository(session=uow.session)
+            repository = FileRepository(session=uow.session, scope=SystemScope.ALL)
             media_file = await repository.first_with_episodes(file_id)
             if media_file is None:
                 return None
@@ -191,7 +191,7 @@ class MediaFileAdminView(BaseModelView, model=File):
             return RedirectResponse(url=url, status_code=302)
 
         async with SASessionUOW() as uow:
-            repository = FileRepository(session=uow.session)
+            repository = FileRepository(session=uow.session, scope=SystemScope.ALL)
             media_file = await repository.first(file_id)
 
         if media_file is None:

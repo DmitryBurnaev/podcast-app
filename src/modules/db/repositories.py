@@ -2,7 +2,9 @@
 
 import logging
 import uuid
-from collections.abc import Collection
+from collections.abc import Collection, Mapping
+from dataclasses import dataclass
+from enum import StrEnum
 from pathlib import Path
 from datetime import UTC, datetime
 from typing import (
@@ -16,6 +18,7 @@ from typing import (
     cast,
     Literal,
     NamedTuple,
+    ClassVar,
 )
 
 from sqlalchemy import (
@@ -58,6 +61,7 @@ logger = logging.getLogger(__name__)
 P = ParamSpec("P")
 RT = TypeVar("RT")
 type FilterT = int | str | bool | datetime | list[dict] | list[int] | None
+type ScopedFilterT = FilterT | dict[str, Any]
 type UpdateT = int | str | datetime | None
 type GetOrCreateT = int | str | bool | datetime | list[dict] | None
 type CreateT = int | str | bool | datetime | dict[str, Any] | list[dict] | list[int] | None
@@ -68,6 +72,22 @@ type PodcastOrderT = Literal["id", "name", "created_at", "updated_at", "-created
 type EpisodeOrderT = Literal[
     "id", "title", "created_at", "updated_at", "-created_at", "-updated_at"
 ]
+
+
+@dataclass(frozen=True, slots=True)
+class OwnerScope:
+    """Restrict a repository to resources owned by one user."""
+
+    user_id: int
+
+
+class SystemScope(StrEnum):
+    """Explicitly allow trusted code to operate across all owners."""
+
+    ALL = "all"
+
+
+type RepositoryScope = OwnerScope | SystemScope
 
 
 class VendorsFilter(TypedDict):
@@ -94,10 +114,23 @@ class BaseRepository(Generic[ModelT]):
     """Base repository interface."""
 
     model: type[ModelT]
+    scope_field: ClassVar[str | None] = None
 
-    def __init__(self, session: AsyncSession, user_id: int | None = None) -> None:
+    def __init__(
+        self,
+        session: AsyncSession,
+        *,
+        scope: RepositoryScope | None = None,
+    ) -> None:
         self.session: AsyncSession = session
-        self.user_id: int | None = user_id
+        if self.scope_field is None:
+            if scope is not None:
+                raise ValueError(f"{self.__class__.__name__} does not support ownership scopes")
+        elif scope is None:
+            raise ValueError(
+                f"{self.__class__.__name__} requires OwnerScope or explicit SystemScope.ALL"
+            )
+        self.scope = scope
 
     async def get(self, instance_id: int, **filters: FilterT) -> ModelT:
         """Selects instance by provided ID"""
@@ -168,21 +201,22 @@ class BaseRepository(Generic[ModelT]):
         objects = await self.session.scalars(
             statement.order_by(oder_by_criteria).offset(offset).limit(limit)
         )
-        total: int = await self.get_total_count(**filters | self._get_owner_kwarg())
+        total: int = await self.get_total_count(**filters)
         instances: list[ModelT] = list(objects.all())
         logger.debug("[DB] Found %i instances, total: %i", len(instances), total)
         return instances, total
 
     async def create(self, **value: CreateT) -> ModelT:
         """Creates new instance"""
-        logger.debug("[DB] Creating [%s]: %s", self.model.__name__, value)
-        value |= self._get_owner_kwarg()
-        instance = self.model(**value)
+        scoped_value = self._apply_scope_filters(value)
+        logger.debug("[DB] Creating [%s]: %s", self.model.__name__, scoped_value)
+        instance = self.model(**scoped_value)
         self.session.add(instance)
         return instance
 
     async def update(self, instance: ModelT, **value: UpdateT) -> None:
         """Just updates the instance with provided update_value."""
+        self._assert_instance_scope(instance)
         for key, field_value in value.items():
             setattr(instance, key, field_value)
 
@@ -190,16 +224,18 @@ class BaseRepository(Generic[ModelT]):
 
     async def delete(self, instance: ModelT) -> None:
         """Remove the instance from the DB."""
+        self._assert_instance_scope(instance)
         await self.session.delete(instance)
 
     async def delete_by_ids(self, removing_ids: Sequence[int]) -> None:
         """Remove the instances from the DB."""
         statement = delete(self.model).filter(self.model.id.in_(removing_ids))
+        statement = self._apply_scope_statement(statement)
         await self.session.execute(statement)
 
     async def update_by_ids(self, updating_ids: Sequence[int], value: dict[str, Any]) -> None:
         """Update the instances by their IDs"""
-        by_owners_filter = self._get_owner_kwarg()
+        by_owners_filter = self._scope_filters()
         by_owners_filter_msg = (
             f" | for owner #{by_owners_filter['owner_id']}" if by_owners_filter else ""
         )
@@ -211,8 +247,7 @@ class BaseRepository(Generic[ModelT]):
         )
 
         statement = update(self.model).filter(self.model.id.in_(updating_ids))
-        if by_owners_filter:
-            statement = statement.filter_by(**by_owners_filter)
+        statement = self._apply_scope_statement(statement)
 
         result: CursorResult[Any] = cast(
             CursorResult[Any], await self.session.execute(statement, value)
@@ -222,10 +257,10 @@ class BaseRepository(Generic[ModelT]):
 
     async def update_by_filters(self, filters: dict[str, FilterT], value: dict[str, Any]) -> None:
         """Update the instances by some filters"""
-        filters |= self._get_owner_kwarg()
-        logger.info("[DB] Updating instances by filter: %s", filters)
+        scoped_filters = self._apply_scope_filters(filters)
+        logger.info("[DB] Updating instances by filter: %s", scoped_filters)
 
-        statement = update(self.model).filter_by(**filters)
+        statement = update(self.model).filter_by(**scoped_filters)
         result: CursorResult[Any] = cast(
             CursorResult[Any], await self.session.execute(statement, value)
         )
@@ -243,13 +278,13 @@ class BaseRepository(Generic[ModelT]):
         filters: dict[str, FilterT],
         entities: list[ColumnsClauseRole | SQLCoreOperations[Any]] | None = None,
     ) -> Select[tuple[ModelT]]:
+        scoped_filters = self._apply_scope_filters(filters)
         filters_stmts: list[BinaryExpression[bool]] = []
-        if (ids := filters.pop("ids", None)) and isinstance(ids, list):
+        if (ids := scoped_filters.pop("ids", None)) and isinstance(ids, list):
             filters_stmts.append(self.model.id.in_(ids))
 
-        filters |= self._get_owner_kwarg()
         statement = select(*entities) if entities is not None else select(self.model)
-        statement = statement.filter_by(**filters)
+        statement = statement.filter_by(**scoped_filters)
         if filters_stmts:
             statement = statement.filter(*filters_stmts)
 
@@ -286,14 +321,34 @@ class BaseRepository(Generic[ModelT]):
         field = getattr(self.model, field_name)
         return field.desc() if sort_by.startswith("-") else field.asc()
 
-    def _get_owner_kwarg(self) -> dict[str, int]:
-        if self.user_id:
-            if hasattr(self.model, "user_id"):
-                return {"user_id": self.user_id}
-            elif hasattr(self.model, "owner_id"):
-                return {"owner_id": self.user_id}
+    def _scope_filters(self) -> dict[str, int]:
+        if not isinstance(self.scope, OwnerScope):
+            return {}
+        if self.scope_field is None:
+            raise ValueError(f"{self.__class__.__name__} cannot apply an ownership scope")
+        return {self.scope_field: self.scope.user_id}
 
-        return {}
+    def _apply_scope_filters(
+        self, filters: Mapping[str, ScopedFilterT]
+    ) -> dict[str, ScopedFilterT]:
+        scoped_filters = dict(filters)
+        scope_filters = self._scope_filters()
+        for field_name, owner_id in scope_filters.items():
+            existing = scoped_filters.get(field_name)
+            if existing is not None and existing != owner_id:
+                raise ValueError(f"Conflicting {field_name} for {self.__class__.__name__}")
+            scoped_filters[field_name] = owner_id
+        return scoped_filters
+
+    def _apply_scope_statement(self, statement: Any) -> Any:
+        scope_filters = self._scope_filters()
+        return statement.filter_by(**scope_filters) if scope_filters else statement
+
+    def _assert_instance_scope(self, instance: ModelT) -> None:
+        if not isinstance(self.scope, OwnerScope):
+            return
+        if self.scope_field is None or getattr(instance, self.scope_field) != self.scope.user_id:
+            raise ValueError(f"{self.__class__.__name__} instance is outside the active scope")
 
 
 class UserRepository(BaseRepository[User]):
@@ -314,6 +369,7 @@ class UserSessionRepository(BaseRepository[UserSession]):
     """Browser session rows (public_id in cookie)."""
 
     model = UserSession
+    scope_field = "user_id"
 
     async def get_active_with_user(self, public_id: str) -> tuple[UserSession, User] | None:
         """Return session and user if cookie id is valid and not expired."""
@@ -328,6 +384,7 @@ class UserSessionRepository(BaseRepository[UserSession]):
             )
             .limit(1)
         )
+        stmt = self._apply_scope_statement(stmt)
         result = await self.session.execute(stmt)
         row = result.first()
         if not row:
@@ -351,6 +408,7 @@ class UserInviteRepository(BaseRepository[UserInvite]):
     """User invitation repository."""
 
     model = UserInvite
+    scope_field = "owner_id"
 
     async def get_valid(self, token: str, email: str) -> UserInvite | None:
         """Return an unused, unexpired invitation matching an email."""
@@ -360,6 +418,7 @@ class UserInviteRepository(BaseRepository[UserInvite]):
             UserInvite.is_applied.is_(False),
             UserInvite.expired_at > datetime.now(UTC),
         )
+        statement = self._apply_scope_statement(statement)
         return await self.session.scalar(statement)
 
 
@@ -367,12 +426,14 @@ class UserIPRepository(BaseRepository[UserIP]):
     """Registered user-address repository."""
 
     model = UserIP
+    scope_field = "user_id"
 
 
 class PodcastRepository(BaseRepository[Podcast]):
     """Podcast's repository."""
 
     model = Podcast
+    scope_field = "owner_id"
 
     async def all_with_aggregations(
         self,
@@ -391,7 +452,7 @@ class PodcastRepository(BaseRepository[Podcast]):
         - last_download_date: datetime | None
         """
         logger.debug("[DB] Getting podcasts with aggregations: %s", filters)
-        filters_dict = dict(filters) | self._get_owner_kwarg()
+        filters_dict = self._apply_scope_filters(filters)
 
         # Select page IDs before joining episode/file rows. Applying OFFSET/LIMIT
         # to a grouped aggregate query produced empty non-first pages on PostgreSQL.
@@ -399,7 +460,6 @@ class PodcastRepository(BaseRepository[Podcast]):
         if (ids := filters_dict.pop("ids", None)) and isinstance(ids, list):
             filters_stmts.append(Podcast.id.in_(ids))
 
-        filters_dict |= self._get_owner_kwarg()
         page_statement = select(Podcast.id).filter_by(**filters_dict)
         if filters_stmts:
             page_statement = page_statement.filter(*filters_stmts)
@@ -467,8 +527,9 @@ class PodcastRepository(BaseRepository[Podcast]):
 
     async def update_by_filters(self, filters: dict[str, FilterT], value: dict[str, Any]) -> None:
         """Update the instances by some filters"""
-        logger.info("[DB] Updating instances by filter: %s", filters)
-        statement = update(self.model).filter(self._filter_criteria(filters))
+        scoped_filters = self._apply_scope_filters(filters)
+        logger.info("[DB] Updating instances by filter: %s", scoped_filters)
+        statement = update(self.model).filter(self._filter_criteria(scoped_filters))
         result: CursorResult[Any] = cast(
             CursorResult[Any], await self.session.execute(statement, value)
         )
@@ -480,13 +541,12 @@ class EpisodeRepository(BaseRepository[Episode]):
     """Podcast's repository."""
 
     model = Episode
+    scope_field = "owner_id"
 
     async def all_in_progress(self) -> list[Episode]:
         """Return current owner's episodes that are being processed."""
         statement = select(self.model).where(self.model.status.in_(self.model.PROGRESS_STATUSES))
-        owner_filter = self._get_owner_kwarg()
-        if owner_filter:
-            statement = statement.filter_by(**owner_filter)
+        statement = self._apply_scope_statement(statement)
 
         result: ScalarResult[Episode] = await self.session.scalars(statement)
         return list(result.all())
@@ -494,6 +554,7 @@ class EpisodeRepository(BaseRepository[Episode]):
     async def count_by_status(self) -> dict[EpisodeStatus, int]:
         """Return episode totals for every status, including statuses with no rows."""
         statement = select(Episode.status, func.count(Episode.id)).group_by(Episode.status)
+        statement = self._apply_scope_statement(statement)
         result: Result[tuple[EpisodeStatus, int]] = await self.session.execute(statement)
         counts = {status: 0 for status in EpisodeStatus}
         for status, count in result.tuples():
@@ -502,6 +563,7 @@ class EpisodeRepository(BaseRepository[Episode]):
 
     async def safe_delete(self, episode: Episode) -> None:
         """Delete an episode row and unreferenced linked file rows without touching S3."""
+        self._assert_instance_scope(episode)
         if episode.status in Episode.PROGRESS_STATUSES:
             raise ValueError("Episode in progress cannot be deleted")
 
@@ -518,7 +580,7 @@ class EpisodeRepository(BaseRepository[Episode]):
             if is_used:
                 continue
 
-            file = await self.session.get(File, file_id)
+            file = await FileRepository(self.session, scope=self.scope).first(id=file_id)
             if file is None:
                 continue
 
@@ -536,7 +598,8 @@ class EpisodeRepository(BaseRepository[Episode]):
 
     async def all(self, **filters: FilterT) -> list[Episode]:
         """Get all episodes, but with extended filters' logic."""
-        logger.debug("[DB] Getting all episodes: %s", filters)
+        scoped_filters = self._apply_scope_filters(filters)
+        logger.debug("[DB] Getting all episodes: %s", scoped_filters)
         statement = select(self.model).outerjoin(File, Episode.audio_id == File.id)
 
         def _process_suffix(statement: Select, field_name: str, suffix: str, value: Any) -> Select:
@@ -567,7 +630,7 @@ class EpisodeRepository(BaseRepository[Episode]):
 
             return statement
 
-        for filter_key, filter_value in filters.items():
+        for filter_key, filter_value in scoped_filters.items():
             match filter_key:
                 case "search":
                     statement = statement.filter(
@@ -619,8 +682,9 @@ class EpisodeRepository(BaseRepository[Episode]):
 
     async def update_by_filters(self, filters: dict[str, FilterT], value: dict[str, Any]) -> None:
         """Update the instances by some filters"""
-        logger.info("[DB] Updating instances by filter: %s", filters)
-        statement = update(self.model).filter(self._filter_criteria(filters))
+        scoped_filters = self._apply_scope_filters(filters)
+        logger.info("[DB] Updating instances by filter: %s", scoped_filters)
+        statement = update(self.model).filter(self._filter_criteria(scoped_filters))
         result: CursorResult[Any] = cast(
             CursorResult[Any], await self.session.execute(statement, value)
         )
@@ -756,6 +820,7 @@ class CookieRepository(BaseRepository[Cookie]):
     """
 
     model = Cookie
+    scope_field = "owner_id"
 
 
 class FileRepository(BaseRepository[File]):
@@ -764,10 +829,12 @@ class FileRepository(BaseRepository[File]):
     """
 
     model = File
+    scope_field = "owner_id"
 
     async def get_total_size(self) -> int:
         """Return the total size of all file rows in bytes."""
         statement = select(func.coalesce(func.sum(File.size), 0))
+        statement = self._apply_scope_statement(statement)
         total_size = await self.session.scalar(statement)
         return int(total_size or 0)
 
@@ -789,6 +856,7 @@ class FileRepository(BaseRepository[File]):
             )
             .order_by(File.id)
         )
+        statement = self._apply_scope_statement(statement)
         result: ScalarResult[File] = await self.session.scalars(statement)
         return list(result.unique().all())
 
@@ -804,6 +872,7 @@ class FileRepository(BaseRepository[File]):
             return {}
 
         statement = select(File.id, File.path).where(File.path.in_(normalized_paths))
+        statement = self._apply_scope_statement(statement)
         if excluded_ids:
             statement = statement.where(File.id.not_in(excluded_ids))
 
@@ -825,6 +894,7 @@ class FileRepository(BaseRepository[File]):
                 selectinload(File.image_episodes),
             )
         )
+        statement = self._apply_scope_statement(statement)
         result = await self.session.execute(statement)
         return result.scalar_one_or_none()
 
@@ -839,6 +909,7 @@ class FileRepository(BaseRepository[File]):
             return []
 
         statement = select(File).where(File.path == path)
+        statement = self._apply_scope_statement(statement)
         if excluded_ids:
             statement = statement.where(File.id.not_in(excluded_ids))
 
@@ -848,17 +919,19 @@ class FileRepository(BaseRepository[File]):
     async def first_by_access_token(self, access_token: str) -> File | None:
         """Lookup media file by public URL token (/m/{token}/, /r/{token}/)."""
         statement = select(File).filter_by(access_token=access_token)
+        statement = self._apply_scope_statement(statement)
         result = await self.session.execute(statement)
         row = result.first()
         return row[0] if row else None
 
-    async def copy(self, file_id: int, owner_id: int, available: bool = True) -> File:
-        """Create a file row copied from an existing file for another owner."""
+    async def copy(self, file_id: int, available: bool = True) -> File:
+        """Create a file row copied inside the active owner scope."""
+        if not isinstance(self.scope, OwnerScope):
+            raise ValueError("FileRepository.copy() requires OwnerScope")
         source_file: File = await self.get(file_id)
-        logger.debug("Copying file: source %s | owner_id %s", source_file, owner_id)
+        logger.debug("Copying file: source %s | owner_id %s", source_file, self.scope.user_id)
         return await self.create(
             type=source_file.type,
-            owner_id=owner_id,
             available=available,
             path=source_file.path,
             size=source_file.size,
@@ -871,6 +944,7 @@ class AuthUserSessionRepository(BaseRepository[UserSession]):
     """Auth user session repository."""
 
     model = UserSession
+    scope_field = "user_id"
 
     async def get_active(self, user_id: int) -> UserSession | None:
         """Get active user session."""
@@ -885,6 +959,7 @@ class UserAccessTokenRepository(BaseRepository[UserAccessToken]):
     """User access token repository."""
 
     model = UserAccessToken
+    scope_field = "user_id"
 
     async def get_active(self, user_id: int) -> UserAccessToken | None:
         """Get active user access token."""

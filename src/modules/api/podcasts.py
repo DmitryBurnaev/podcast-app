@@ -13,7 +13,13 @@ from src.constants import FileType
 from src.modules.db import User
 from src.modules.db.models import File
 from src.modules.db.models.podcasts import Podcast
-from src.modules.db.repositories import EpisodeRepository, FileRepository, PodcastOrderT
+from src.modules.db.repositories import (
+    EpisodeRepository,
+    FileRepository,
+    OwnerScope,
+    PodcastOrderT,
+    PodcastRepository,
+)
 from src.modules.db.services import SASessionUOW
 from src.modules.services.storage import StorageS3
 from src.modules.tasks import GenerateRSSTask
@@ -27,7 +33,6 @@ from src.modules.schemas.podcasts import (
     PodcastUpdateRequest,
 )
 from src.modules.api.base import BaseApiController
-from src.modules.db.repositories import PodcastRepository
 from src.modules.schemas.statistics import PodcastStatistics
 from src.settings.app import get_app_settings
 
@@ -46,7 +51,9 @@ class PodcastAPIController(BaseApiController):
     ) -> PodcastResponse:
         """Create a podcast for the current user."""
         async with SASessionUOW() as uow:
-            podcast_repository = PodcastRepository(session=uow.session)
+            podcast_repository = PodcastRepository(
+                session=uow.session, scope=OwnerScope(current_user.id)
+            )
             podcast = await podcast_repository.create(
                 publish_id=Podcast.generate_publish_id(),
                 name=data.name,
@@ -91,12 +98,13 @@ class PodcastAPIController(BaseApiController):
         """
         logger.info("[API] Getting paginated list of podcasts | user #%i", current_user.id)
         async with SASessionUOW() as uow:
-            podcast_repository = PodcastRepository(session=uow.session)
+            podcast_repository = PodcastRepository(
+                session=uow.session, scope=OwnerScope(current_user.id)
+            )
             podcasts, total = await podcast_repository.all_with_aggregations(
                 limit=limit,
                 offset=offset,
                 order_by=order_by,
-                owner_id=current_user.id,
             )
 
         logger.info(
@@ -124,10 +132,11 @@ class PodcastAPIController(BaseApiController):
             Details of the podcast
         """
         async with SASessionUOW() as uow:
-            podcast_repository = PodcastRepository(session=uow.session)
+            podcast_repository = PodcastRepository(
+                session=uow.session, scope=OwnerScope(current_user.id)
+            )
             podcast = await podcast_repository.get_first_with_aggregations(
                 ids=[podcast_id],
-                owner_id=current_user.id,
             )
 
         if not podcast:
@@ -150,7 +159,9 @@ class PodcastAPIController(BaseApiController):
         """Update editable fields for a podcast owned by the current user."""
         update_data = data.model_dump(exclude_unset=True)
         async with SASessionUOW() as uow:
-            podcast_repository = PodcastRepository(session=uow.session)
+            podcast_repository = PodcastRepository(
+                session=uow.session, scope=OwnerScope(current_user.id)
+            )
             podcast = await _get_owned_podcast(
                 repository=podcast_repository,
                 podcast_id=podcast_id,
@@ -176,8 +187,12 @@ class PodcastAPIController(BaseApiController):
     async def delete(self, podcast_id: int, current_user: User) -> None:
         """Delete a podcast owned by the current user."""
         async with SASessionUOW() as uow:
-            podcast_repository = PodcastRepository(session=uow.session)
-            episode_repository = EpisodeRepository(session=uow.session)
+            podcast_repository = PodcastRepository(
+                session=uow.session, scope=OwnerScope(current_user.id)
+            )
+            episode_repository = EpisodeRepository(
+                session=uow.session, scope=OwnerScope(current_user.id)
+            )
             podcast = await _get_owned_podcast(
                 repository=podcast_repository,
                 podcast_id=podcast_id,
@@ -208,8 +223,10 @@ class PodcastAPIController(BaseApiController):
             raise HTTPException(status_code=400, detail="Image file is required")
 
         async with SASessionUOW() as uow:
-            podcast_repository = PodcastRepository(session=uow.session)
-            file_repository = FileRepository(session=uow.session)
+            podcast_repository = PodcastRepository(
+                session=uow.session, scope=OwnerScope(current_user.id)
+            )
+            file_repository = FileRepository(session=uow.session, scope=OwnerScope(current_user.id))
             podcast = await _get_owned_podcast(
                 repository=podcast_repository,
                 podcast_id=podcast_id,
@@ -252,7 +269,9 @@ class PodcastAPIController(BaseApiController):
     ) -> PodcastTaskResponse:
         """Enqueue RSS generation for a podcast."""
         async with SASessionUOW() as uow:
-            podcast_repository = PodcastRepository(session=uow.session)
+            podcast_repository = PodcastRepository(
+                session=uow.session, scope=OwnerScope(current_user.id)
+            )
             await _get_owned_podcast(
                 repository=podcast_repository,
                 podcast_id=podcast_id,

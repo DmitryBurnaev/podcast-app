@@ -12,7 +12,7 @@ from src.exceptions import SourceFetchError
 from src.modules.db.models import File
 from src.modules.db.models.media import MediaType
 from src.modules.db.models.podcasts import Episode
-from src.modules.db.repositories import EpisodeRepository, PodcastRepository, FileRepository
+from src.modules.db.repositories import EpisodeRepository, FileRepository, OwnerScope
 from src.modules.db.utils import cookie_file_ctx
 from src.modules.utils import common as common_utils
 from src.modules.utils.common import SourceInfo, SourceConfig, SOURCE_CFG_MAP, SourceMediaInfo
@@ -57,8 +57,9 @@ class EpisodeCreator:
         self.db_session: AsyncSession = db_session
         self.user_id: int = user_id
         self.settings: AppSettings = get_app_settings()
-        self.episode_repository: EpisodeRepository = EpisodeRepository(db_session)
-        self.podcast_repository: PodcastRepository = PodcastRepository(db_session)
+        self.episode_repository: EpisodeRepository = EpisodeRepository(
+            db_session, scope=OwnerScope(user_id)
+        )
 
     async def create(self, podcast_id: int, source_url: str) -> Episode:
         """
@@ -198,18 +199,16 @@ class EpisodeCreator:
         same_episode: Episode | None,
         source_info: SourceMediaInfo | None,
     ) -> tuple[File, File]:
-        file_repository = FileRepository(self.db_session)
+        file_repository = FileRepository(self.db_session, scope=OwnerScope(self.user_id))
         if same_episode is not None:
             if same_episode.image_id is None or same_episode.audio_id is None:
                 raise RuntimeError("Unable to create copy of episode: missing image/audio in copy")
 
             image_file = await file_repository.copy(
-                owner_id=self.user_id,
                 file_id=same_episode.image_id,
             )
             audio_file = await file_repository.copy(
                 file_id=same_episode.audio_id,
-                owner_id=self.user_id,
                 available=False,
             )
 
