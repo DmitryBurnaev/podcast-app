@@ -20,6 +20,8 @@ from src.modules.db.models.users import UserAccessToken
 from src.modules.db.models.podcasts import Podcast
 from src.modules.db.repositories import (
     PodcastRepository,
+    OwnerScope,
+    SystemScope,
     UserAccessTokenRepository,
     UserInviteRepository,
     UserIPRepository,
@@ -104,7 +106,7 @@ class AuthCoreAPIController(BaseAuthAPIController):
                     details=f"User with email '{data.email}' already exists."
                 )
 
-            invite_repository = UserInviteRepository(uow.session)
+            invite_repository = UserInviteRepository(uow.session, scope=SystemScope.ALL)
             invite = await invite_repository.get_valid(data.invite_token, str(data.email))
             if invite is None:
                 raise InvalidParametersAPIError(
@@ -119,7 +121,7 @@ class AuthCoreAPIController(BaseAuthAPIController):
             )
             await uow.flush()
             await invite_repository.update(invite, is_applied=True, user_id=user.id)
-            await PodcastRepository(uow.session).create(
+            await PodcastRepository(uow.session, scope=OwnerScope(user.id)).create(
                 publish_id=Podcast.generate_publish_id(),
                 name="Your podcast",
                 description=(
@@ -158,9 +160,7 @@ class AuthCoreAPIController(BaseAuthAPIController):
         return TokenResponse(access_token=tokens.access_token, refresh_token=tokens.refresh_token)
 
     @post("/reset-password/")
-    async def reset_password(
-        self, data: ResetPasswordRequest, settings: AppSettings
-    ) -> OKResponse:
+    async def reset_password(self, data: ResetPasswordRequest, settings: AppSettings) -> OKResponse:
         """Send a password reset link without exposing account existence."""
         async with SASessionUOW() as uow:
             user = await UserRepository(uow.session).get_by_email(str(data.email))
@@ -200,7 +200,9 @@ class AuthCoreAPIController(BaseAuthAPIController):
                 )
 
             await user_repository.update(user, password=User.make_password(data.password_1))
-            await UserSessionRepository(uow.session).deactivate_for_user(user.id)
+            await UserSessionRepository(uow.session, scope=OwnerScope(user.id)).deactivate_for_user(
+                user.id
+            )
             uow.mark_for_commit()
 
         return OKResponse()
@@ -230,7 +232,7 @@ class AuthInviteAPIController(BaseAuthAPIController):
     async def get_invites(self, limit: int = 10, offset: int = 0) -> Pagination[UserInviteResponse]:
         """Return paginated user invitations."""
         async with SASessionUOW() as uow:
-            user_invite_repo = UserInviteRepository(uow.session)
+            user_invite_repo = UserInviteRepository(uow.session, scope=SystemScope.ALL)
             invites, total = await user_invite_repo.all_paginated(limit=limit, offset=offset)
 
         return Pagination[UserInviteResponse](
@@ -255,7 +257,7 @@ class AuthInviteAPIController(BaseAuthAPIController):
             if await UserRepository(uow.session).get_by_email(email):
                 raise StateConflictAPIError(details=f"User with email '{email}' already exists.")
 
-            invite_repository = UserInviteRepository(uow.session)
+            invite_repository = UserInviteRepository(uow.session, scope=SystemScope.ALL)
             token: str = UserInvite.generate_token()
             expired_at = utcnow() + timedelta(seconds=settings.invite_link_expires_in)
             invite = await invite_repository.first(email=email)
@@ -329,8 +331,9 @@ class AuthProfileAPIController(BaseAuthAPIController):
     ) -> Pagination[UserIPResponse]:
         """Return registered hashed addresses for the current user."""
         async with SASessionUOW() as uow:
-            ips, total = await UserIPRepository(uow.session).all_paginated(
-                user_id=current_user.id,
+            ips, total = await UserIPRepository(
+                uow.session, scope=OwnerScope(current_user.id)
+            ).all_paginated(
                 limit=limit,
                 offset=offset,
             )
@@ -349,8 +352,8 @@ class AuthProfileAPIController(BaseAuthAPIController):
     ) -> OKResponse:
         """Delete selected registered-address history entries."""
         async with SASessionUOW() as uow:
-            repository = UserIPRepository(uow.session)
-            ips = await repository.all(ids=data.ids, user_id=current_user.id)
+            repository = UserIPRepository(uow.session, scope=OwnerScope(current_user.id))
+            ips = await repository.all(ids=data.ids)
             await repository.delete_by_ids([ip.id for ip in ips])
             uow.mark_for_commit()
 
@@ -367,9 +370,8 @@ class AuthAccessTokenAPIController(BaseAuthAPIController):
     ) -> Pagination[UserAccessTokenResponse]:
         """Return long-lived API tokens without their stored hashes."""
         async with SASessionUOW() as uow:
-            repository = UserAccessTokenRepository(uow.session)
+            repository = UserAccessTokenRepository(uow.session, scope=OwnerScope(current_user.id))
             tokens, total = await repository.all_paginated(
-                user_id=current_user.id,
                 limit=limit,
                 offset=offset,
             )
@@ -388,8 +390,9 @@ class AuthAccessTokenAPIController(BaseAuthAPIController):
         """Create a long-lived API token and show its raw value once."""
         raw_token = UserAccessToken.generate_token()
         async with SASessionUOW() as uow:
-            access_token = await UserAccessTokenRepository(uow.session).create(
-                user_id=current_user.id,
+            access_token = await UserAccessTokenRepository(
+                uow.session, scope=OwnerScope(current_user.id)
+            ).create(
                 token=hash_string(raw_token),
                 name=data.name,
                 expires_in=utcnow() + timedelta(days=data.expires_in_days),
@@ -415,8 +418,8 @@ class AuthAccessTokenAPIController(BaseAuthAPIController):
     ) -> UserAccessTokenResponse:
         """Rename, enable, or disable one of the current user's API tokens."""
         async with SASessionUOW() as uow:
-            repository = UserAccessTokenRepository(uow.session)
-            access_token = await repository.first(id=token_id, user_id=current_user.id)
+            repository = UserAccessTokenRepository(uow.session, scope=OwnerScope(current_user.id))
+            access_token = await repository.first(id=token_id)
             if access_token is None:
                 raise InvalidParametersAPIError(details=f"Access token #{token_id} not found.")
             await repository.update(access_token, **data.model_dump(exclude_unset=True))
@@ -428,8 +431,8 @@ class AuthAccessTokenAPIController(BaseAuthAPIController):
     async def delete_access_token(self, token_id: int, current_user: User) -> None:
         """Delete one of the current user's API tokens."""
         async with SASessionUOW() as uow:
-            repository = UserAccessTokenRepository(uow.session)
-            access_token = await repository.first(id=token_id, user_id=current_user.id)
+            repository = UserAccessTokenRepository(uow.session, scope=OwnerScope(current_user.id))
+            access_token = await repository.first(id=token_id)
             if access_token is None:
                 raise InvalidParametersAPIError(details=f"Access token #{token_id} not found.")
 

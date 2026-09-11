@@ -8,7 +8,7 @@ from src.constants import EpisodeStatus
 from src.exceptions import UserCancellationError, DownloadingInterrupted
 from src.modules.db import SASessionUOW
 from src.modules.db.models import Episode
-from src.modules.db.repositories import EpisodeRepository, FileRepository, FilterT
+from src.modules.db.repositories import EpisodeRepository, FileRepository, FilterT, SystemScope
 from src.modules.db.utils import cookie_file_ctx
 from src.modules.services.redis import RedisClient
 from src.modules.services.storage import StorageS3
@@ -34,7 +34,9 @@ __all__ = [
 
 async def _async_episode_update(episode_id: int, new_status: EpisodeStatus):
     async with SASessionUOW() as uow:
-        await EpisodeRepository(uow.session).update_by_ids([episode_id], {"status": new_status})
+        await EpisodeRepository(uow.session, scope=SystemScope.ALL).update_by_ids(
+            [episode_id], {"status": new_status}
+        )
 
 
 class DownloadEpisodeTask(RQTask):
@@ -54,8 +56,8 @@ class DownloadEpisodeTask(RQTask):
         if self._task_context is None:
             self.task_context = self._prepare_task_context(episode_id)
 
-        self.episode_repository = EpisodeRepository(self.db_session)
-        self.file_repository = FileRepository(self.db_session)
+        self.episode_repository = EpisodeRepository(self.db_session, scope=SystemScope.ALL)
+        self.file_repository = FileRepository(self.db_session, scope=SystemScope.ALL)
 
         try:
             code = await self.perform_run(int(episode_id))

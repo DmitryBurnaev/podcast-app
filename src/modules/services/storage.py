@@ -17,7 +17,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.exceptions import NotSupportedError, StorageConfigurationError
 from src.modules.db.models import File
-from src.modules.db.repositories import FileRepository
+from src.modules.db.repositories import FileRepository, SystemScope
 from src.modules.db.services import SASessionUOW
 from src.modules.services.redis import RedisClient
 from src.settings.app import get_app_settings
@@ -484,7 +484,7 @@ class FileStorageCleanupService:
 
         try:
             async with self.uow_factory() as uow:
-                file_repository = FileRepository(uow.session)
+                file_repository = FileRepository(uow.session, scope=SystemScope.ALL)
                 files = await file_repository.all_by_ids_with_episode_references(normalized_ids)
                 files_by_id = {file.id: file for file in files}
 

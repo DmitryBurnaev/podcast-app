@@ -10,7 +10,7 @@ from src.constants import AuthSkip
 from src.modules.api.base import BaseApiController
 from src.exceptions import InvalidParametersAPIError
 from src.modules.db import User
-from src.modules.db.repositories import EpisodeRepository, PodcastRepository
+from src.modules.db.repositories import EpisodeRepository, OwnerScope, PodcastRepository
 from src.modules.db.services import SASessionUOW
 from src.modules.db.utils import cookie_file_ctx
 from src.modules.utils import common as common_utils
@@ -107,8 +107,8 @@ class ProgressAPIController(BaseApiController):
     ) -> dict[str, list[ProgressItemResponse]]:
         """Return active processing progress for the current user."""
         async with SASessionUOW() as uow:
-            episode_repository = EpisodeRepository(uow.session, user_id=current_user.id)
-            podcast_repository = PodcastRepository(uow.session, user_id=current_user.id)
+            episode_repository = EpisodeRepository(uow.session, scope=OwnerScope(current_user.id))
+            podcast_repository = PodcastRepository(uow.session, scope=OwnerScope(current_user.id))
             podcasts = {podcast.id: podcast for podcast in await podcast_repository.all()}
             if episode_id:
                 episode = await episode_repository.first(id=episode_id)
