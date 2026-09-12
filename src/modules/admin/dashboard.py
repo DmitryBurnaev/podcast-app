@@ -2,7 +2,7 @@ from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.constants import format_file_size
+from src.modules.common.constants import format_file_size
 from src.modules.db.models.podcasts import EpisodeStatus
 from src.modules.db.repositories import (
     EpisodeRepository,

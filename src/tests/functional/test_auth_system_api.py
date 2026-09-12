@@ -18,8 +18,7 @@ from src.tests.fakes import (
     FakeTaskQueue,
 )
 from src.tests.helpers import assert_error_response
-from src.utils import utcnow
-
+from src.modules.utils.common import utcnow
 
 @pytest.fixture
 def auth_api_client(

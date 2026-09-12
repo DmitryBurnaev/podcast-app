@@ -17,8 +17,8 @@ from litestar.static_files import StaticFilesConfig
 from litestar.template import TemplateConfig
 from redis import Redis
 
-from src.constants import AuthSkip
-from src.exceptions import (
+from src.modules.common.constants import AuthSkip
+from src.modules.common.exceptions import (
     BaseApplicationError,
     StartupError,
     StorageConfigurationError,

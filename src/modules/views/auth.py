@@ -6,8 +6,8 @@ from litestar import Request, get, post
 from litestar.datastructures import State
 from litestar.response import Redirect, Template
 
-from src.constants import AuthSkip
-from src.exceptions import AuthenticationError
+from src.modules.common.constants import AuthSkip
+from src.modules.common.exceptions import AuthenticationError
 from src.modules.auth.backends import TokenData, WebAuthBackend
 from src.modules.db import User
 from src.modules.views.base import BaseViewController, get_optional_user

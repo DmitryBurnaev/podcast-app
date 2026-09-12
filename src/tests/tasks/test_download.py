@@ -5,8 +5,8 @@ from unittest.mock import AsyncMock, Mock
 import pytest
 from yt_dlp.utils import YoutubeDLError
 
-from src.constants import EpisodeStatus, SourceType
-from src.exceptions import DownloadingInterrupted, UserCancellationError
+from src.modules.common.constants import EpisodeStatus, SourceType
+from src.modules.common.exceptions import DownloadingInterrupted, UserCancellationError
 from src.modules.tasks.base import TaskResultCode
 from src.modules.tasks.download import DownloadEpisodeTask, UploadedEpisodeTask
 from src.modules.db.models import Episode

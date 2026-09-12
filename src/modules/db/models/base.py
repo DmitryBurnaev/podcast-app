@@ -6,8 +6,7 @@ from sqladmin.helpers import slugify_class_name
 from sqlalchemy.ext.asyncio import AsyncAttrs
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
-from src.utils import utcnow
-
+from src.modules.utils.common import utcnow
 
 class BaseModel(AsyncAttrs, DeclarativeBase):
     id: Mapped[int]

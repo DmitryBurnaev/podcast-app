@@ -6,7 +6,7 @@ from unittest.mock import AsyncMock
 import pytest
 from litestar.testing import TestClient
 
-from src.constants import EpisodeStatus, SourceType
+from src.modules.common.constants import EpisodeStatus, SourceType
 from src.main import PodcastApp
 from src.modules.api import API_CONTROLLERS
 from src.modules.api.base import BaseApiController

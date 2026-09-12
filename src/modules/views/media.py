@@ -7,8 +7,8 @@ from litestar.exceptions import NotFoundException
 from litestar.params import FromPath
 from litestar.response import Redirect
 
-from src.constants import AuthSkip
-from src.exceptions import NotSupportedError
+from src.modules.common.constants import AuthSkip
+from src.modules.common.exceptions import NotSupportedError
 from src.modules.db import SASessionUOW
 from src.modules.db.models.media import File, MediaType
 from src.modules.db.repositories import FileRepository, SystemScope

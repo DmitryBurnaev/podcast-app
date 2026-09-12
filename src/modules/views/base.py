@@ -8,9 +8,9 @@ from litestar.connection import Request
 from litestar.openapi import OpenAPIController
 from litestar.response import Template
 
-from src import constants as const
+from src.modules.common import constants as const
 from src.modules.common.types import AppRequestMayBeAuthenticated
-from src.constants import AuthSkip
+from src.modules.common.constants import AuthSkip
 from src.modules.db import User
 from src.modules.tasks.base import RQTask
 

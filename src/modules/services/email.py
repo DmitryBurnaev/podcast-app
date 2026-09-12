@@ -4,11 +4,11 @@ from email.mime.text import MIMEText
 
 import aiosmtplib
 
-from src.exceptions import EmailSendingError, ImproperlyConfiguredError
+from src.modules.common.exceptions import EmailSendingError, ImproperlyConfiguredError
 
 from src.modules.db.models import User
 from src.settings.app import AppSettings, get_app_settings
-from src.utils import get_invites_link
+from src.modules.utils.common import get_invites_link
 
 logger = logging.getLogger(__name__)
 

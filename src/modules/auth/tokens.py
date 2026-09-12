@@ -7,13 +7,13 @@ from typing import Any, NamedTuple
 
 import jwt
 
-from src.exceptions import (
+from src.modules.common.exceptions import (
     RefreshExpiredAPIError,
     SignatureExpiredError,
     AuthCredentialsInvalidError,
 )
 from src.settings.app import AppSettings, get_app_settings
-from src.utils import utcnow
+from src.modules.utils.common import utcnow
 from src.modules.auth.types import TokenData
 from src.modules.db.models.users import User, UserSession
 

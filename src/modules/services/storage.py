@@ -15,7 +15,7 @@ import aioboto3
 import botocore.exceptions
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.exceptions import NotSupportedError, StorageConfigurationError
+from src.modules.common.exceptions import NotSupportedError, StorageConfigurationError
 from src.modules.db.models import File
 from src.modules.db.repositories import FileRepository, SystemScope
 from src.modules.db.services import SASessionUOW

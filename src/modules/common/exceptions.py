@@ -7,7 +7,7 @@ from http import HTTPStatus
 from litestar.types import Logger, Scope
 
 from src.modules.schemas.errors import ErrorCode
-from src.constants import ResponseCode
+from src.modules.common.constants import ResponseCode
 
 if TYPE_CHECKING:
     from src.modules.tasks.base import TaskResultCode
@@ -27,9 +27,6 @@ class BaseApplicationError(Exception):
     log_message: str = "Application error"
     status_code: int = HTTPStatus.INTERNAL_SERVER_ERROR
     response_code: ResponseCode = ResponseCode.INTERNAL_ERROR
-
-    # default_status_code: int = HTTPStatus.INTERNAL_SERVER_ERROR
-    # default_response_code: ResponseCode = ResponseCode.INTERNAL_ERROR
 
     def __init__(
         self,

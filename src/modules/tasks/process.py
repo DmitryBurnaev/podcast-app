@@ -9,8 +9,8 @@ from src.modules.services.storage import StorageS3
 from src.modules.tasks.base import RQTask, TaskResultCode
 from src.modules.utils import ffmpeg
 from src.modules.utils.processing import get_file_size
-from src.utils import download_content
-from src.exceptions import NotFoundError, MaxAttemptsReached
+from src.modules.utils.common import download_content
+from src.modules.common.exceptions import NotFoundError, MaxAttemptsReached
 
 logger = logging.getLogger(__name__)
 

@@ -10,11 +10,11 @@ from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import expression
 
-from src.constants import StringEnumMixin
+from src.modules.common.constants import StringEnumMixin
 from src.modules.auth.hashers import get_random_hash
 from src.modules.db.models import BaseModel
 from src.settings.app import get_app_settings
-from src.utils import utcnow
+from src.modules.utils.common import utcnow
 
 if TYPE_CHECKING:
     from src.modules.db.models.podcasts import Episode

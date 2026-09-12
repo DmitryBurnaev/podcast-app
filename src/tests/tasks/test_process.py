@@ -4,7 +4,7 @@ from unittest.mock import AsyncMock, Mock
 
 import pytest
 
-from src.exceptions import MaxAttemptsReached, NotFoundError
+from src.modules.common.exceptions import MaxAttemptsReached, NotFoundError
 from src.modules.db.models.media import MediaType
 from src.modules.tasks.base import TaskResultCode
 from src.modules.tasks.process import (

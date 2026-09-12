@@ -21,7 +21,7 @@ from src.modules.auth.tokens import (
 from src.modules.auth.types import AuthenticatedUserResult, ByTokenData, TokenData
 from src.modules.db import SASessionUOW, User
 from src.settings.app import AppSettings, get_app_settings
-from src.exceptions import (
+from src.modules.common.exceptions import (
     AuthCredentialsInvalidError,
     AuthMissingCredentialsError,
     SignatureExpiredError,
@@ -37,7 +37,7 @@ from src.modules.db.repositories import (
     OwnerScope,
     SystemScope,
 )
-from src.utils import hash_string, utcnow
+from src.modules.utils.common import utcnow, hash_string
 from src.modules.auth.tokens import TokenCollection, decode_jwt, LENGTH_USER_ACCESS_TOKEN
 
 logger = logging.getLogger(__name__)

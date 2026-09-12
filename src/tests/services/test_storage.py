@@ -6,7 +6,7 @@ import botocore.exceptions
 import pytest
 from pydantic import SecretStr, ValidationError
 
-from src.exceptions import NotSupportedError, StorageConfigurationError
+from src.modules.common.exceptions import NotSupportedError, StorageConfigurationError
 from src.modules.services.storage import (
     StorageDeleteStatus,
     StorageS3,

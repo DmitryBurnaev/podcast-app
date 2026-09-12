@@ -11,7 +11,7 @@ from src.modules.views.podcasts import (
     PodcastsController,
     PodcastsDetailsController,
 )
-from src.exceptions import NotFoundError
+from src.modules.common.exceptions import NotFoundError
 from src.tests.factories import make_file, make_podcast
 from src.tests.mocks import MockUOW
 from src.settings.app import AppSettings

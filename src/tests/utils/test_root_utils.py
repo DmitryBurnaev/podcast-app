@@ -5,14 +5,14 @@ from unittest.mock import AsyncMock, Mock
 import pytest
 from pydantic import SecretStr
 
-from src.exceptions import NotFoundError
-from src.utils import (
-    cut_string,
-    download_content,
-    hash_string,
-    simple_slugify,
+from src.modules.common.exceptions import NotFoundError
+from src.modules.utils.common import (
     singleton,
     utcnow,
+    simple_slugify,
+    cut_string,
+    hash_string,
+    download_content,
 )
 from src.modules.services.email import send_email
 

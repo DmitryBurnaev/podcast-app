@@ -6,7 +6,7 @@ from litestar import Request, delete, get, patch, post, put
 from litestar.exceptions import HTTPException, NotFoundException
 from litestar.status_codes import HTTP_201_CREATED, HTTP_204_NO_CONTENT
 
-from src.constants import SourceType
+from src.modules.common.constants import SourceType
 from src.modules import tasks
 from src.modules.api.base import BaseApiController
 from src.modules.db import User

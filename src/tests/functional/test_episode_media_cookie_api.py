@@ -9,7 +9,7 @@ from litestar.testing import TestClient
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.constants import SourceType
+from src.modules.common.constants import SourceType
 from src.main import PodcastApp, make_app
 from src.modules.db.models import Episode, File, Podcast, User
 from src.modules.db.models.media import MediaType

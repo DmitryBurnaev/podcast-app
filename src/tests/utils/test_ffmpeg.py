@@ -5,8 +5,13 @@ from unittest.mock import Mock
 
 import pytest
 
-from src.exceptions import FFMPegParseError, FFMPegPreparationError, UserCancellationError
-from src.modules.db.models.podcasts import EpisodeChapter, EpisodeMetadata
+from src.modules.common.exceptions import (
+    FFMPegParseError,
+    FFMPegPreparationError,
+    UserCancellationError,
+)
+from src.modules.db.models.podcasts import EpisodeMetadata
+from modules.dto.podcasts import EpisodeChapter
 from src.modules.utils.ffmpeg import (
     AudioMetaData,
     CoverMetaData,

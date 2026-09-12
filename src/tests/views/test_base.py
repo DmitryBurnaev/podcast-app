@@ -4,7 +4,7 @@ from unittest.mock import Mock
 import pytest
 from litestar.response import Template
 
-from src import constants as const
+from src.modules.common import constants as const
 from src.modules.views import VIEW_CONTROLLERS
 from src.modules.views.base import BaseViewController
 from src.tests.factories import make_user

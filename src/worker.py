@@ -25,11 +25,7 @@ async def run_worker() -> None:
     # Must match `PodcastApp.rq_queue_name` (settings.rq_queue_name); can be overridden by args
     queue_names = sys.argv[1:] or [settings.rq_queue_name]
 
-    async with lifespan(
-        settings,
-        start_msg_suffix="background workers (RQ)",
-        db_start_mode=DbStartMode.VERIFY,
-    ):
+    async with lifespan(settings, start_msg_suffix="RQ", db_start_mode=DbStartMode.VERIFY):
         Worker(queue_names, connection=Redis(*settings.redis.connection_tuple)).work()
 
 

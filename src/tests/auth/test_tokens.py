@@ -3,7 +3,7 @@ from unittest.mock import AsyncMock, Mock
 
 import pytest
 
-from src.exceptions import (
+from src.modules.common.exceptions import (
     AuthCredentialsInvalidError,
     RefreshExpiredAPIError,
     SignatureExpiredError,
@@ -18,8 +18,7 @@ from src.modules.auth.tokens import (
 )
 from src.tests.factories import make_user
 from src.tests.mocks import MockUOW
-from src.utils import utcnow
-
+from src.modules.utils.common import utcnow
 
 class TestJWT:
     def test_encode_decode_jwt__ok(self, app_settings) -> None:

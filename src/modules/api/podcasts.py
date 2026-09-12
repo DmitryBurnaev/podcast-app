@@ -9,7 +9,7 @@ from litestar.exceptions import HTTPException, NotFoundException
 from litestar.params import Body
 from litestar.status_codes import HTTP_201_CREATED, HTTP_204_NO_CONTENT
 
-from src.constants import FileType
+from src.modules.common.constants import FileType
 from src.modules.db import User
 from src.modules.db.models import File
 from src.modules.db.models.podcasts import Podcast

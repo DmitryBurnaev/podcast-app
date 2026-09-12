@@ -41,7 +41,7 @@ from sqlalchemy.sql.elements import SQLCoreOperations
 from sqlalchemy.sql.operators import isnot
 from sqlalchemy.sql.roles import ColumnsClauseRole
 
-from src.exceptions import NotFoundError
+from src.modules.common.exceptions import NotFoundError
 from src.modules.db.models import BaseModel, User, UserSession, File
 from src.modules.db.models.users import UserAccessToken, UserIP, UserInvite
 from src.modules.db.models.podcasts import Cookie, Episode, EpisodeStatus, Podcast

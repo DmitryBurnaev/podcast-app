@@ -8,21 +8,21 @@ from hashlib import md5
 from types import MappingProxyType
 from typing import NamedTuple, ClassVar
 from functools import cached_property
-from datetime import datetime, timedelta
-from dataclasses import asdict, dataclass
+from datetime import datetime
 
 import sqlalchemy as sa
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from src.constants import SourceType
+from modules.dto.podcasts import EpisodeChapter
+from src.modules.common.constants import SourceType
 from src.modules.services.encryption import SensitiveData
 from src.modules.db.models import BaseModel
 from src.modules.db.models.media import File
 from src.modules.db.models.users import User
 from src.modules.schemas.statistics import PodcastStatistics
+from src.modules.utils.common import utcnow, cut_string
 from src.settings.app import get_app_settings
-from src.utils import utcnow, cut_string
 
 logger = logging.getLogger(__name__)
 
@@ -161,37 +161,6 @@ class Podcast(BaseModel):
     #         return first_letter
     #
     #     return "🎧"
-
-
-@dataclass
-class EpisodeChapter:
-    """Base info about episode's chapter"""
-
-    title: str
-    start: int
-    end: int
-
-    @property
-    def as_dict(self) -> dict:
-        """Return chapter fields as a dictionary."""
-        return asdict(self)  # noqa
-
-    @property
-    def start_str(self) -> str:  # ex.: 0:45:05
-        """Return the chapter start time as HH:MM:SS."""
-        return self._ftime(self.start)
-
-    @property
-    def end_str(self) -> str:  # ex.: 0:45:05
-        """Return the chapter end time as HH:MM:SS."""
-        return self._ftime(self.end)
-
-    @staticmethod
-    def _ftime(sec: int) -> str:
-        result_delta: timedelta = timedelta(seconds=sec)
-        mm, ss = divmod(result_delta.total_seconds(), 60)
-        hh, mm = divmod(mm, 60)
-        return f"{int(hh):02d}:{int(mm):02d}:{int(ss):02d}"  # 123sec -> '00:02:03'
 
 
 class EpisodeMetadata(NamedTuple):

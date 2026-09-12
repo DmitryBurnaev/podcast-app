@@ -1,7 +1,6 @@
 from litestar import Controller
 
-from src.constants import AuthSkip
-
+from src.modules.common.constants import AuthSkip
 
 class BaseApiController(Controller):
     opt = {

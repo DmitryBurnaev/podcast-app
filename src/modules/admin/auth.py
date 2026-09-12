@@ -5,7 +5,7 @@ from sqladmin.authentication import AuthenticationBackend
 from litestar.connection import ASGIConnection
 from starlette.requests import Request
 
-from src.exceptions import AuthenticationError
+from src.modules.common.exceptions import AuthenticationError
 from src.modules.auth.backends import AdminAuthBackend
 from src.settings.app import AppSettings
 
