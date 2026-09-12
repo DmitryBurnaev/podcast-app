@@ -31,7 +31,7 @@ from src.modules.auth.middlewares import APIAuthMiddleware, WebAuthMiddleware
 from src.modules.db import close_database, initialize_database, verify_database_reachable
 from src.modules.services.redis import check_redis_connection, close_async_redis_connection
 from src.modules.services.storage import validate_s3_settings
-from src.modules.api import BaseApiController
+from src.modules.api import API_CONTROLLERS
 from src.modules.api.errors import (
     api_error_handler,
     app_error_handler,
@@ -39,7 +39,8 @@ from src.modules.api.errors import (
     validation_error_handler,
     http_redirect_handler,
 )
-from src.modules.views.base import BaseViewController, PodcastOpenAPIController
+from src.modules.views import VIEW_CONTROLLERS
+from src.modules.views.base import PodcastOpenAPIController
 from src.settings.app import APP_DIR, AppSettings, get_app_settings
 
 logger = logging.getLogger("app")
@@ -172,8 +173,8 @@ def make_app(settings: AppSettings | None = None) -> PodcastApp:
     logger.info("Setting up application...")
     podcast_app = PodcastApp(
         route_handlers=[
-            *BaseApiController.get_controllers(),
-            *BaseViewController.get_controllers(),
+            *API_CONTROLLERS,
+            *VIEW_CONTROLLERS,
         ],
         middleware=[
             DefineMiddleware(APIAuthMiddleware, exclude_from_auth_key=AuthSkip.SKIP_AUTH_API),

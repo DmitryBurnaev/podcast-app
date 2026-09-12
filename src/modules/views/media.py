@@ -4,12 +4,13 @@ import logging
 
 from litestar import get
 from litestar.exceptions import NotFoundException
+from litestar.params import FromPath
 from litestar.response import Redirect
 
 from src.constants import AuthSkip
 from src.exceptions import NotSupportedError
 from src.modules.db import SASessionUOW
-from src.modules.db.models.media import MediaType
+from src.modules.db.models.media import File, MediaType
 from src.modules.db.repositories import FileRepository, SystemScope
 from src.modules.services.storage import get_file_presigned_url
 from src.modules.views.base import BaseViewController
@@ -29,7 +30,7 @@ class MediaByTokenController(BaseViewController):
     }
 
     @get("/m/{access_token:str}/")
-    async def get_private_media(self, access_token: str) -> Redirect:
+    async def get_private_media(self, access_token: FromPath[str]) -> Redirect:
         """Audio and image tokens: redirect to S3 (Range/CORS handled by storage)."""
         return await self._redirect_presigned(
             access_token,
@@ -37,7 +38,7 @@ class MediaByTokenController(BaseViewController):
         )
 
     @get("/r/{access_token:str}/")
-    async def get_rss_media(self, access_token: str) -> Redirect:
+    async def get_rss_media(self, access_token: FromPath[str]) -> Redirect:
         """RSS file tokens: redirect to S3."""
         return await self._redirect_presigned(
             access_token,
@@ -49,7 +50,7 @@ class MediaByTokenController(BaseViewController):
         access_token: str,
         allowed_types: tuple[MediaType, ...],
     ) -> Redirect:
-        if not access_token or len(access_token) > 128:
+        if not File.token_is_correct(access_token):
             raise NotFoundException("Media not found")
 
         async with SASessionUOW() as uow:

@@ -15,6 +15,21 @@ from .media import MediaUploadAPIController
 from .misc import PlaylistAPIController, ProgressAPIController, SystemAPIController
 from .podcasts import PodcastAPIController
 
+API_CONTROLLERS: tuple[type[BaseApiController], ...] = (
+    AuthAccessTokenAPIController,
+    AuthCoreAPIController,
+    AuthInviteAPIController,
+    AuthProfileAPIController,
+    CookieAPIController,
+    PodcastEpisodeAPIController,
+    EpisodeAPIController,
+    MediaUploadAPIController,
+    PlaylistAPIController,
+    ProgressAPIController,
+    SystemAPIController,
+    PodcastAPIController,
+)
+
 __all__ = (
     "BaseAuthAPIController",
     "AuthAccessTokenAPIController",
@@ -22,6 +37,7 @@ __all__ = (
     "AuthInviteAPIController",
     "AuthProfileAPIController",
     "BaseApiController",
+    "API_CONTROLLERS",
     "CookieAPIController",
     "PodcastAPIController",
     "PlaylistAPIController",
