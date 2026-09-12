@@ -8,7 +8,7 @@ from unittest.mock import AsyncMock
 import pytest
 
 from src import main as app_main
-from src.exceptions import StartupError, StorageConfigurationError
+from src.modules.common.exceptions import StartupError, StorageConfigurationError
 from src.main import DbStartMode, lifespan, make_app
 from src.modules.services.storage import StorageS3
 from src.tests.conftest import _make_settings

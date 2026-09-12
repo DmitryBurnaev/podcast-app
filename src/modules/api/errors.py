@@ -5,7 +5,7 @@ from litestar.connection import Request
 from litestar.exceptions import HTTPException, ValidationException
 from litestar.response import Response, Redirect
 
-from src.exceptions import APIError, BaseApplicationError, AuthenticationError
+from src.modules.common.exceptions import APIError, BaseApplicationError, AuthenticationError
 from src.modules.schemas.errors import ErrorCode, ErrorPayload, ErrorResponse
 
 logger = logging.getLogger(__name__)

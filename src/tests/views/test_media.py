@@ -6,7 +6,7 @@ from litestar.exceptions import NotFoundException
 from litestar.response import Redirect
 from litestar.status_codes import HTTP_307_TEMPORARY_REDIRECT
 
-from src.exceptions import NotSupportedError
+from src.modules.common.exceptions import NotSupportedError
 from src.modules.db.models.media import MediaType, TOKEN_LENGTH
 from src.modules.views.media import MediaByTokenController
 from src.tests.mocks import MockUOW

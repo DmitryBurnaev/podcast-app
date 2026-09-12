@@ -4,8 +4,9 @@ from pathlib import Path
 
 from yt_dlp.utils import YoutubeDLError
 
-from src.constants import EpisodeStatus
-from src.exceptions import UserCancellationError, DownloadingInterrupted
+from modules.utils import download
+from src.modules.common.constants import EpisodeStatus
+from src.modules.common.exceptions import UserCancellationError, DownloadingInterrupted
 from src.modules.db import SASessionUOW
 from src.modules.db.models import Episode
 from src.modules.db.repositories import EpisodeRepository, FileRepository, FilterT, SystemScope
@@ -180,7 +181,7 @@ class DownloadEpisodeTask(RQTask):
 
         async with cookie_file_ctx(self.db_session, cookie_id=episode.cookie_id) as cookie:
             try:
-                downloaded_path = await common_utils.download_audio(
+                downloaded_path = await download.download_audio(
                     episode.watch_url,
                     filename=episode.audio_filename,
                     cookie_path=(cookie.file_path if cookie else None),

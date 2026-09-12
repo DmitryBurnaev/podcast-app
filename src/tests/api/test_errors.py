@@ -1,7 +1,7 @@
 import pytest
 from litestar.exceptions import HTTPException
 
-from src.exceptions import BaseApplicationError
+from src.modules.common.exceptions import BaseApplicationError
 from src.modules.api.errors import app_error_handler, http_error_handler
 
 

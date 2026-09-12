@@ -19,7 +19,7 @@ function-scoped BaseMock/monkeypatch fixtures, сохраняя module-level imp
 
 Проверены все Python-модули в `../../src`: поиск вложенных `import`/`from`, а также
 проверка импортов верхнего уровня после исполняемого кода. Второй класс проблем
-не найден. `TYPE_CHECKING`-блоки в `../../src/exceptions.py`, `../../src/modules/auth/types.py`,
+не найден. `TYPE_CHECKING`-блоки в `../../src/modules/common/exceptions.py`, `../../src/modules/auth/types.py`,
 `../../src/modules/utils/ffmpeg.py`, `../../src/modules/db/models/media.py` и admin-модулях
 соответствуют правилу и не требуют изменения.
 
@@ -63,8 +63,8 @@ ORM models  <-  storage service / adapter  <-  controllers and admin views
    остаются под `TYPE_CHECKING`; `ruff check` повторно прошёл в P2R.
 5. [x] Обновить узкие unit-тесты: web/admin callers проверяют service boundary,
    а storage-service проверяется с injected fake. Перед этим прочитаны
-   `../../docs/testing/knowledge-base.md` и `../../docs/testing/plan.md`; этапы миграции
-   тестов не завершались и не меняли scope, поэтому `../../docs/testing/plan.md`
+   `../testing/knowledge-base.md` и `../testing/plan.md`; этапы миграции
+   тестов не завершались и не меняли scope, поэтому `../testing/plan.md`
    не требует обновления.
 
 ## Критерии готовности

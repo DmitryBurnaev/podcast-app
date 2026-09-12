@@ -47,7 +47,7 @@ imitators, богатые fixtures и реальные доменные запи
 
 - `src/tests` исключён из mypy; итоговый coverage gate отсутствует.
 - Tests job в `.github/workflows/tests.yaml` закомментирован.
-- `docs/testing/knowledge-base.md` уже требует реальный PostgreSQL для
+- `../testing/knowledge-base.md` уже требует реальный PostgreSQL для
   functional tests, class-based fakes для внешних границ и прямую проверку
   template/context для views; реализация отстаёт от этих правил.
 - Наиболее низкое ориентировочное покрытие: admin dashboard, DB dependencies,

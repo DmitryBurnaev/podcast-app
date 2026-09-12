@@ -4,7 +4,7 @@ from unittest.mock import AsyncMock, Mock
 from litestar.datastructures import Cookie
 from litestar.response import Redirect
 
-from src.exceptions import AuthenticationError
+from src.modules.common.exceptions import AuthenticationError
 from src.modules.auth.backends import SuccessLoginData
 from src.modules.views.auth import AuthLoginController, AuthLogoutController
 from src.tests.factories import make_user

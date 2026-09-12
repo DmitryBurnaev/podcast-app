@@ -11,7 +11,7 @@ from starlette.datastructures import FormData, URL
 from starlette.requests import Request
 from starlette.responses import Response
 
-from src.constants import AuthSkip
+from src.modules.common.constants import AuthSkip
 from src.modules.admin.middlewares import PathFixMiddleware
 from src.modules.admin.counters import AdminCounter
 from src.modules.db import SASessionUOW

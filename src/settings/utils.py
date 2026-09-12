@@ -4,7 +4,7 @@ from typing import TypeVar
 from pydantic_settings import BaseSettings
 from pydantic_core import ValidationError
 
-from src.exceptions import AppSettingsError
+from src.modules.common.exceptions import AppSettingsError
 
 __all__ = ("prepare_settings",)
 

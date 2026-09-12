@@ -5,19 +5,16 @@ from unittest.mock import Mock
 import pytest
 from yt_dlp.utils import YoutubeDLError
 
-from src.constants import EpisodeStatus, SourceType
-from src.exceptions import InvalidRequestError
-from src.modules.db.models.podcasts import EpisodeChapter
+from src.modules.common.constants import EpisodeStatus, SourceType
+from src.modules.common.exceptions import InvalidRequestError
+from modules.dto.podcasts import EpisodeChapter
 from src.modules.utils.common import (
     SourceInfo,
-    _int_from_event,
     chapters_processing,
-    download_audio,
-    download_process_hook,
     extract_source_info,
     get_source_media_info,
 )
-
+from modules.utils.download import download_process_hook, _int_from_event, download_audio
 
 class TestSourceInfo:
     def test_extract_source_info__upload_without_url(self, monkeypatch: pytest.MonkeyPatch) -> None:

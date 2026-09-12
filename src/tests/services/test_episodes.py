@@ -4,10 +4,10 @@ from unittest.mock import AsyncMock, Mock
 
 import pytest
 
-from src.constants import SourceType
+from src.modules.common.constants import SourceType
 from src.modules.db.models.media import MediaType
-from src.exceptions import SourceFetchError
-from src.modules.db.models.podcasts import EpisodeChapter
+from src.modules.common.exceptions import SourceFetchError
+from modules.dto.podcasts import EpisodeChapter
 from src.modules.services.episodes import EpisodeCreator
 from src.modules.utils.common import SourceInfo, SourceMediaInfo
 from src.tests.factories import make_episode, make_file

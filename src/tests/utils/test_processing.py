@@ -6,8 +6,8 @@ from unittest.mock import Mock
 import pytest
 from litestar.datastructures import UploadFile
 
-from src.constants import EpisodeStatus
-from src.exceptions import UserCancellationError
+from src.modules.common.constants import EpisodeStatus
+from src.modules.common.exceptions import UserCancellationError
 from src.modules.utils import processing
 from src.modules.utils.processing import (
     TaskContext,

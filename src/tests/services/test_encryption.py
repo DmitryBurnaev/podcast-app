@@ -1,6 +1,6 @@
 import pytest
 
-from src.exceptions import ImproperlyConfiguredError
+from src.modules.common.exceptions import ImproperlyConfiguredError
 from src.modules.services.encryption import EncodingError, SensitiveData
 from src.settings.app import AppSettings
 

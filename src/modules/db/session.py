@@ -9,9 +9,9 @@ from sqlalchemy.ext.asyncio import (
     close_all_sessions,
 )
 
-from src.exceptions import DatabaseError
+from src.modules.common.exceptions import DatabaseError
 from src.settings.db import get_db_settings
-from src.utils import singleton
+from src.modules.utils.common import singleton
 
 logger = logging.getLogger(__name__)
 type sm_type = async_sessionmaker[AsyncSession]

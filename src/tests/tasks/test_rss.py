@@ -4,7 +4,7 @@ from unittest.mock import AsyncMock, Mock
 
 import pytest
 
-from src.constants import EpisodeStatus, FileType
+from src.modules.common.constants import EpisodeStatus, FileType
 from src.modules.tasks.base import TaskResultCode
 from src.modules.tasks.rss import GenerateRSSTask
 from src.tests.factories import make_episode, make_file, make_podcast

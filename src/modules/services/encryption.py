@@ -4,7 +4,7 @@ from typing import NamedTuple
 
 from Crypto.Cipher import AES
 
-from src.exceptions import ImproperlyConfiguredError
+from src.modules.common.exceptions import ImproperlyConfiguredError
 from src.settings.app import AppSettings, get_app_settings
 
 logger = logging.getLogger(__name__)

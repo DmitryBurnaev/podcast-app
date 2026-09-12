@@ -8,7 +8,7 @@ from litestar.datastructures import UploadFile
 from litestar.enums import RequestEncodingType
 from litestar.params import Body
 
-from src.exceptions import InvalidParametersAPIError
+from src.modules.common.exceptions import InvalidParametersAPIError
 from src.modules.api.base import BaseApiController
 from src.modules.utils.processing import get_file_size, save_uploaded_file
 from src.modules.utils import ffmpeg

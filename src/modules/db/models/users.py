@@ -7,7 +7,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 from src.modules.auth.hashers import PBKDF2PasswordHasher
 from src.modules.db.models import BaseModel
-from src.utils import utcnow
+from src.modules.utils.common import utcnow
 
 logger = logging.getLogger(__name__)
 LENGTH_USER_ACCESS_TOKEN = 32

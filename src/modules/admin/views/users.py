@@ -13,7 +13,7 @@ from src.modules.db import SASessionUOW, UserRepository
 from src.modules.db.models import UserInvite, UserSession, UserIP, UserAccessToken
 from src.modules.admin.views.base import BaseModelView, FormDataType
 from src.modules.db.models import User
-from src.utils import utcnow
+from src.modules.utils.common import utcnow
 from src.modules.admin.utils import (
     format_instance_details_link,
     format_datetime,
