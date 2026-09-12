@@ -72,7 +72,16 @@ def validation_error_handler(_: Request, exc: ValidationException) -> Response[d
     )
 
 
-def http_redirect_handler(_: Request, exc: AuthenticationError) -> Response[dict[str, Any]]:
+def http_redirect_handler(request: Request, exc: AuthenticationError) -> Response[dict[str, Any]]:
+    """Return API auth failures as JSON and redirect only HTML requests to login."""
+    if request.url.path.startswith("/api/"):
+        return api_error_response(
+            code=ErrorCode.AUTH_MISSING,
+            message="Authentication credentials were not provided.",
+            details=exc.details,
+            status_code=401,
+        )
+
     logger.log(exc.log_level, "HTTP redirect occurred: %s", exc)
     url = "/login"
     return Redirect(path=url, status_code=302)

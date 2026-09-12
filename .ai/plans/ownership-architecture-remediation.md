@@ -28,7 +28,7 @@ API, закрепить матрицу публичных endpoints и убра�
 - [~] **R2. Явный repository scope.** Ввести `OwnerScope`/`SystemScope`,
   централизовать owner-column и применить scope ко всем custom read/update/delete
   путям.
-- [ ] **R3. Authentication matrix.** Явные controller lists, tests для публичных
+- [~] **R3. Authentication matrix.** Явные controller lists, tests для публичных
   и закрытых routes, строгая media-token validation и AdminAuth boundary.
 - [ ] **R4. Imports и DB обходы.** Удалить `exceptions` alias и неиспользуемые
   DB dependency generators, сохранив module-level import rule.
@@ -52,5 +52,11 @@ API, закрепить матрицу публичных endpoints и убра�
 пользовательские пути переведены на `OwnerScope`, а доверенные worker/admin/auth
 пути — на явный `SystemScope`. Добавлен функциональный regression test для
 чужого `source_id`. R1/R2 остаются в состоянии проверки до успешного запуска
-PostgreSQL pytest: текущий окруженческий запуск останавливается до collection
-на отсутствующем модуле `redis.credentials`.
+PostgreSQL pytest: песочница запрещает чтение
+`.venv/.../redis/credentials.py`, поэтому import проявляется как
+`ModuleNotFoundError: redis.credentials` ещё до collection.
+
+R3: динамическая регистрация контроллеров заменена явными `API_CONTROLLERS` и
+`VIEW_CONTROLLERS`; capability media проверяет точный формат token до DB lookup.
+Добавлены проверки публичных и закрытых маршрутов. Полный функциональный запуск
+нужно выполнить вне текущего ограничения песочницы на `credentials.py`.

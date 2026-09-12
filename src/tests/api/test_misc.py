@@ -8,12 +8,20 @@ from litestar.testing import TestClient
 
 from src.constants import EpisodeStatus, SourceType
 from src.main import PodcastApp
+from src.modules.api import API_CONTROLLERS
+from src.modules.api.base import BaseApiController
 from src.modules.api import misc as misc_api
 from src.modules.api.misc import _prepare_description
 from src.modules.db.models import User
 from src.tests.factories import make_episode, make_podcast
 from src.tests.helpers import assert_error_response
 from src.tests.mocks import MockUOW
+
+
+def test_api_controllers__is_explicit_and_contains_only_api_controllers() -> None:
+    assert API_CONTROLLERS
+    assert all(issubclass(controller, BaseApiController) for controller in API_CONTROLLERS)
+    assert len(API_CONTROLLERS) == len(set(API_CONTROLLERS))
 
 
 @pytest.fixture

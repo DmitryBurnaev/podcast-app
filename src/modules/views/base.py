@@ -1,7 +1,7 @@
 import asyncio
 import logging
-from functools import lru_cache, cached_property
-from typing import Any, Protocol, Self, Literal, Callable
+from functools import cached_property
+from typing import Any, Protocol, Literal, Callable
 
 from litestar import Controller
 from litestar.connection import Request
@@ -72,12 +72,6 @@ class BaseViewController(Controller):
             "format_file_size": const.format_file_size,
             "normalize_episode_status": const.normalize_episode_status,
         }
-
-    @classmethod
-    @lru_cache
-    def get_controllers(cls) -> list[type[Self]]:
-        """Return concrete HTML controllers registered under this base controller."""
-        return [c for c in cls.__subclasses__()]  # noqa
 
     @classmethod
     async def _run_task(

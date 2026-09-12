@@ -5,6 +5,7 @@ import pytest
 from litestar.response import Template
 
 from src import constants as const
+from src.modules.views import VIEW_CONTROLLERS
 from src.modules.views.base import BaseViewController
 from src.tests.factories import make_user
 
@@ -105,12 +106,10 @@ class TestBaseControllerContext:
 
 
 class TestBaseControllerHelpers:
-    def test_get_controllers__includes_subclasses(self) -> None:
-        BaseViewController.get_controllers.cache_clear()
-
-        result = BaseViewController.get_controllers()
-
-        assert ChildControllerForTest in result
+    def test_view_controllers__is_explicit_and_does_not_include_test_subclasses(self) -> None:
+        assert VIEW_CONTROLLERS
+        assert ChildControllerForTest not in VIEW_CONTROLLERS
+        assert all(issubclass(controller, BaseViewController) for controller in VIEW_CONTROLLERS)
 
     async def test_run_task__enqueues_task_with_job_id(self) -> None:
         enqueue = Mock(return_value=None)

@@ -7,7 +7,7 @@ from litestar.response import Redirect
 from litestar.status_codes import HTTP_307_TEMPORARY_REDIRECT
 
 from src.exceptions import NotSupportedError
-from src.modules.db.models.media import MediaType
+from src.modules.db.models.media import MediaType, TOKEN_LENGTH
 from src.modules.views.media import MediaByTokenController
 from src.tests.mocks import MockUOW
 
@@ -60,12 +60,12 @@ class TestMediaByTokenController:
         monkeypatch.setattr("src.modules.views.media.get_file_presigned_url", fetch_presigned_url)
         controller = _controller()
 
-        result = await _get_private_media(controller, "token")
+        result = await _get_private_media(controller, "a" * TOKEN_LENGTH)
 
         assert isinstance(result, Redirect)
         assert result.status_code == HTTP_307_TEMPORARY_REDIRECT
         assert result.url == "https://storage/presigned"
-        repository.first_by_access_token.assert_awaited_once_with("token")
+        repository.first_by_access_token.assert_awaited_once_with("a" * TOKEN_LENGTH)
         fetch_presigned_url.assert_awaited_once_with(media_file)
 
     async def test_get_rss_media__redirects_allowed_media(
@@ -78,15 +78,15 @@ class TestMediaByTokenController:
         monkeypatch.setattr("src.modules.views.media.get_file_presigned_url", fetch_presigned_url)
         controller = _controller()
 
-        result = await _get_rss_media(controller, "token")
+        result = await _get_rss_media(controller, "a" * TOKEN_LENGTH)
 
         assert isinstance(result, Redirect)
         assert result.status_code == HTTP_307_TEMPORARY_REDIRECT
         assert result.url == "https://storage/presigned"
-        repository.first_by_access_token.assert_awaited_once_with("token")
+        repository.first_by_access_token.assert_awaited_once_with("a" * TOKEN_LENGTH)
         fetch_presigned_url.assert_awaited_once_with(media_file)
 
-    @pytest.mark.parametrize("access_token", ["", "x" * 129])
+    @pytest.mark.parametrize("access_token", ["", "x" * 47, "x" * 49, "_" * TOKEN_LENGTH])
     async def test_redirect_presigned__invalid_token__fail(
         self,
         access_token: str,
@@ -115,9 +115,9 @@ class TestMediaByTokenController:
         controller = _controller()
 
         with pytest.raises(NotFoundException, match="Media not found"):
-            await controller._redirect_presigned("token", allowed_types=allowed_types)
+            await controller._redirect_presigned("a" * TOKEN_LENGTH, allowed_types=allowed_types)
 
-        repository.first_by_access_token.assert_awaited_once_with("token")
+        repository.first_by_access_token.assert_awaited_once_with("a" * TOKEN_LENGTH)
 
     async def test_redirect_presigned__presign_error__fail(
         self,
@@ -130,6 +130,6 @@ class TestMediaByTokenController:
         controller = _controller()
 
         with pytest.raises(NotFoundException, match="Media not found"):
-            await _get_private_media(controller, "token")
+            await _get_private_media(controller, "a" * TOKEN_LENGTH)
 
         fetch_presigned_url.assert_awaited_once_with(media_file)

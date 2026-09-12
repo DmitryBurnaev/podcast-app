@@ -172,3 +172,67 @@ class TestInviteAndSystemAPI:
             code="INVALID_PARAMETERS",
             message="Requested data is not valid.",
         )
+
+
+class TestUnauthenticatedRouteMatrix:
+    @pytest.mark.parametrize(
+        ("path", "status_code"),
+        [
+            ("/api/system/info/", 200),
+            ("/api/system/health/", 200),
+            ("/api/schema/", 200),
+            ("/static/css/podcast-app.css", 200),
+            ("/login", 200),
+            ("/m/not-a-media-token/", 404),
+            ("/r/not-a-media-token/", 404),
+        ],
+    )
+    def test_public_routes_are_available_without_credentials(
+        self,
+        auth_required_client: TestClient[PodcastApp],
+        monkeypatch: pytest.MonkeyPatch,
+        path: str,
+        status_code: int,
+    ) -> None:
+        async def check_redis_connection() -> None:
+            return None
+
+        monkeypatch.setattr("src.modules.api.misc.check_redis_connection", check_redis_connection)
+
+        response = auth_required_client.get(path, follow_redirects=False)
+
+        assert response.status_code == status_code, response.text
+
+    @pytest.mark.parametrize(
+        ("method", "path"),
+        [
+            ("GET", "/api/podcasts/"),
+            ("GET", "/api/episodes/"),
+            ("GET", "/api/cookies/"),
+            ("GET", "/api/auth/me/"),
+            ("GET", "/api/playlist/?url=https://example.com/playlist"),
+            ("GET", "/api/progress/"),
+            ("POST", "/api/media/upload/audio/"),
+        ],
+    )
+    def test_api_business_routes_require_credentials(
+        self,
+        auth_required_client: TestClient[PodcastApp],
+        method: str,
+        path: str,
+    ) -> None:
+        response = auth_required_client.request(method, path, follow_redirects=False)
+
+        assert response.status_code == 401, response.text
+        assert response.json()["error"]["code"] == "AUTH_MISSING"
+
+    @pytest.mark.parametrize("path", ["/podcasts/", "/episodes/", "/profile"])
+    def test_html_business_routes_redirect_to_login(
+        self,
+        auth_required_client: TestClient[PodcastApp],
+        path: str,
+    ) -> None:
+        response = auth_required_client.get(path, follow_redirects=False)
+
+        assert response.status_code == 302, response.text
+        assert response.headers["location"] == "/login"
