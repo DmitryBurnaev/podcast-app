@@ -20,6 +20,7 @@ from src.tests.factories import make_user
 from src.tests.mocks import MockUOW
 from src.modules.utils.common import utcnow
 
+
 class TestJWT:
     def test_encode_decode_jwt__ok(self, app_settings) -> None:
         token, expired_at = encode_jwt(

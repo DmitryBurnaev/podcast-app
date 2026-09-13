@@ -86,9 +86,7 @@ def mocked_rq_queue(monkeypatch: pytest.MonkeyPatch) -> Iterator[FakeTaskQueue]:
         monkeypatch.setattr(
             task_class,
             "cancel_task",
-            classmethod(
-                lambda cls, *args, **kwargs: queue.cancel_task(cls, *args, **kwargs)
-            ),
+            classmethod(lambda cls, *args, **kwargs: queue.cancel_task(cls, *args, **kwargs)),
         )
 
     yield from mock_target_class(queue, monkeypatch)

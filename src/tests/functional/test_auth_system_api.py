@@ -20,6 +20,7 @@ from src.tests.fakes import (
 from src.tests.helpers import assert_error_response
 from src.modules.utils.common import utcnow
 
+
 @pytest.fixture
 def auth_api_client(
     db_user: User,
@@ -44,9 +45,7 @@ def auth_api_client(
         "src.modules.api.misc.check_redis_connection",
         mocked_app_lifecycle.check_redis,
     )
-    with TestClient(
-        app=make_app(settings=settings), raise_server_exceptions=False
-    ) as client:
+    with TestClient(app=make_app(settings=settings), raise_server_exceptions=False) as client:
         yield client, mocked_mailer, mocked_app_lifecycle
 
 
@@ -112,6 +111,21 @@ class TestAuthCoreAPI:
         assert response.json() == {"status": "ok"}
         assert len(mailer.sent) == 1
         assert "token" not in response.text.lower()
+
+    def test_refresh_token_rejects_invalid_json_body(
+        self,
+        auth_api_client: tuple[TestClient[PodcastApp], FakeMailer, FakeLifecycle],
+    ) -> None:
+        client, _, _ = auth_api_client
+
+        response = client.post("/api/auth/refresh-token/", json={})
+
+        assert_error_response(
+            response,
+            status_code=400,
+            code="INVALID_PARAMETERS",
+            message="Requested data is not valid.",
+        )
 
 
 class TestProfileAndTokenAPI:

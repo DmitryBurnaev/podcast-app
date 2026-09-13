@@ -1,12 +1,9 @@
 import os
 from hashlib import md5
 from pathlib import Path
-from typing import Annotated
-
 from litestar import post
 from litestar.datastructures import UploadFile
-from litestar.enums import RequestEncodingType
-from litestar.params import Body
+from litestar.params import MultipartBody
 
 from src.modules.common.exceptions import InvalidParametersAPIError
 from src.modules.api.base import BaseApiController
@@ -24,7 +21,7 @@ class MediaUploadAPIController(BaseApiController):
     @post("/audio/")
     async def upload_audio(
         self,
-        data: Annotated[dict[str, UploadFile], Body(media_type=RequestEncodingType.MULTI_PART)],
+        data: MultipartBody[dict[str, UploadFile]],
     ) -> UploadedAudioData:
         """Upload an audio file and return its stored metadata."""
         uploaded_file = _get_upload(data)
@@ -65,7 +62,7 @@ class MediaUploadAPIController(BaseApiController):
     @post("/image/")
     async def upload_image(
         self,
-        data: Annotated[dict[str, UploadFile], Body(media_type=RequestEncodingType.MULTI_PART)],
+        data: MultipartBody[dict[str, UploadFile]],
     ) -> UploadedImageData:
         """Upload an image file and return its stored metadata."""
         uploaded_file = _get_upload(data)

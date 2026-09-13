@@ -3,7 +3,9 @@ import logging
 from typing import Any, cast
 
 from litestar import Request, delete, get, patch, post, put
+from litestar.di import NamedDependency
 from litestar.exceptions import HTTPException, NotFoundException
+from litestar.params import FromPath, FromQuery, JSONBody
 from litestar.status_codes import HTTP_201_CREATED, HTTP_204_NO_CONTENT
 
 from src.modules.common.constants import SourceType
@@ -78,11 +80,11 @@ class PodcastEpisodeAPIController(EpisodeTaskMixin, BaseApiController):
     @get("/")
     async def get_list(
         self,
-        podcast_id: int,
+        podcast_id: FromPath[int],
         request: Request,
-        limit: int = 10,
-        offset: int = 0,
-        order_by: EpisodeOrderT = "-created_at",
+        limit: FromQuery[int] = 10,
+        offset: FromQuery[int] = 0,
+        order_by: FromQuery[EpisodeOrderT] = "-created_at",
     ) -> Pagination[EpisodeResponse]:
         """Return paginated episodes for a podcast owned by the current user."""
         logger.info(
@@ -116,9 +118,9 @@ class PodcastEpisodeAPIController(EpisodeTaskMixin, BaseApiController):
     async def create(
         self,
         request: Request,
-        podcast_id: int,
-        current_user: User,
-        data: EpisodeCreateNestedSchema,
+        podcast_id: FromPath[int],
+        current_user: NamedDependency[User],
+        data: JSONBody[EpisodeCreateNestedSchema],
     ) -> EpisodeResponse:
         """Create an episode in the requested podcast."""
         source_url = data.normalized_source_url
@@ -162,8 +164,8 @@ class PodcastEpisodeAPIController(EpisodeTaskMixin, BaseApiController):
     async def create_uploaded(
         self,
         request: Request,
-        podcast_id: int,
-        data: UploadedEpisodeCreateSchema,
+        podcast_id: FromPath[int],
+        data: JSONBody[UploadedEpisodeCreateSchema],
     ) -> EpisodeResponse:
         """Create an episode from an already uploaded audio file."""
         # TODO: move logic to the service!
@@ -264,8 +266,8 @@ class PodcastEpisodeAPIController(EpisodeTaskMixin, BaseApiController):
     @get("/uploaded/{hash:str}/")
     async def get_uploaded(
         self,
-        podcast_id: int,
-        hash: str,
+        podcast_id: FromPath[int],
+        hash: FromPath[str],
         request: Request,
     ) -> UploadedEpisodeResponse:
         """Return metadata for an uploaded episode file by hash."""
@@ -296,9 +298,9 @@ class EpisodeAPIController(EpisodeTaskMixin, BaseApiController):
     async def get_list(
         self,
         request: Request,
-        limit: int = 10,
-        offset: int = 0,
-        order_by: EpisodeOrderT = "-created_at",
+        limit: FromQuery[int] = 10,
+        offset: FromQuery[int] = 0,
+        order_by: FromQuery[EpisodeOrderT] = "-created_at",
     ) -> Pagination[EpisodeResponse]:
         """Return paginated episodes owned by the current user."""
         logger.info("[API] Getting paginated list of episodes | user #%i", request.user.id)
@@ -320,7 +322,7 @@ class EpisodeAPIController(EpisodeTaskMixin, BaseApiController):
         )
 
     @get("/{episode_id:int}/")
-    async def get_details(self, episode_id: int, request: Request) -> EpisodeResponse:
+    async def get_details(self, episode_id: FromPath[int], request: Request) -> EpisodeResponse:
         """Return details for an episode owned by the current user."""
         async with SASessionUOW() as uow:
             episode_repository = EpisodeRepository(
@@ -342,9 +344,9 @@ class EpisodeAPIController(EpisodeTaskMixin, BaseApiController):
     @patch("/{episode_id:int}/")
     async def update(
         self,
-        episode_id: int,
+        episode_id: FromPath[int],
         request: Request,
-        data: EpisodePatchSchema,
+        data: JSONBody[EpisodePatchSchema],
     ) -> EpisodeResponse:
         """Update editable fields for an episode owned by the current user."""
         update_data = data.update_data
@@ -367,7 +369,7 @@ class EpisodeAPIController(EpisodeTaskMixin, BaseApiController):
         return EpisodeResponse.model_validate(episode)
 
     @delete("/{episode_id:int}/", status_code=HTTP_204_NO_CONTENT)
-    async def delete(self, episode_id: int, request: Request) -> None:
+    async def delete(self, episode_id: FromPath[int], request: Request) -> None:
         """Delete an episode owned by the current user."""
         async with SASessionUOW() as uow:
             episode_repository = EpisodeRepository(
@@ -385,7 +387,7 @@ class EpisodeAPIController(EpisodeTaskMixin, BaseApiController):
             uow.mark_for_commit()
 
     @put("/{episode_id:int}/download/")
-    async def download(self, request: Request, episode_id: int) -> EpisodeResponse:
+    async def download(self, request: Request, episode_id: FromPath[int]) -> EpisodeResponse:
         """Start downloading or processing an episode."""
         async with SASessionUOW() as uow:
             episode_repository = EpisodeRepository(
@@ -418,8 +420,8 @@ class EpisodeAPIController(EpisodeTaskMixin, BaseApiController):
     @put("/{episode_id:int}/cancel-downloading/")
     async def cancel_downloading(
         self,
-        episode_id: int,
-        current_user: User,
+        episode_id: FromPath[int],
+        current_user: NamedDependency[User],
     ) -> EpisodeResponse:
         """Cancel the active download for an episode."""
         async with SASessionUOW() as uow:

@@ -5,6 +5,8 @@ from typing import Any, Iterable, cast
 
 import yt_dlp
 from litestar import get
+from litestar.di import NamedDependency
+from litestar.params import FromQuery
 
 from src.modules.common.constants import AuthSkip
 from src.modules.api.base import BaseApiController
@@ -34,7 +36,7 @@ class SystemAPIController(BaseApiController):
     opt = BaseApiController.opt | {AuthSkip.SKIP_AUTH_API: True}
 
     @get("/api/system/info/")
-    async def system_info(self, settings: AppSettings) -> SystemInfo:
+    async def system_info(self, settings: NamedDependency[AppSettings]) -> SystemInfo:
         """Return runtime system information."""
         return SystemInfo(status="ok", vendors=[settings.app_version])
 
@@ -50,7 +52,9 @@ class PlaylistAPIController(BaseApiController):
     tags = ["Playlist"]
 
     @get("/")
-    async def get_playlist(self, current_user: User, url: str) -> PlaylistResponse:
+    async def get_playlist(
+        self, current_user: NamedDependency[User], url: FromQuery[str]
+    ) -> PlaylistResponse:
         """Extract playlist metadata for the current user."""
         try:
             source_info = common_utils.extract_source_info(url, playlist=True)
@@ -102,8 +106,8 @@ class ProgressAPIController(BaseApiController):
     @get("/")
     async def get_progress(
         self,
-        current_user: User,
-        episode_id: int | None = None,
+        current_user: NamedDependency[User],
+        episode_id: FromQuery[int | None] = None,
     ) -> dict[str, list[ProgressItemResponse]]:
         """Return active processing progress for the current user."""
         async with SASessionUOW() as uow:

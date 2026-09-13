@@ -8,6 +8,7 @@ from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 from src.modules.utils.common import utcnow
 
+
 class BaseModel(AsyncAttrs, DeclarativeBase):
     id: Mapped[int]
     created_at: Mapped[datetime] = mapped_column(

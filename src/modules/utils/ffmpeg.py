@@ -16,7 +16,6 @@ from src.modules.common.exceptions import (
     FFMPegPreparationError,
     FFMPegParseError,
 )
-from src.modules.utils import common as common_utils
 from src.modules.utils import processing as proc_utils
 from src.settings.app import get_app_settings
 from src.modules.utils.common import cut_string
@@ -56,7 +55,7 @@ def ffmpeg_preparation(
     logger.info("Start FFMPEG preparations for %s === ", filename)
     total_bytes = proc_utils.get_file_size(src_path)
     if call_process_hook:
-        common_utils.episode_process_hook(
+        proc_utils.episode_process_hook(
             status=EpisodeStatus.DL_EPISODE_POSTPROCESSING,
             filename=filename,
             total_bytes=total_bytes,
@@ -94,7 +93,7 @@ def ffmpeg_preparation(
         if isinstance(exc, subprocess.CalledProcessError) and exc.returncode == 255:
             raise UserCancellationError("Background FFMPEG processing was interrupted") from exc
 
-        common_utils.episode_process_hook(status=EpisodeStatus.ERROR, filename=filename)
+        proc_utils.episode_process_hook(status=EpisodeStatus.ERROR, filename=filename)
         with suppress(IOError):
             os.remove(tmp_path)
 
@@ -117,12 +116,12 @@ def ffmpeg_preparation(
         os.rename(tmp_path, src_path)
 
     except IOError as exc:
-        common_utils.episode_process_hook(status=EpisodeStatus.ERROR, filename=filename)
+        proc_utils.episode_process_hook(status=EpisodeStatus.ERROR, filename=filename)
         raise FFMPegPreparationError(f"Failed to rename/remove tmp file: {exc}") from exc
 
     total_file_size = proc_utils.get_file_size(src_path)
     if call_process_hook:
-        common_utils.episode_process_hook(
+        proc_utils.episode_process_hook(
             status=EpisodeStatus.DL_EPISODE_POSTPROCESSING,
             filename=filename,
             total_bytes=total_file_size,

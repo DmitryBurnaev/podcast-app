@@ -4,6 +4,7 @@ from pydantic import BaseModel, ConfigDict, computed_field
 
 from src.modules.common.constants import format_file_size
 
+
 class RecentActivity(BaseModel):
     """Recent activity text and optional time string for display."""
 
