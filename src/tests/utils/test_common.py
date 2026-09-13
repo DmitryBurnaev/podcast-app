@@ -7,14 +7,15 @@ from yt_dlp.utils import YoutubeDLError
 
 from src.modules.common.constants import EpisodeStatus, SourceType
 from src.modules.common.exceptions import InvalidRequestError
-from modules.dto.podcasts import EpisodeChapter
+from src.modules.dto.podcasts import EpisodeChapter
 from src.modules.utils.common import (
     SourceInfo,
     chapters_processing,
     extract_source_info,
     get_source_media_info,
 )
-from modules.utils.download import download_process_hook, _int_from_event, download_audio
+from src.modules.utils.download import download_process_hook, _int_from_event, download_audio
+
 
 class TestSourceInfo:
     def test_extract_source_info__upload_without_url(self, monkeypatch: pytest.MonkeyPatch) -> None:

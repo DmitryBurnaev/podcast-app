@@ -7,7 +7,7 @@ import pytest
 from src.modules.common.constants import SourceType
 from src.modules.db.models.media import MediaType
 from src.modules.common.exceptions import SourceFetchError
-from modules.dto.podcasts import EpisodeChapter
+from src.modules.dto.podcasts import EpisodeChapter
 from src.modules.services.episodes import EpisodeCreator
 from src.modules.utils.common import SourceInfo, SourceMediaInfo
 from src.tests.factories import make_episode, make_file

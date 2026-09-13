@@ -14,7 +14,7 @@ import sqlalchemy as sa
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from modules.dto.podcasts import EpisodeChapter
+from src.modules.dto.podcasts import EpisodeChapter
 from src.modules.common.constants import SourceType
 from src.modules.services.encryption import SensitiveData
 from src.modules.db.models import BaseModel

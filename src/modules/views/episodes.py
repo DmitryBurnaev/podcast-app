@@ -4,6 +4,8 @@ from pathlib import Path
 from typing import ClassVar, cast
 
 from litestar import get, post, Request
+from litestar.di import NamedDependency
+from litestar.params import FromPath
 from litestar.response import File, Template
 from litestar.exceptions import HTTPException, NotFoundException
 from litestar.status_codes import HTTP_201_CREATED
@@ -92,7 +94,7 @@ class EpisodesController(BaseViewController):
         return {"id": episode.id}
 
     @get("/episodes/")
-    async def get(self, request: AppRequest, settings: AppSettings) -> Template:
+    async def get(self, request: AppRequest, settings: NamedDependency[AppSettings]) -> Template:
         """Render the episode list page with optional filters."""
         query_params = request.query_params
         filters: dict = {}
@@ -153,7 +155,7 @@ class EpisodesController(BaseViewController):
 
 class EpisodeDetailsController(BaseViewController):
     @get("/episodes/{episode_id:int}/")
-    async def get_detail(self, episode_id: int, request: AppRequest) -> Template:
+    async def get_detail(self, episode_id: FromPath[int], request: AppRequest) -> Template:
         """Get episode detail page with edit form"""
         async with SASessionUOW() as uow:
             episode_repository = EpisodeRepository(
@@ -203,7 +205,7 @@ class EpisodeCoverController(BaseViewController):
     cache_file_prefix: ClassVar[str] = "episode_cover"
 
     @get("/episodes/{episode_id:int}/cover/")
-    async def get_cover(self, episode_id: int, request: AppRequest) -> File:
+    async def get_cover(self, episode_id: FromPath[int], request: AppRequest) -> File:
         """Return episode cover image; download from S3 or source_url and cache."""
         async with SASessionUOW() as uow:
             episode_repository = EpisodeRepository(

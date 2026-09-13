@@ -1,12 +1,12 @@
 import asyncio
 import logging
-from typing import Any, Annotated, cast
+from typing import Any, cast
 
 from litestar import Request, delete, get, patch, post, put
 from litestar.datastructures import UploadFile
-from litestar.enums import RequestEncodingType
+from litestar.di import NamedDependency
 from litestar.exceptions import HTTPException, NotFoundException
-from litestar.params import Body
+from litestar.params import FromPath, FromQuery, JSONBody, MultipartBody
 from litestar.status_codes import HTTP_201_CREATED, HTTP_204_NO_CONTENT
 
 from src.modules.common.constants import FileType
@@ -46,8 +46,8 @@ class PodcastAPIController(BaseApiController):
     @post("/", status_code=HTTP_201_CREATED)
     async def create(
         self,
-        data: PodcastCreateRequest,
-        current_user: User,
+        data: JSONBody[PodcastCreateRequest],
+        current_user: NamedDependency[User],
     ) -> PodcastResponse:
         """Create a podcast for the current user."""
         async with SASessionUOW() as uow:
@@ -79,10 +79,10 @@ class PodcastAPIController(BaseApiController):
     @get("/")
     async def get_list(
         self,
-        current_user: User,
-        limit: int = 10,
-        offset: int = 0,
-        order_by: PodcastOrderT = "-created_at",
+        current_user: NamedDependency[User],
+        limit: FromQuery[int] = 10,
+        offset: FromQuery[int] = 0,
+        order_by: FromQuery[PodcastOrderT] = "-created_at",
     ) -> Pagination[PodcastResponse]:
         """
         Get paginated list of podcasts (for current user) with pagination
@@ -120,7 +120,9 @@ class PodcastAPIController(BaseApiController):
         )
 
     @get("/{podcast_id:int}/")
-    async def get_details(self, podcast_id: int, current_user: User) -> PodcastResponse:
+    async def get_details(
+        self, podcast_id: FromPath[int], current_user: NamedDependency[User]
+    ) -> PodcastResponse:
         """
         Get details of a podcast
 
@@ -152,9 +154,9 @@ class PodcastAPIController(BaseApiController):
     @patch("/{podcast_id:int}/")
     async def update(
         self,
-        podcast_id: int,
-        data: PodcastUpdateRequest,
-        current_user: User,
+        podcast_id: FromPath[int],
+        data: JSONBody[PodcastUpdateRequest],
+        current_user: NamedDependency[User],
     ) -> PodcastResponse:
         """Update editable fields for a podcast owned by the current user."""
         update_data = data.model_dump(exclude_unset=True)
@@ -184,7 +186,7 @@ class PodcastAPIController(BaseApiController):
         return PodcastResponse.model_validate(updated_podcast)
 
     @delete("/{podcast_id:int}/", status_code=HTTP_204_NO_CONTENT)
-    async def delete(self, podcast_id: int, current_user: User) -> None:
+    async def delete(self, podcast_id: FromPath[int], current_user: NamedDependency[User]) -> None:
         """Delete a podcast owned by the current user."""
         async with SASessionUOW() as uow:
             podcast_repository = PodcastRepository(
@@ -213,9 +215,9 @@ class PodcastAPIController(BaseApiController):
     @post("/{podcast_id:int}/upload-image/")
     async def upload_image(
         self,
-        podcast_id: int,
-        data: Annotated[dict[str, UploadFile], Body(media_type=RequestEncodingType.MULTI_PART)],
-        current_user: User,
+        podcast_id: FromPath[int],
+        data: MultipartBody[dict[str, UploadFile]],
+        current_user: NamedDependency[User],
     ) -> PodcastResponse:
         """Upload and attach a cover image to a podcast."""
         uploaded_file = data.get("file") or next(iter(data.values()), None)
@@ -263,9 +265,9 @@ class PodcastAPIController(BaseApiController):
     @put("/{podcast_id:int}/generate-rss/")
     async def generate_rss(
         self,
-        podcast_id: int,
+        podcast_id: FromPath[int],
         request: Request,
-        current_user: User,
+        current_user: NamedDependency[User],
     ) -> PodcastTaskResponse:
         """Enqueue RSS generation for a podcast."""
         async with SASessionUOW() as uow:

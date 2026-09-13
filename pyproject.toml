@@ -76,6 +76,11 @@ addopts = [
     "--strict-config",
     "--strict-markers",
 ]
+filterwarnings = [
+    "error:.*Inferred dependency field.*:litestar.exceptions.LitestarDeprecationWarning",
+    "error:.*query parameter .*declared using deprecated inferred style.*:litestar.exceptions.LitestarDeprecationWarning",
+    "error:.*path parameter .*declared using deprecated inferred style.*:litestar.exceptions.LitestarDeprecationWarning",
+]
 
 [tool.coverage.run]
 source = ["src"]

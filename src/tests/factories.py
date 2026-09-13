@@ -7,6 +7,7 @@ from src.modules.schemas.statistics import PodcastStatistics
 from src.modules.common.constants import EpisodeStatus, SourceType
 from src.modules.utils.common import utcnow
 
+
 def make_user(
     *,
     id: int = 1,

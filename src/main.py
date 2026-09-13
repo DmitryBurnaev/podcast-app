@@ -143,7 +143,7 @@ def make_app(settings: AppSettings | None = None) -> PodcastApp:
     """Forming Application instance with required settings and dependencies"""
     app_settings: AppSettings = settings or get_app_settings()
 
-    def provide_settings(_: Any) -> AppSettings:
+    def provide_settings() -> AppSettings:
         return app_settings
 
     logger.info("Preparing configs for application...")

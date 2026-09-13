@@ -5,6 +5,7 @@ from litestar.connection import Request
 from litestar.datastructures import State
 
 from src.modules.auth.types import TokenData
+
 if TYPE_CHECKING:
     from src.modules.db import User
 

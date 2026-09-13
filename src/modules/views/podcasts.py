@@ -3,6 +3,8 @@ from pathlib import Path
 from typing import ClassVar
 
 from litestar import get
+from litestar.di import NamedDependency
+from litestar.params import FromPath
 from litestar.response import File, Template
 
 from src.modules.common.exceptions import NotFoundError
@@ -15,6 +17,7 @@ from src.modules.views.base import BaseViewController
 from src.modules.common.types import AppRequest
 from src.settings.app import AppSettings
 from src.modules.utils.common import cut_string
+
 
 class PodcastsController(BaseViewController):
     @get("/podcasts/")
@@ -42,9 +45,9 @@ class PodcastsDetailsController(BaseViewController):
     @get("/podcasts/{podcast_id:int}/")
     async def get_detail(
         self,
-        podcast_id: int,
+        podcast_id: FromPath[int],
         request: AppRequest,
-        settings: AppSettings,
+        settings: NamedDependency[AppSettings],
     ) -> Template:
         """Get podcast detail page with episodes list"""
 
@@ -83,7 +86,7 @@ class PodcastCoverController(BaseViewController):
     cache_file_prefix: ClassVar[str] = "podcast_cover"
 
     @get("/podcasts/{podcast_id:int}/cover/")
-    async def get_cover(self, podcast_id: int, request: AppRequest) -> File:
+    async def get_cover(self, podcast_id: FromPath[int], request: AppRequest) -> File:
         """Return podcast cover image; download from S3 or source_url and cache."""
 
         async with SASessionUOW() as uow:

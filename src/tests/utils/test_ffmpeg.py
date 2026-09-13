@@ -11,7 +11,7 @@ from src.modules.common.exceptions import (
     UserCancellationError,
 )
 from src.modules.db.models.podcasts import EpisodeMetadata
-from modules.dto.podcasts import EpisodeChapter
+from src.modules.dto.podcasts import EpisodeChapter
 from src.modules.utils.ffmpeg import (
     AudioMetaData,
     CoverMetaData,
@@ -46,7 +46,7 @@ class TestFFmpegPreparation:
         monkeypatch.setattr(
             "src.modules.utils.ffmpeg.proc_utils.get_file_size", Mock(return_value=10)
         )
-        monkeypatch.setattr("src.modules.utils.ffmpeg.common_utils.episode_process_hook", hooks)
+        monkeypatch.setattr("src.modules.utils.ffmpeg.proc_utils.episode_process_hook", hooks)
         monkeypatch.setattr("src.modules.utils.ffmpeg.subprocess.run", run)
 
         ffmpeg_preparation(src_path)
@@ -71,7 +71,7 @@ class TestFFmpegPreparation:
         monkeypatch.setattr(
             "src.modules.utils.ffmpeg.proc_utils.get_file_size", Mock(return_value=10)
         )
-        monkeypatch.setattr("src.modules.utils.ffmpeg.common_utils.episode_process_hook", Mock())
+        monkeypatch.setattr("src.modules.utils.ffmpeg.proc_utils.episode_process_hook", Mock())
         monkeypatch.setattr(
             "src.modules.utils.ffmpeg.subprocess.run",
             Mock(side_effect=subprocess.CalledProcessError(returncode=255, cmd="ffmpeg")),
@@ -95,7 +95,7 @@ class TestFFmpegPreparation:
         monkeypatch.setattr(
             "src.modules.utils.ffmpeg.proc_utils.get_file_size", Mock(return_value=10)
         )
-        monkeypatch.setattr("src.modules.utils.ffmpeg.common_utils.episode_process_hook", Mock())
+        monkeypatch.setattr("src.modules.utils.ffmpeg.proc_utils.episode_process_hook", Mock())
         monkeypatch.setattr(
             "src.modules.utils.ffmpeg.subprocess.run",
             Mock(return_value=SimpleNamespace(stdout=b"ok")),
