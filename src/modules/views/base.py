@@ -1,11 +1,9 @@
 import asyncio
 import logging
-from functools import cached_property
-from typing import Any, Protocol, Literal, Callable
+from typing import Any, Protocol
 
 from litestar import Controller
 from litestar.connection import Request
-from litestar.openapi import OpenAPIController
 from litestar.response import Template
 
 from src.modules.common import constants as const
@@ -82,25 +80,3 @@ class BaseViewController(Controller):
         task = task_class()
         kwargs["job_id"] = task_class.get_job_id(*args, **kwargs)
         await asyncio.to_thread(app.rq_queue.enqueue, task, *args, **kwargs)
-
-
-class PodcastOpenAPIController(OpenAPIController):
-    opt = {AuthSkip.SKIP_AUTH_WEB: True, AuthSkip.SKIP_AUTH_API: True}
-    favicon_url = "/static/img/favicon.ico"
-    swagger_css_url = "/static/css/swagger-ui.css"
-    swagger_ui_bundle_js_url = "/static/js/swagger-ui-bundle.js"
-    swagger_ui_standalone_preset_js_url = "/static/js/swagger-ui-standalone-preset.js"
-
-    @cached_property
-    def render_methods_map(
-        self,
-    ) -> dict[Literal["redoc", "swagger", "elements", "rapidoc"], Callable[[Request], bytes]]:
-        """Map render method names to render methods.
-
-        Returns:
-            A mapping of string keys to render methods.
-        """
-        return {
-            "redoc": self.render_swagger_ui,
-            "swagger": self.render_swagger_ui,
-        }

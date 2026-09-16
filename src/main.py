@@ -7,13 +7,15 @@ from typing import Any, AsyncGenerator
 import rq
 import uvicorn
 from litestar import Litestar, Request
-from litestar.contrib.jinja import JinjaTemplateEngine
 from litestar.di import Provide
 from litestar.exceptions import HTTPException, ValidationException
 from litestar.logging import LoggingConfig
 from litestar.middleware import DefineMiddleware
 from litestar.openapi import OpenAPIConfig
-from litestar.static_files import StaticFilesConfig
+from litestar.openapi.plugins import SwaggerRenderPlugin
+from litestar.plugins.jinja import JinjaTemplateEngine
+from litestar.router import Router
+from litestar.static_files import create_static_files_router
 from litestar.template import TemplateConfig
 from redis import Redis
 
@@ -40,7 +42,6 @@ from src.modules.api.errors import (
     http_redirect_handler,
 )
 from src.modules.views import VIEW_CONTROLLERS
-from src.modules.views.base import PodcastOpenAPIController
 from src.settings.app import APP_DIR, AppSettings, get_app_settings
 
 logger = logging.getLogger("app")
@@ -153,7 +154,7 @@ def make_app(settings: AppSettings | None = None) -> PodcastApp:
         exception_logging_handler=exception_logging_handler,
         log_exceptions="always",
     )
-    static_file_config = StaticFilesConfig(
+    static_files_router = create_static_files_router(
         path="/static",
         directories=[str(APP_DIR / "static")],
         opt={
@@ -166,22 +167,38 @@ def make_app(settings: AppSettings | None = None) -> PodcastApp:
         title="Podcast API",
         version=app_settings.app_version,
         description="CRUD and functional API for working with Podcast application",
-        render_plugins=[],
-        openapi_controller=PodcastOpenAPIController,
+        render_plugins=[
+            SwaggerRenderPlugin(
+                path="/",
+                css_url="/static/css/swagger-ui.css",
+                js_url="/static/js/swagger-ui-bundle.js",
+                standalone_preset_js_url="/static/js/swagger-ui-standalone-preset.js",
+                favicon="<link rel='icon' href='/static/img/favicon.ico'>",
+            )
+        ],
+        openapi_router=Router(
+            path="/api/schema/",
+            route_handlers=[],
+            include_in_schema=False,
+            opt={
+                AuthSkip.SKIP_AUTH_API: True,
+                AuthSkip.SKIP_AUTH_WEB: True,
+            },
+        ),
     )
 
     logger.info("Setting up application...")
     podcast_app = PodcastApp(
-        route_handlers=[
-            *API_CONTROLLERS,
-            *VIEW_CONTROLLERS,
-        ],
         middleware=[
             DefineMiddleware(APIAuthMiddleware, exclude_from_auth_key=AuthSkip.SKIP_AUTH_API),
             DefineMiddleware(WebAuthMiddleware, exclude_from_auth_key=AuthSkip.SKIP_AUTH_WEB),
         ],
         template_config=TemplateConfig(directory=APP_DIR / "templates", engine=JinjaTemplateEngine),
-        static_files_config=[static_file_config],
+        route_handlers=[
+            *API_CONTROLLERS,
+            *VIEW_CONTROLLERS,
+            static_files_router,
+        ],
         openapi_config=openapi_config,
         lifespan=[lambda app: lifespan(app_settings, app)],
         debug=app_settings.flags.debug_mode,
