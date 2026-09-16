@@ -24,6 +24,13 @@
 
 ## Структура и стиль
 
+- `src/tests/api/` содержит все проверки HTTP API: лёгкие unit-тесты
+  контроллеров и функциональные PostgreSQL-сценарии. Инфраструктурные fixtures
+  PostgreSQL находятся в `src/tests/api/conftest.py`; они подключаются явно
+  только через `use_functional_session_factory`, поэтому unit-тесты API не
+  требуют `TEST_DB_NAME`.
+- `src/tests/views/`, `src/tests/services/` и `src/tests/tasks/` содержат
+  проверки соответственно HTML-контроллеров, сервисов и фоновых задач.
 - Тесты группируются классами по публичному поведению:
   `TestPodcastApi`, `TestEpisodeApi`, `TestAuthApi`, `TestPodcastView`.
 - Имя теста описывает наблюдаемое правило, например
@@ -79,8 +86,8 @@
 - Production application factory не принимает test providers и не хранит
   service locator. `PodcastApp` напрямую собирает очередь, а контроллеры и
   сервисы используют обычные production constructors/functions.
-- Functional tests направляют все `SASessionUOW()` в тестовую PostgreSQL через
-  одну подмену `db.session.get_session_factory`. Это не требует добавлять
+- Functional API-тесты направляют все `SASessionUOW()` в тестовую PostgreSQL
+  через одну подмену `db.session.get_session_factory`. Это не требует добавлять
   test-only параметры в UoW, контроллеры или auth backend.
 - Litestar DI используется для естественных request-зависимостей, например
   settings и current user. Локальная constructor injection допустима внутри

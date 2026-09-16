@@ -17,7 +17,7 @@ from src.tests.mocks import MockUOW
 from src.settings.app import AppSettings
 
 
-def _controller(controller_type: type) -> object:
+def _controller[T](controller_type: T) -> T:
     return controller_type.__new__(controller_type)
 
 

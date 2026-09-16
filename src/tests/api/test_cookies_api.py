@@ -27,6 +27,8 @@ from src.tests.fakes import (
 )
 from src.tests.helpers import assert_error_response
 
+pytestmark = pytest.mark.usefixtures("use_functional_session_factory")
+
 
 class AudioMetadata(NamedTuple):
     duration: int
