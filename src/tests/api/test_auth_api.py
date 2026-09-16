@@ -20,6 +20,8 @@ from src.tests.fakes import (
 from src.tests.helpers import assert_error_response
 from src.modules.utils.common import utcnow
 
+pytestmark = pytest.mark.usefixtures("use_functional_session_factory")
+
 
 @pytest.fixture
 def auth_api_client(

@@ -111,7 +111,7 @@ def functional_session_factory(
     return async_sessionmaker(functional_engine, expire_on_commit=False)
 
 
-@pytest.fixture(autouse=True)
+@pytest.fixture
 def use_functional_session_factory(
     functional_session_factory: async_sessionmaker[AsyncSession],
     monkeypatch: pytest.MonkeyPatch,

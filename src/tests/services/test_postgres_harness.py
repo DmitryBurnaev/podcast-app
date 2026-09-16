@@ -1,10 +1,13 @@
-"""Smoke tests for the isolated PostgreSQL functional-test harness."""
+"""Smoke tests for the isolated PostgreSQL API-test harness."""
 
+import pytest
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.modules.db.models import Podcast, User
 from src.modules.db.services import SASessionUOW
+
+pytestmark = pytest.mark.usefixtures("use_functional_session_factory")
 
 
 class TestPostgreSQLHarness:
