@@ -168,7 +168,7 @@ def make_admin(app: "PodcastApp") -> Admin:
         AuthSkip.SKIP_AUTH_WEB.value: True,
     }
 
-    @asgi(admin.mount_path, opt=auth_opts, is_mount=True)
+    @asgi(admin.mount_path, opt=auth_opts, is_mount=True, copy_scope=True)
     async def wrapped_app(scope: Scope, receive: Receive, send: Send) -> None:
         """Wrapper for the SQLAdmin app.
 
