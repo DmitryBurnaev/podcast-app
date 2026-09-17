@@ -5,10 +5,12 @@ from collections.abc import Generator
 import pytest
 from litestar.middleware import AuthenticationResult
 from litestar.testing import TestClient
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.main import PodcastApp, make_app
-from src.modules.db.models import File, Podcast, User
+from src.modules.db.models import Episode, File, Podcast, User
+from src.modules.db.models.podcasts import EpisodeStatus
 from src.tests.conftest import _make_settings
 from src.tests.fakes import (
     FakeLifecycle,
@@ -56,10 +58,27 @@ async def _create_podcast(session: AsyncSession, user: User, name: str) -> Podca
     return podcast
 
 
-class TestPodcastAPI:
+async def _create_episode(session: AsyncSession, user: User, podcast: Podcast) -> Episode:
+    episode = Episode(
+        title="Aggregated episode",
+        source_id=f"episode-{podcast.id}",
+        source_type="UPLOAD",
+        podcast_id=podcast.id,
+        owner_id=user.id,
+        watch_url="",
+        length=42,
+        status=EpisodeStatus.PUBLISHED,
+    )
+    session.add(episode)
+    await session.commit()
+    await session.refresh(episode)
+    return episode
+
+
+class TestPodcastListCreateAPI:
     url = "/api/podcasts/"
 
-    async def test_create_persists_podcast_for_current_user(
+    async def test_create__persists_for_current_user(
         self,
         podcast_api_client: tuple[TestClient[PodcastApp], FakeStorage, FakeTaskQueue],
         db_user: User,
@@ -79,7 +98,7 @@ class TestPodcastAPI:
         assert persisted.owner_id == db_user.id
         assert persisted.name == "Created podcast"
 
-    async def test_list_is_paginated_and_excludes_another_users_podcasts(
+    async def test_get_list__pagination_excludes_another_users_podcasts(
         self,
         podcast_api_client: tuple[TestClient[PodcastApp], FakeStorage, FakeTaskQueue],
         db_user: User,
@@ -106,7 +125,47 @@ class TestPodcastAPI:
         assert payload["offset"] == 1
         assert [item["name"] for item in payload["items"]] == ["Second"]
 
-    async def test_details_and_update_reject_another_users_podcast(
+    @pytest.mark.parametrize("payload", [{}, {"name": ""}, {"name": "x" * 257}])
+    async def test_create__invalid_request__does_not_persist(
+        self,
+        podcast_api_client: tuple[TestClient[PodcastApp], FakeStorage, FakeTaskQueue],
+        functional_session: AsyncSession,
+        payload: dict[str, str],
+    ) -> None:
+        client, _, _ = podcast_api_client
+
+        response = client.post(self.url, json=payload)
+
+        assert_error_response(
+            response,
+            status_code=400,
+            code="INVALID_PARAMETERS",
+            message="Requested data is not valid.",
+        )
+        assert not list((await functional_session.scalars(select(Podcast))).all())
+
+    async def test_get_list__episode_aggregation__returns_statistics(
+        self,
+        podcast_api_client: tuple[TestClient[PodcastApp], FakeStorage, FakeTaskQueue],
+        db_user: User,
+        functional_session: AsyncSession,
+    ) -> None:
+        podcast = await _create_podcast(functional_session, db_user, "With episode")
+        await _create_episode(functional_session, db_user, podcast)
+        client, _, _ = podcast_api_client
+
+        response = client.get(self.url)
+
+        assert response.status_code == 200, response.text
+        item = response.json()["items"][0]
+        assert item["id"] == podcast.id
+        assert item["stat"]["episodes_count"] == 1
+        assert item["stat"]["total_duration"] == 42
+
+class TestPodcastDetailsAPI:
+    url = "/api/podcasts/"
+
+    async def test_get_details_and_update__foreign_podcast__fail(
         self,
         podcast_api_client: tuple[TestClient[PodcastApp], FakeStorage, FakeTaskQueue],
         functional_session: AsyncSession,
@@ -138,7 +197,7 @@ class TestPodcastAPI:
             message=f"Podcast with id {foreign_podcast.id} not found",
         )
 
-    async def test_update_and_delete_change_persisted_state(
+    async def test_update_and_delete__owned_podcast__persist_state(
         self,
         podcast_api_client: tuple[TestClient[PodcastApp], FakeStorage, FakeTaskQueue],
         db_user: User,
@@ -167,7 +226,45 @@ class TestPodcastAPI:
         functional_session.expire_all()
         assert await functional_session.get(Podcast, podcast_id) is None
 
-    async def test_upload_image_persists_file_and_records_fake_storage_effect(
+    async def test_delete__podcast_with_episode__removes_owned_episode(
+        self,
+        podcast_api_client: tuple[TestClient[PodcastApp], FakeStorage, FakeTaskQueue],
+        db_user: User,
+        functional_session: AsyncSession,
+    ) -> None:
+        podcast = await _create_podcast(functional_session, db_user, "Delete with episode")
+        episode = await _create_episode(functional_session, db_user, podcast)
+        episode_id = episode.id
+        client, _, _ = podcast_api_client
+
+        response = client.delete(f"{self.url}{podcast.id}/")
+
+        assert response.status_code == 204, response.text
+        functional_session.expire_all()
+        assert await functional_session.get(Episode, episode_id) is None
+
+    @pytest.mark.parametrize("method", ["get", "patch", "delete"])
+    async def test_details_operations__missing_podcast__fail(
+        self,
+        podcast_api_client: tuple[TestClient[PodcastApp], FakeStorage, FakeTaskQueue],
+        method: str,
+    ) -> None:
+        client, _, _ = podcast_api_client
+
+        url = f"{self.url}999/"
+        response = getattr(client, method)(url, json={}) if method == "patch" else getattr(client, method)(url)
+
+        assert_error_response(
+            response,
+            status_code=404,
+            code="NOT_FOUND",
+            message="Podcast with id 999 not found",
+        )
+
+class TestPodcastImageUploadAPI:
+    url = "/api/podcasts/"
+
+    async def test_upload__image__persists_file_and_records_storage_effect(
         self,
         podcast_api_client: tuple[TestClient[PodcastApp], FakeStorage, FakeTaskQueue],
         db_user: User,
@@ -192,7 +289,48 @@ class TestPodcastAPI:
         assert image.path == storage.uploads[0].destination
         assert image.path.startswith("images/podcasts/")
 
-    async def test_generate_rss_enqueues_task_only_for_owned_podcast(
+    async def test_upload__storage_failure__does_not_attach_image(
+        self,
+        podcast_api_client: tuple[TestClient[PodcastApp], FakeStorage, FakeTaskQueue],
+        db_user: User,
+        functional_session: AsyncSession,
+    ) -> None:
+        podcast = await _create_podcast(functional_session, db_user, "Without image")
+        podcast_id = podcast.id
+        client, storage, _ = podcast_api_client
+        storage.return_none = True
+
+        response = client.post(
+            f"{self.url}{podcast_id}/upload-image/",
+            files={"file": ("cover.jpg", b"fake-image", "image/jpeg")},
+        )
+
+        assert response.status_code == 500, response.text
+        functional_session.expire_all()
+        persisted = await functional_session.get(Podcast, podcast_id)
+        assert persisted is not None and persisted.image_id is None
+
+    async def test_upload__missing_file__does_not_attach_image(
+        self,
+        podcast_api_client: tuple[TestClient[PodcastApp], FakeStorage, FakeTaskQueue],
+        db_user: User,
+        functional_session: AsyncSession,
+    ) -> None:
+        podcast = await _create_podcast(functional_session, db_user, "Without image")
+        podcast_id = podcast.id
+        client, _, _ = podcast_api_client
+
+        response = client.post(f"{self.url}{podcast_id}/upload-image/", files={})
+
+        assert response.status_code == 400, response.text
+        functional_session.expire_all()
+        persisted = await functional_session.get(Podcast, podcast_id)
+        assert persisted is not None and persisted.image_id is None
+
+class TestPodcastRSSGenerationAPI:
+    url = "/api/podcasts/"
+
+    async def test_generate_rss__owned_podcast__enqueues_task(
         self,
         podcast_api_client: tuple[TestClient[PodcastApp], FakeStorage, FakeTaskQueue],
         db_user: User,
@@ -213,3 +351,45 @@ class TestPodcastAPI:
             code="NOT_FOUND",
             message="Podcast with id 999 not found",
         )
+
+    async def test_generate_rss__repeated_request__enqueues_one_task_per_request(
+        self,
+        podcast_api_client: tuple[TestClient[PodcastApp], FakeStorage, FakeTaskQueue],
+        db_user: User,
+        functional_session: AsyncSession,
+    ) -> None:
+        podcast = await _create_podcast(functional_session, db_user, "RSS")
+        client, _, queue = podcast_api_client
+
+        first = client.put(f"{self.url}{podcast.id}/generate-rss/")
+        second = client.put(f"{self.url}{podcast.id}/generate-rss/")
+
+        assert first.status_code == second.status_code == 200
+        assert first.json()["job_id"] == second.json()["job_id"]
+        assert len(queue.enqueued) == 2
+
+    async def test_generate_rss__foreign_podcast__does_not_enqueue_task(
+        self,
+        podcast_api_client: tuple[TestClient[PodcastApp], FakeStorage, FakeTaskQueue],
+        functional_session: AsyncSession,
+    ) -> None:
+        other_user = User(
+            email="other@podcast.dev",
+            password="hashed-password",
+            is_active=True,
+            is_superuser=False,
+        )
+        functional_session.add(other_user)
+        await functional_session.commit()
+        podcast = await _create_podcast(functional_session, other_user, "Private RSS")
+        client, _, queue = podcast_api_client
+
+        response = client.put(f"{self.url}{podcast.id}/generate-rss/")
+
+        assert_error_response(
+            response,
+            status_code=404,
+            code="NOT_FOUND",
+            message=f"Podcast with id {podcast.id} not found",
+        )
+        assert queue.enqueued == []
