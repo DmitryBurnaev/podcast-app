@@ -48,7 +48,7 @@ def _worker_database_name(base_name: str, worker_id: str) -> str:
 
 
 def _test_database(pytestconfig: pytest.Config) -> TestDatabase:
-    base_name = os.environ.get("TEST_DB_NAME")
+    base_name = os.environ.get("TEST_DB_NAME") or "podcasts_test"
     if not base_name:
         raise RuntimeError("TEST_DB_NAME must be set before running functional tests.")
 

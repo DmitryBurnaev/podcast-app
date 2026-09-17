@@ -104,8 +104,53 @@ async def _create_episode(
     return episode
 
 
-class TestEpisodeAPI:
-    async def test_url_creation_does_not_reuse_foreign_source_when_extraction_fails(
+class TestPodcastEpisodeCreateAPI:
+    async def test_get_list__owned_podcast__excludes_other_podcast_episodes(
+        self,
+        episode_api_client: tuple[
+            TestClient[PodcastApp], FakeTaskQueue, FakeStorage, FakeMediaSource
+        ],
+        db_user: User,
+        functional_session: AsyncSession,
+    ) -> None:
+        client, _, _, _ = episode_api_client
+        podcast = await _create_podcast(functional_session, db_user)
+        episode = await _create_episode(functional_session, db_user, podcast)
+        other_user = User(email="other@podcast.dev", password="hashed", is_active=True)
+        functional_session.add(other_user)
+        await functional_session.commit()
+        other_podcast = await _create_podcast(functional_session, other_user)
+        await _create_episode(functional_session, other_user, other_podcast)
+
+        response = client.get(f"/api/podcasts/{podcast.id}/episodes/")
+
+        assert response.status_code == 200, response.text
+        assert response.json()["total"] == 1
+        assert [item["id"] for item in response.json()["items"]] == [episode.id]
+
+    async def test_get_list__foreign_podcast__fail(
+        self,
+        episode_api_client: tuple[
+            TestClient[PodcastApp], FakeTaskQueue, FakeStorage, FakeMediaSource
+        ],
+        functional_session: AsyncSession,
+    ) -> None:
+        client, _, _, _ = episode_api_client
+        other_user = User(email="other@podcast.dev", password="hashed", is_active=True)
+        functional_session.add(other_user)
+        await functional_session.commit()
+        podcast = await _create_podcast(functional_session, other_user)
+
+        response = client.get(f"/api/podcasts/{podcast.id}/episodes/")
+
+        assert_error_response(
+            response,
+            status_code=404,
+            code="NOT_FOUND",
+            message=f"Podcast with id {podcast.id} not found",
+        )
+
+    async def test_create_from_url__foreign_cached_source_and_extraction_failure__does_not_reuse(
         self,
         episode_api_client: tuple[
             TestClient[PodcastApp], FakeTaskQueue, FakeStorage, FakeMediaSource
@@ -161,7 +206,7 @@ class TestEpisodeAPI:
         assert [episode.id for episode in episodes] == [foreign_episode.id]
         assert [file.owner_id for file in files] == [foreign_user.id, foreign_user.id]
 
-    async def test_url_creation_persists_source_episode_and_enqueues_tasks(
+    async def test_create_from_url__automatic_podcast__persists_and_enqueues_tasks(
         self,
         episode_api_client: tuple[
             TestClient[PodcastApp], FakeTaskQueue, FakeStorage, FakeMediaSource
@@ -204,7 +249,8 @@ class TestEpisodeAPI:
         ]
         assert source.extractions == [(url, False)]
 
-    async def test_uploaded_creation_is_idempotent_and_persists_audio_and_cover(
+class TestUploadedEpisodeAPI:
+    async def test_create__repeated_payload__is_idempotent_and_persists_audio_and_cover(
         self,
         episode_api_client: tuple[
             TestClient[PodcastApp], FakeTaskQueue, FakeStorage, FakeMediaSource
@@ -238,7 +284,147 @@ class TestEpisodeAPI:
         assert len(queue.enqueued) == 1
         assert queue.enqueued[0].task.__class__.__name__ == "UploadedEpisodeTask"
 
-    async def test_ownership_update_download_and_delete_transitions_are_persisted(
+    async def test_get_uploaded__owned_file__returns_metadata(
+        self,
+        episode_api_client: tuple[
+            TestClient[PodcastApp], FakeTaskQueue, FakeStorage, FakeMediaSource
+        ],
+        db_user: User,
+        functional_session: AsyncSession,
+    ) -> None:
+        client, _, _, _ = episode_api_client
+        podcast = await _create_podcast(functional_session, db_user)
+        audio = File(
+            type=MediaType.AUDIO,
+            path="tmp/audio.mp3",
+            size=42,
+            hash="audiohash",
+            owner_id=db_user.id,
+            access_token=File.generate_token(),
+        )
+        functional_session.add(audio)
+        await functional_session.commit()
+
+        response = client.get(f"/api/podcasts/{podcast.id}/episodes/uploaded/audiohash/")
+
+        assert response.status_code == 200, response.text
+        assert response.json()["id"] == audio.id
+        assert response.json()["hash"] == "audiohash"
+
+    async def test_get_uploaded__missing_hash__fail(
+        self,
+        episode_api_client: tuple[
+            TestClient[PodcastApp], FakeTaskQueue, FakeStorage, FakeMediaSource
+        ],
+        db_user: User,
+        functional_session: AsyncSession,
+    ) -> None:
+        client, _, _, _ = episode_api_client
+        podcast = await _create_podcast(functional_session, db_user)
+
+        response = client.get(f"/api/podcasts/{podcast.id}/episodes/uploaded/missinghash/")
+
+        assert_error_response(
+            response,
+            status_code=404,
+            code="NOT_FOUND",
+            message="Uploaded episode file with hash missinghash not found",
+        )
+
+class TestEpisodeLifecycleAPI:
+    async def test_get_list__owned_episodes__is_paginated(
+        self,
+        episode_api_client: tuple[
+            TestClient[PodcastApp], FakeTaskQueue, FakeStorage, FakeMediaSource
+        ],
+        db_user: User,
+        functional_session: AsyncSession,
+    ) -> None:
+        client, _, _, _ = episode_api_client
+        podcast = await _create_podcast(functional_session, db_user)
+        first = await _create_episode(functional_session, db_user, podcast)
+        second = await _create_episode(functional_session, db_user, podcast)
+        second.source_id = "second-episode"
+        await functional_session.commit()
+
+        response = client.get("/api/episodes/?limit=1&offset=1&order_by=id")
+
+        assert response.status_code == 200, response.text
+        assert response.json()["total"] == 2
+        assert [item["id"] for item in response.json()["items"]] == [second.id]
+        assert first.id != second.id
+
+    async def test_get_details__episode_with_chapters__returns_chapters(
+        self,
+        episode_api_client: tuple[
+            TestClient[PodcastApp], FakeTaskQueue, FakeStorage, FakeMediaSource
+        ],
+        db_user: User,
+        functional_session: AsyncSession,
+    ) -> None:
+        client, _, _, _ = episode_api_client
+        podcast = await _create_podcast(functional_session, db_user)
+        episode = await _create_episode(functional_session, db_user, podcast)
+        episode.chapters = [{"title": "Start", "start": 0, "end": 10}]
+        await functional_session.commit()
+
+        response = client.get(f"/api/episodes/{episode.id}/")
+
+        assert response.status_code == 200, response.text
+        assert response.json()["chapters"] == [{"title": "Start", "start": 0, "end": 10}]
+
+    async def test_update__empty_payload__fail_without_mutation(
+        self,
+        episode_api_client: tuple[
+            TestClient[PodcastApp], FakeTaskQueue, FakeStorage, FakeMediaSource
+        ],
+        db_user: User,
+        functional_session: AsyncSession,
+    ) -> None:
+        client, _, _, _ = episode_api_client
+        podcast = await _create_podcast(functional_session, db_user)
+        episode = await _create_episode(functional_session, db_user, podcast)
+        episode_id = episode.id
+
+        response = client.patch(f"/api/episodes/{episode_id}/", json={})
+
+        assert response.status_code == 400, response.text
+        functional_session.expire_all()
+        persisted = await functional_session.get(Episode, episode_id)
+        assert persisted is not None and persisted.title == "Functional episode"
+
+    async def test_delete__finished_episode_with_unused_media__removes_records(
+        self,
+        episode_api_client: tuple[
+            TestClient[PodcastApp], FakeTaskQueue, FakeStorage, FakeMediaSource
+        ],
+        db_user: User,
+        functional_session: AsyncSession,
+    ) -> None:
+        client, _, _, _ = episode_api_client
+        podcast = await _create_podcast(functional_session, db_user)
+        audio = File(
+            type=MediaType.AUDIO,
+            path="audio/delete.mp3",
+            size=128,
+            owner_id=db_user.id,
+            access_token=File.generate_token(),
+        )
+        functional_session.add(audio)
+        await functional_session.commit()
+        audio_id = audio.id
+        episode = await _create_episode(functional_session, db_user, podcast)
+        episode.audio_id = audio.id
+        await functional_session.commit()
+        episode_id = episode.id
+
+        response = client.delete(f"/api/episodes/{episode_id}/")
+
+        assert response.status_code == 204, response.text
+        functional_session.expire_all()
+        assert await functional_session.get(Episode, episode_id) is None
+        assert await functional_session.get(File, audio_id) is None
+    async def test_update_download_and_delete__ownership_and_transitions__persisted(
         self,
         episode_api_client: tuple[
             TestClient[PodcastApp], FakeTaskQueue, FakeStorage, FakeMediaSource
@@ -285,7 +471,8 @@ class TestEpisodeAPI:
             message="Episode in progress cannot be deleted",
         )
 
-    async def test_cancel_downloading_persists_transition_and_records_fake_effects(
+class TestEpisodeCancellationAPI:
+    async def test_cancel_downloading__downloading_episode__persists_and_records_effects(
         self,
         episode_api_client: tuple[
             TestClient[PodcastApp], FakeTaskQueue, FakeStorage, FakeMediaSource
@@ -313,9 +500,86 @@ class TestEpisodeAPI:
         persisted = await functional_session.get(Episode, episode_id)
         assert persisted is not None and persisted.status == EpisodeStatus.CANCELING
 
+    async def test_cancel_downloading__non_downloading_episode__fails_without_effects(
+        self,
+        episode_api_client: tuple[
+            TestClient[PodcastApp], FakeTaskQueue, FakeStorage, FakeMediaSource
+        ],
+        db_user: User,
+        functional_session: AsyncSession,
+        mocked_redis: FakeRedis,
+    ) -> None:
+        client, queue, _, _ = episode_api_client
+        podcast = await _create_podcast(functional_session, db_user)
+        episode = await _create_episode(functional_session, db_user, podcast)
 
-class TestCookieAPI:
-    async def test_create_list_update_and_delete_persist_cookie_for_owner(
+        response = client.put(f"/api/episodes/{episode.id}/cancel-downloading/")
+
+        assert response.status_code == 409, response.text
+        assert queue.cancelled == []
+        assert mocked_redis.published == []
+
+
+class TestCookieLifecycleAPI:
+    async def test_get_list__multiple_cookies_per_source__returns_latest_per_source(
+        self,
+        episode_api_client: tuple[
+            TestClient[PodcastApp], FakeTaskQueue, FakeStorage, FakeMediaSource
+        ],
+        db_user: User,
+        functional_session: AsyncSession,
+    ) -> None:
+        client, _, _, _ = episode_api_client
+        first = Cookie(source_type=SourceType.YOUTUBE, data="first", owner_id=db_user.id)
+        functional_session.add(first)
+        await functional_session.commit()
+        latest = Cookie(source_type=SourceType.YOUTUBE, data="latest", owner_id=db_user.id)
+        yandex = Cookie(source_type=SourceType.YANDEX, data="yandex", owner_id=db_user.id)
+        functional_session.add_all((latest, yandex))
+        await functional_session.commit()
+
+        response = client.get("/api/cookies/")
+
+        assert response.status_code == 200, response.text
+        items = response.json()
+        assert {item["id"] for item in items} == {latest.id, yandex.id}
+        assert first.id not in {item["id"] for item in items}
+
+    @pytest.mark.parametrize(
+        "data, files, message",
+        [
+            ({}, {}, "Requested data is not valid."),
+            (
+                {"source_type": "unsupported"},
+                {"file": ("cookie.txt", b"x", "text/plain")},
+                "Requested data is not valid.",
+            ),
+            ({"source_type": "youtube"}, {}, "Invalid multipart/form-data"),
+        ],
+    )
+    async def test_create__invalid_multipart__does_not_persist(
+        self,
+        episode_api_client: tuple[
+            TestClient[PodcastApp], FakeTaskQueue, FakeStorage, FakeMediaSource
+        ],
+        functional_session: AsyncSession,
+        data: dict[str, str],
+        files: dict[str, tuple[str, bytes, str]],
+        message: str,
+    ) -> None:
+        client, _, _, _ = episode_api_client
+
+        response = client.post("/api/cookies/", data=data, files=files)
+
+        assert_error_response(
+            response,
+            status_code=400,
+            code="INVALID_PARAMETERS",
+            message=message,
+        )
+        assert not list((await functional_session.scalars(select(Cookie))).all())
+
+    async def test_create_list_update_and_delete__owned_cookie__persists(
         self,
         episode_api_client: tuple[
             TestClient[PodcastApp], FakeTaskQueue, FakeStorage, FakeMediaSource
@@ -353,7 +617,7 @@ class TestCookieAPI:
         functional_session.expire_all()
         assert await functional_session.get(Cookie, cookie_id) is None
 
-    async def test_cookie_delete_rejects_linked_episode_and_foreign_cookie(
+    async def test_delete_and_get__linked_or_foreign_cookie__fail(
         self,
         episode_api_client: tuple[
             TestClient[PodcastApp], FakeTaskQueue, FakeStorage, FakeMediaSource
@@ -394,7 +658,7 @@ class TestCookieAPI:
 
 
 class TestMediaUploadAPI:
-    async def test_audio_and_image_uploads_use_fake_storage_and_media_processor(
+    async def test_upload_audio_and_image__valid_files__use_external_fakes(
         self,
         episode_api_client: tuple[
             TestClient[PodcastApp], FakeTaskQueue, FakeStorage, FakeMediaSource
@@ -417,7 +681,7 @@ class TestMediaUploadAPI:
         assert image.json()["preview_url"].startswith("fake-storage://")
         assert len(storage.uploads) == 2
 
-    async def test_upload_failure_is_reported_without_external_storage(
+    async def test_upload_image__storage_failure__returns_error_without_persistence(
         self,
         db_user: User,
         mocked_app_lifecycle: FakeLifecycle,
@@ -452,3 +716,38 @@ class TestMediaUploadAPI:
             message="Requested data is not valid.",
         )
         assert error["details"] == {"file": "Could not upload image file."}
+
+    @pytest.mark.parametrize(
+        ("path", "files"),
+        [
+            ("/api/media/upload/audio/", {}),
+            ("/api/media/upload/image/", {}),
+            (
+                "/api/media/upload/audio/",
+                {"file": ("cover.jpg", b"image", "image/jpeg")},
+            ),
+            (
+                "/api/media/upload/image/",
+                {"file": ("episode.mp3", b"audio", "audio/mpeg")},
+            ),
+        ],
+    )
+    async def test_upload__missing_or_wrong_content_type__fails(
+        self,
+        episode_api_client: tuple[
+            TestClient[PodcastApp], FakeTaskQueue, FakeStorage, FakeMediaSource
+        ],
+        path: str,
+        files: dict[str, tuple[str, bytes, str]],
+    ) -> None:
+        client, _, storage, _ = episode_api_client
+
+        response = client.post(path, files=files)
+
+        assert_error_response(
+            response,
+            status_code=400,
+            code="INVALID_PARAMETERS",
+            message="Requested data is not valid.",
+        )
+        assert storage.uploads == []

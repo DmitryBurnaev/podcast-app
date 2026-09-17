@@ -51,8 +51,8 @@ def auth_api_client(
         yield client, mocked_mailer, mocked_app_lifecycle
 
 
-class TestAuthCoreAPI:
-    async def test_sign_up_then_sign_in_and_refresh_persist_user_session(
+class TestAuthRegistrationSessionAPI:
+    async def test_sign_up_sign_in_and_refresh__valid_invite__persist_user_session(
         self,
         auth_api_client: tuple[TestClient[PodcastApp], FakeMailer, FakeLifecycle],
         db_user: User,
@@ -99,7 +99,49 @@ class TestAuthCoreAPI:
         assert len(list((await functional_session.scalars(select(UserSession))).all())) >= 2
         assert len(list((await functional_session.scalars(select(Podcast))).all())) >= 1
 
-    async def test_reset_password_uses_fake_mailer_without_leaking_token(
+    async def test_sign_up__invalid_invite__does_not_create_user(
+        self,
+        auth_api_client: tuple[TestClient[PodcastApp], FakeMailer, FakeLifecycle],
+        functional_session: AsyncSession,
+    ) -> None:
+        client, _, _ = auth_api_client
+
+        response = client.post(
+            "/api/auth/sign-up/",
+            json={
+                "email": "new@podcast.dev",
+                "invite_token": "missing-token",
+                "password_1": "new-password",
+                "password_2": "new-password",
+            },
+        )
+
+        assert_error_response(
+            response,
+            status_code=400,
+            code="INVALID_PARAMETERS",
+            message="Requested data is not valid.",
+        )
+        users = list((await functional_session.scalars(select(User))).all())
+        assert [user.email for user in users] == ["functional-user@podcast.dev"]
+
+    def test_sign_in__incorrect_password__fails(self, auth_api_client: tuple[TestClient[PodcastApp], FakeMailer, FakeLifecycle]) -> None:
+        client, _, _ = auth_api_client
+
+        response = client.post(
+            "/api/auth/sign-in/",
+            json={"email": "functional-user@podcast.dev", "password": "incorrect"},
+        )
+
+        assert_error_response(
+            response,
+            status_code=401,
+            code="AUTH_INVALID",
+            message="Authentication credentials are invalid.",
+        )
+
+class TestAuthPasswordResetAPI:
+    async def test_reset_password__existing_user__uses_mailer_without_leaking_token(
         self,
         auth_api_client: tuple[TestClient[PodcastApp], FakeMailer, FakeLifecycle],
     ) -> None:
@@ -114,7 +156,19 @@ class TestAuthCoreAPI:
         assert len(mailer.sent) == 1
         assert "token" not in response.text.lower()
 
-    def test_refresh_token_rejects_invalid_json_body(
+    def test_reset_password__unknown_user__does_not_send_mail(
+        self, auth_api_client: tuple[TestClient[PodcastApp], FakeMailer, FakeLifecycle]
+    ) -> None:
+        client, mailer, _ = auth_api_client
+
+        response = client.post("/api/auth/reset-password/", json={"email": "missing@podcast.dev"})
+
+        assert response.status_code in {200, 201}, response.text
+        assert response.json() == {"status": "ok"}
+        assert mailer.sent == []
+
+class TestAuthRefreshTokenAPI:
+    def test_refresh_token__invalid_json_body__fail(
         self,
         auth_api_client: tuple[TestClient[PodcastApp], FakeMailer, FakeLifecycle],
     ) -> None:
@@ -130,8 +184,8 @@ class TestAuthCoreAPI:
         )
 
 
-class TestProfileAndTokenAPI:
-    async def test_profile_ips_and_access_token_lifecycle_are_owned_and_persisted(
+class TestProfileAccessTokenAPI:
+    async def test_profile_ips_and_access_token_lifecycle__owned_user__persists(
         self,
         auth_api_client: tuple[TestClient[PodcastApp], FakeMailer, FakeLifecycle],
         functional_session: AsyncSession,
@@ -160,9 +214,52 @@ class TestProfileAndTokenAPI:
         assert await functional_session.get(UserAccessToken, token_id) is None
         assert len(list((await functional_session.scalars(select(UserIP))).all())) == 1
 
+    async def test_update_me__duplicate_email__does_not_change_profile(
+        self,
+        auth_api_client: tuple[TestClient[PodcastApp], FakeMailer, FakeLifecycle],
+        db_user: User,
+        functional_session: AsyncSession,
+    ) -> None:
+        db_user_id = db_user.id
+        other_user = User(email="other@podcast.dev", password="hashed", is_active=True)
+        functional_session.add(other_user)
+        await functional_session.commit()
+        client, _, _ = auth_api_client
 
-class TestInviteAndSystemAPI:
-    def test_invite_and_health_use_fake_mailer_and_redis_lifecycle(
+        response = client.patch("/api/auth/me/", json={"email": "other@podcast.dev"})
+
+        assert_error_response(
+            response,
+            status_code=409,
+            code="CONFLICT",
+            message="Requested operation conflicts with the current state.",
+        )
+        functional_session.expire_all()
+        persisted = await functional_session.get(User, db_user_id)
+        assert persisted is not None and persisted.email == "functional-user@podcast.dev"
+
+    async def test_user_ips__delete_selected_ids__preserves_other_entries(
+        self,
+        auth_api_client: tuple[TestClient[PodcastApp], FakeMailer, FakeLifecycle],
+        functional_session: AsyncSession,
+    ) -> None:
+        client, _, _ = auth_api_client
+        assert client.get("/api/auth/me/", headers={"X-Real-IP": "203.0.113.10"}).status_code == 200
+        assert client.get("/api/auth/me/", headers={"X-Real-IP": "203.0.113.11"}).status_code == 200
+        listed = client.get("/api/auth/user-ips/")
+        ids = [item["id"] for item in listed.json()["items"]]
+
+        response = client.post("/api/auth/user-ips/delete/", json={"ids": [ids[0]]})
+
+        assert response.status_code == 201, response.text
+        functional_session.expire_all()
+        ips = list((await functional_session.scalars(select(UserIP))).all())
+        assert len(ips) == 1
+        assert ips[0].id == ids[1]
+
+
+class TestAuthInviteSystemAPI:
+    def test_invite_and_health__external_fakes__record_effects(
         self, auth_api_client: tuple[TestClient[PodcastApp], FakeMailer, FakeLifecycle]
     ) -> None:
         client, mailer, lifecycle = auth_api_client
@@ -176,7 +273,24 @@ class TestInviteAndSystemAPI:
         assert info.json() == {"status": "ok", "vendors": ["test"]}
         assert lifecycle.calls.count("check_redis") >= 2
 
-    def test_foreign_access_token_is_not_exposed(
+    def test_health__redis_failure__returns_server_error(
+        self,
+        auth_api_client: tuple[TestClient[PodcastApp], FakeMailer, FakeLifecycle],
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        client, _, _ = auth_api_client
+
+        async def fail_redis_check() -> None:
+            raise RuntimeError("redis unavailable")
+
+        monkeypatch.setattr("src.modules.api.misc.check_redis_connection", fail_redis_check)
+
+        response = client.get("/api/system/health/")
+
+        assert response.status_code == 500, response.text
+
+class TestAuthAccessTokenAPI:
+    def test_update__missing_access_token__does_not_expose(
         self, auth_api_client: tuple[TestClient[PodcastApp], FakeMailer, FakeLifecycle]
     ) -> None:
         client, _, _ = auth_api_client
@@ -188,8 +302,22 @@ class TestInviteAndSystemAPI:
             message="Requested data is not valid.",
         )
 
+    def test_create__invalid_access_token_payload__fails(
+        self, auth_api_client: tuple[TestClient[PodcastApp], FakeMailer, FakeLifecycle]
+    ) -> None:
+        client, _, _ = auth_api_client
 
-class TestUnauthenticatedRouteMatrix:
+        response = client.post("/api/auth/access-tokens/", json={"name": "", "expires_in_days": 0})
+
+        assert_error_response(
+            response,
+            status_code=400,
+            code="INVALID_PARAMETERS",
+            message="Requested data is not valid.",
+        )
+
+
+class TestUnauthenticatedRouteMatrixAPI:
     @pytest.mark.parametrize(
         ("path", "status_code"),
         [
@@ -202,7 +330,7 @@ class TestUnauthenticatedRouteMatrix:
             ("/r/not-a-media-token/", 404),
         ],
     )
-    def test_public_routes_are_available_without_credentials(
+    def test_get_public_route__without_credentials__returns_expected_status(
         self,
         auth_required_client: TestClient[PodcastApp],
         monkeypatch: pytest.MonkeyPatch,
@@ -230,7 +358,7 @@ class TestUnauthenticatedRouteMatrix:
             ("POST", "/api/media/upload/audio/"),
         ],
     )
-    def test_api_business_routes_require_credentials(
+    def test_business_api_route__without_credentials__returns_auth_error(
         self,
         auth_required_client: TestClient[PodcastApp],
         method: str,

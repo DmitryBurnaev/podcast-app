@@ -40,10 +40,10 @@ def misc_repositories(monkeypatch: pytest.MonkeyPatch) -> SimpleNamespace:
     return SimpleNamespace(episodes=episode_repository, podcasts=podcast_repository)
 
 
-class TestPlaylistAPI:
+class TestPlaylistRetrieveAPI:
     url = "/api/playlist/"
 
-    def test_get_playlist__ok(
+    def test_get_playlist__valid_playlist__ok(
         self,
         client: TestClient[PodcastApp],
         misc_repositories: SimpleNamespace,
@@ -204,9 +204,26 @@ class TestPlaylistAPI:
         assert "Couldn't extract playlist:" in error["details"]
 
 
-class TestProgressAPI:
+class TestProgressRetrieveAPI:
+    def test_get_progress__no_active_episodes__returns_empty_items(
+        self,
+        client: TestClient[PodcastApp],
+        misc_repositories: SimpleNamespace,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        misc_repositories.podcasts.all.return_value = []
+        misc_repositories.episodes.all_in_progress = AsyncMock(return_value=[])
+        check_state = AsyncMock(return_value=[])
+        monkeypatch.setattr("src.modules.api.misc.check_state", check_state)
+
+        response = client.get("/api/progress/")
+
+        assert response.status_code == 200, response.text
+        assert response.json() == {"progressItems": []}
+        check_state.assert_awaited_once_with([])
+
     @pytest.mark.parametrize("query", ["", "?episode_id=10"])
-    def test_get_progress__ok(
+    def test_get_progress__configured_state__ok(
         self,
         client: TestClient[PodcastApp],
         current_user: User,
