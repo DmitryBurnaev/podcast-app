@@ -249,6 +249,7 @@ class TestPodcastEpisodeCreateAPI:
         ]
         assert source.extractions == [(url, False)]
 
+
 class TestUploadedEpisodeAPI:
     async def test_create__repeated_payload__is_idempotent_and_persists_audio_and_cover(
         self,
@@ -330,6 +331,7 @@ class TestUploadedEpisodeAPI:
             code="NOT_FOUND",
             message="Uploaded episode file with hash missinghash not found",
         )
+
 
 class TestEpisodeLifecycleAPI:
     async def test_get_list__owned_episodes__is_paginated(
@@ -424,6 +426,7 @@ class TestEpisodeLifecycleAPI:
         functional_session.expire_all()
         assert await functional_session.get(Episode, episode_id) is None
         assert await functional_session.get(File, audio_id) is None
+
     async def test_update_download_and_delete__ownership_and_transitions__persisted(
         self,
         episode_api_client: tuple[
@@ -470,6 +473,7 @@ class TestEpisodeLifecycleAPI:
             code="CONFLICT",
             message="Episode in progress cannot be deleted",
         )
+
 
 class TestEpisodeCancellationAPI:
     async def test_cancel_downloading__downloading_episode__persists_and_records_effects(

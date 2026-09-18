@@ -162,6 +162,7 @@ class TestPodcastListCreateAPI:
         assert item["stat"]["episodes_count"] == 1
         assert item["stat"]["total_duration"] == 42
 
+
 class TestPodcastDetailsAPI:
     url = "/api/podcasts/"
 
@@ -252,7 +253,11 @@ class TestPodcastDetailsAPI:
         client, _, _ = podcast_api_client
 
         url = f"{self.url}999/"
-        response = getattr(client, method)(url, json={}) if method == "patch" else getattr(client, method)(url)
+        response = (
+            getattr(client, method)(url, json={})
+            if method == "patch"
+            else getattr(client, method)(url)
+        )
 
         assert_error_response(
             response,
@@ -260,6 +265,7 @@ class TestPodcastDetailsAPI:
             code="NOT_FOUND",
             message="Podcast with id 999 not found",
         )
+
 
 class TestPodcastImageUploadAPI:
     url = "/api/podcasts/"
@@ -326,6 +332,7 @@ class TestPodcastImageUploadAPI:
         functional_session.expire_all()
         persisted = await functional_session.get(Podcast, podcast_id)
         assert persisted is not None and persisted.image_id is None
+
 
 class TestPodcastRSSGenerationAPI:
     url = "/api/podcasts/"

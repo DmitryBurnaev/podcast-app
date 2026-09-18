@@ -125,7 +125,9 @@ class TestAuthRegistrationSessionAPI:
         users = list((await functional_session.scalars(select(User))).all())
         assert [user.email for user in users] == ["functional-user@podcast.dev"]
 
-    def test_sign_in__incorrect_password__fails(self, auth_api_client: tuple[TestClient[PodcastApp], FakeMailer, FakeLifecycle]) -> None:
+    def test_sign_in__incorrect_password__fails(
+        self, auth_api_client: tuple[TestClient[PodcastApp], FakeMailer, FakeLifecycle]
+    ) -> None:
         client, _, _ = auth_api_client
 
         response = client.post(
@@ -139,6 +141,7 @@ class TestAuthRegistrationSessionAPI:
             code="AUTH_INVALID",
             message="Authentication credentials are invalid.",
         )
+
 
 class TestAuthPasswordResetAPI:
     async def test_reset_password__existing_user__uses_mailer_without_leaking_token(
@@ -166,6 +169,7 @@ class TestAuthPasswordResetAPI:
         assert response.status_code in {200, 201}, response.text
         assert response.json() == {"status": "ok"}
         assert mailer.sent == []
+
 
 class TestAuthRefreshTokenAPI:
     def test_refresh_token__invalid_json_body__fail(
@@ -288,6 +292,7 @@ class TestAuthInviteSystemAPI:
         response = client.get("/api/system/health/")
 
         assert response.status_code == 500, response.text
+
 
 class TestAuthAccessTokenAPI:
     def test_update__missing_access_token__does_not_expose(

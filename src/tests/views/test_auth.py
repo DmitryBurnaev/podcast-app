@@ -1,3 +1,4 @@
+from collections.abc import Callable
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, Mock
 
@@ -16,6 +17,48 @@ def _request(
     return SimpleNamespace(
         query_params=query_params or {}, form=AsyncMock(return_value=form_data or {})
     )
+
+
+class FakeWebAuthBackend:
+    """Configurable replacement for the web authentication boundary."""
+
+    def __init__(
+        self,
+        request: object,
+        *,
+        login_result: SuccessLoginData | None = None,
+        login_error: Exception | None = None,
+        logout_cookie: Cookie | None = None,
+    ) -> None:
+        self.request = request
+        self.login_result = login_result
+        self.login_error = login_error
+        self.logout_cookie = logout_cookie
+
+    @classmethod
+    def new(
+        cls,
+        *,
+        login_result: SuccessLoginData | None = None,
+        login_error: Exception | None = None,
+        logout_cookie: Cookie | None = None,
+    ) -> Callable[[object], "FakeWebAuthBackend"]:
+        return lambda request: cls(
+            request,
+            login_result=login_result,
+            login_error=login_error,
+            logout_cookie=logout_cookie,
+        )
+
+    async def login(self, *, email: str, password: str) -> SuccessLoginData:
+        if self.login_error is not None:
+            raise self.login_error
+        assert self.login_result is not None
+        return self.login_result
+
+    async def logout(self) -> Cookie:
+        assert self.logout_cookie is not None
+        return self.logout_cookie
 
 
 class TestAuthLoginController:
@@ -44,14 +87,10 @@ class TestAuthLoginController:
         assert result.url == "/"
 
     async def test_login__authentication_failure__redirects_with_error(self, monkeypatch) -> None:
-        class FailingBackend:
-            def __init__(self, request: object) -> None:
-                pass
-
-            async def login(self, *, email: str, password: str) -> SuccessLoginData:
-                raise AuthenticationError("Invalid credentials")
-
-        monkeypatch.setattr("src.modules.views.auth.WebAuthBackend", FailingBackend)
+        monkeypatch.setattr(
+            "src.modules.views.auth.WebAuthBackend",
+            FakeWebAuthBackend.new(login_error=AuthenticationError("Invalid credentials")),
+        )
         monkeypatch.setattr("src.modules.views.auth.get_optional_user", lambda request: None)
 
         result = await AuthLoginController.login.fn(
@@ -64,14 +103,10 @@ class TestAuthLoginController:
     async def test_login__success__redirects_and_sets_cookie(self, monkeypatch) -> None:
         cookie = Cookie(key="podcast_session_id", value="jwt")
 
-        class SuccessfulBackend:
-            def __init__(self, request: object) -> None:
-                pass
-
-            async def login(self, *, email: str, password: str) -> SuccessLoginData:
-                return SuccessLoginData(user=make_user(), cookie=cookie)
-
-        monkeypatch.setattr("src.modules.views.auth.WebAuthBackend", SuccessfulBackend)
+        monkeypatch.setattr(
+            "src.modules.views.auth.WebAuthBackend",
+            FakeWebAuthBackend.new(login_result=SuccessLoginData(user=make_user(), cookie=cookie)),
+        )
         monkeypatch.setattr("src.modules.views.auth.get_optional_user", lambda request: None)
 
         result = await AuthLoginController.login.fn(
@@ -87,14 +122,10 @@ class TestAuthLogoutController:
     async def test_logout__clears_session_and_redirects(self, monkeypatch) -> None:
         clear_cookie = Cookie(key="podcast_session_id", value="", max_age=0)
 
-        class Backend:
-            def __init__(self, request: object) -> None:
-                pass
-
-            async def logout(self) -> Cookie:
-                return clear_cookie
-
-        monkeypatch.setattr("src.modules.views.auth.WebAuthBackend", Backend)
+        monkeypatch.setattr(
+            "src.modules.views.auth.WebAuthBackend",
+            FakeWebAuthBackend.new(logout_cookie=clear_cookie),
+        )
 
         result = await AuthLogoutController.logout.fn(
             AuthLogoutController.__new__(AuthLogoutController), _request()
