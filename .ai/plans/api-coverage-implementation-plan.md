@@ -22,6 +22,9 @@
   baseline collection/API suite.
 - [x] **A1. Подготовить структуру и fixtures.** Разделить тесты по endpoint
   groups и применить конвенцию классов, методов и fixtures.
+- [x] **A1R. Вынести function-local test doubles.** Убрать имитаторы внешних
+  границ из тел тестов в модульный уровень или общий модуль и сделать их
+  настраиваемыми без локальных классов.
 - [~] **A2. Допокрыть Podcasts API.** Validation, statistics, pagination,
   ownership, deletion, image upload и RSS queue.
 - [~] **A3. Допокрыть Episodes API.** Lists, URL/uploaded creation, details,
@@ -41,6 +44,7 @@
 | --- | --- | --- | --- | --- |
 | A0 | 2026-09-16 | Сверены routes, схемы и текущие 48 API-тестов; подтверждено, что flat episodes API пока не поддерживает поиск и фильтры status/podcast | `pytest --collect-only -q src/tests/api`: 48 collected; `pytest -q src/tests/api/test_podcasts_api.py`: 6 passed | — |
 | A1 | 2026-09-16 | API-классы разделены по endpoint-группам; методы используют `test_<action>__<condition>__<outcome>` | `pytest --collect-only -q src/tests/api`: 85 collected; `ruff check src/tests/api`: passed | — |
+| A1R | 2026-09-18 | Вынесены все классы из test-функций: общий `FakeYoutubeDL` с `new(...)`, настраиваемый `FakeWebAuthBackend`, а также admin/session и singleton doubles на уровень модулей. Все API-подмены в `test_progress_api.py` перенесены в function-scoped fixtures с `monkeypatch.context()` | `pytest --collect-only -q` для 4 изменённых модулей: 48 collected; targeted progress/auth/admin/utils: 18 passed; полный `pytest -q src/tests/api`: 85 passed; повторный `pytest -q src/tests/api/test_progress_api.py`: 11 passed; `ruff check` изменённых файлов: passed; `git diff --check`: passed | — |
 | A2 | 2026-09-16 | Добавлены validation create, aggregation statistics, missing routes, episode cascade, upload failures и RSS repeat/ownership | `pytest -q src/tests/api/test_podcasts_api.py`: 18 passed | Проверить replacement-image cleanup после согласования product contract |
 | A3 | 2026-09-16 | Добавлены nested/flat lists, uploaded metadata, chapters, empty update, media cleanup и invalid cancel | `pytest -q src/tests/api/test_cookies_api.py`: 26 passed | Расширить edge cases URL/uploaded metadata и foreign flat details |
 | A4 | 2026-09-16 | Добавлены latest-cookie rule, multipart validation и missing/wrong media content type | `pytest -q src/tests/api/test_cookies_api.py`: 26 passed | Добавить лимиты файла и ffmpeg/cover failure scenarios |

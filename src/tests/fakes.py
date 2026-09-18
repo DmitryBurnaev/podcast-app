@@ -212,6 +212,44 @@ class FakeMediaSource:
         return self.media_info.get(url, ("No configured source media", None))
 
 
+class FakeYoutubeDL:
+    """Configurable context-manager double for ``yt_dlp.YoutubeDL``."""
+
+    def __init__(
+        self,
+        params: dict[str, Any],
+        *,
+        result: dict[str, Any] | None = None,
+        error: Exception | None = None,
+    ) -> None:
+        self.params = params
+        self.result = result or {}
+        self.error = error
+        self.extractions: list[tuple[str, bool]] = []
+
+    @classmethod
+    def new(
+        cls,
+        *,
+        result: dict[str, Any] | None = None,
+        error: Exception | None = None,
+    ) -> Callable[[dict[str, Any]], "FakeYoutubeDL"]:
+        """Build a replacement constructor accepted by ``monkeypatch.setattr``."""
+        return lambda params: cls(params, result=result, error=error)
+
+    def __enter__(self) -> "FakeYoutubeDL":
+        return self
+
+    def __exit__(self, *_: object) -> None:
+        return None
+
+    def extract_info(self, url: str, download: bool) -> dict[str, Any]:
+        if self.error is not None:
+            raise self.error
+        self.extractions.append((url, download))
+        return self.result
+
+
 class FakeMediaProcessor:
     def __init__(
         self, metadata: Any = None, cover: Any = None, error: Exception | None = None

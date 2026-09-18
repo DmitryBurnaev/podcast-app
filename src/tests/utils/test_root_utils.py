@@ -17,15 +17,16 @@ from src.modules.utils.common import (
 from src.modules.services.email import send_email
 
 
+@singleton
+class _SingletonService:
+    def __init__(self, value: int) -> None:
+        self.value = value
+
+
 class TestSmallUtils:
     def test_singleton__returns_same_instance(self) -> None:
-        @singleton
-        class Service:
-            def __init__(self, value: int) -> None:
-                self.value = value
-
-        first = Service(1)
-        second = Service(2)
+        first = _SingletonService(1)
+        second = _SingletonService(2)
 
         assert first is second
         assert second.value == 1

@@ -32,6 +32,40 @@ class FakeUOW:
         return None
 
 
+class FakeDeleteQueryResult:
+    def __init__(self, model: object) -> None:
+        self.model = model
+
+    def scalars(self) -> "FakeDeleteQueryResult":
+        return self
+
+    def first(self) -> object:
+        return self.model
+
+
+class FakeDeleteSession:
+    """In-memory async session recording the order of delete-side effects."""
+
+    def __init__(self, model: object, events: list[str]) -> None:
+        self.model = model
+        self.events = events
+
+    async def __aenter__(self) -> "FakeDeleteSession":
+        return self
+
+    async def __aexit__(self, *_: object) -> None:
+        return None
+
+    async def execute(self, *_: object) -> FakeDeleteQueryResult:
+        return FakeDeleteQueryResult(self.model)
+
+    async def delete(self, _: object) -> None:
+        self.events.append("db_delete")
+
+    async def commit(self) -> None:
+        self.events.append("db_commit")
+
+
 def use_file_repository(
     monkeypatch: pytest.MonkeyPatch,
     repository: FileRepository,
@@ -443,31 +477,8 @@ class TestMediaFileAdminView:
             lambda: SimpleNamespace(clear_files=clear_files),
         )
 
-        class DeleteQueryResult:
-            def scalars(self) -> "DeleteQueryResult":
-                return self
-
-            def first(self):
-                return model
-
-        class DeleteSession:
-            async def __aenter__(self) -> "DeleteSession":
-                return self
-
-            async def __aexit__(self, *_: object) -> None:
-                return None
-
-            async def execute(self, *_: object) -> DeleteQueryResult:
-                return DeleteQueryResult()
-
-            async def delete(self, _: object) -> None:
-                events.append("db_delete")
-
-            async def commit(self) -> None:
-                events.append("db_commit")
-
         view = MediaFileAdminView()
-        view.session_maker = lambda: DeleteSession()
+        view.session_maker = lambda: FakeDeleteSession(model, events)
 
         request = Request({"type": "http", "session": {}})
         await view.delete_model(request, "1")

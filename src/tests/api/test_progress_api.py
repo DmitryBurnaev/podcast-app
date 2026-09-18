@@ -1,6 +1,7 @@
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Callable, Iterator
 from contextlib import asynccontextmanager
 from types import SimpleNamespace
+from typing import Any
 from unittest.mock import AsyncMock
 
 import pytest
@@ -14,6 +15,7 @@ from src.modules.api import misc as misc_api
 from src.modules.api.misc import _prepare_description
 from src.modules.db.models import User
 from src.tests.factories import make_episode, make_podcast
+from src.tests.fakes import FakeYoutubeDL
 from src.tests.helpers import assert_error_response
 from src.tests.mocks import MockUOW
 
@@ -25,19 +27,87 @@ def test_api_controllers__is_explicit_and_contains_only_api_controllers() -> Non
 
 
 @pytest.fixture
-def misc_repositories(monkeypatch: pytest.MonkeyPatch) -> SimpleNamespace:
+def misc_repositories(monkeypatch: pytest.MonkeyPatch) -> Iterator[SimpleNamespace]:
     episode_repository = SimpleNamespace(first=AsyncMock())
     podcast_repository = SimpleNamespace(all=AsyncMock())
-    monkeypatch.setattr("src.modules.api.misc.SASessionUOW", lambda: MockUOW())
-    monkeypatch.setattr(
-        "src.modules.api.misc.EpisodeRepository",
-        lambda session, **_: episode_repository,
-    )
-    monkeypatch.setattr(
-        "src.modules.api.misc.PodcastRepository",
-        lambda session, **_: podcast_repository,
-    )
-    return SimpleNamespace(episodes=episode_repository, podcasts=podcast_repository)
+    with monkeypatch.context() as patch:
+        patch.setattr(misc_api, "SASessionUOW", lambda: MockUOW())
+        patch.setattr(
+            misc_api,
+            "EpisodeRepository",
+            lambda session, **_: episode_repository,
+        )
+        patch.setattr(
+            misc_api,
+            "PodcastRepository",
+            lambda session, **_: podcast_repository,
+        )
+        yield SimpleNamespace(episodes=episode_repository, podcasts=podcast_repository)
+
+
+@pytest.fixture
+def mock_source_info(
+    monkeypatch: pytest.MonkeyPatch,
+) -> Iterator[Callable[..., None]]:
+    with monkeypatch.context() as patch:
+
+        def configure(*, result: object | None = None, error: Exception | None = None) -> None:
+            def extract_source_info(url: str, playlist: bool) -> object:
+                if error is not None:
+                    raise error
+                return result
+
+            patch.setattr(misc_api.common_utils, "extract_source_info", extract_source_info)
+
+        yield configure
+
+
+@pytest.fixture
+def mock_cookie_file_context(
+    monkeypatch: pytest.MonkeyPatch,
+) -> Iterator[Callable[[str | None], None]]:
+    with monkeypatch.context() as patch:
+
+        def configure(file_path: str | None) -> None:
+            @asynccontextmanager
+            async def cookie_file_context(
+                *_: object, **__: object
+            ) -> AsyncIterator[SimpleNamespace | None]:
+                yield SimpleNamespace(file_path=file_path) if file_path is not None else None
+
+            patch.setattr(misc_api, "cookie_file_ctx", cookie_file_context)
+
+        yield configure
+
+
+@pytest.fixture
+def mock_youtube_dl(
+    monkeypatch: pytest.MonkeyPatch,
+) -> Iterator[Callable[..., None]]:
+    with monkeypatch.context() as patch:
+
+        def configure(
+            *, result: dict[str, Any] | None = None, error: Exception | None = None
+        ) -> None:
+            patch.setattr(
+                misc_api.yt_dlp, "YoutubeDL", FakeYoutubeDL.new(result=result, error=error)
+            )
+
+        yield configure
+
+
+@pytest.fixture
+def mock_progress_state(
+    monkeypatch: pytest.MonkeyPatch,
+) -> Iterator[Callable[[object], AsyncMock]]:
+    with monkeypatch.context() as patch:
+
+        def configure(result: object) -> AsyncMock:
+            check_state = AsyncMock(return_value=result)
+            patch.setattr(misc_api, "check_state", check_state)
+            return check_state
+
+        yield configure
 
 
 class TestPlaylistRetrieveAPI:
@@ -47,46 +117,29 @@ class TestPlaylistRetrieveAPI:
         self,
         client: TestClient[PodcastApp],
         misc_repositories: SimpleNamespace,
-        monkeypatch: pytest.MonkeyPatch,
+        mock_source_info: Callable[..., None],
+        mock_cookie_file_context: Callable[[str | None], None],
+        mock_youtube_dl: Callable[..., None],
     ) -> None:
         source_info = SimpleNamespace(id="playlist-id", type=SourceType.YOUTUBE)
-        monkeypatch.setattr(
-            "src.modules.api.misc.common_utils.extract_source_info",
-            lambda url, playlist: source_info,
+        mock_source_info(result=source_info)
+        mock_cookie_file_context("/tmp/cookies.txt")
+        mock_youtube_dl(
+            result={
+                "_type": "playlist",
+                "id": "playlist-id",
+                "title": "Playlist title",
+                "entries": [
+                    {
+                        "id": "video-id",
+                        "title": "Episode title",
+                        "description": "Episode description",
+                        "thumbnails": [{"url": "https://img/cover.jpg"}],
+                        "webpage_url": "https://example.com/video",
+                    }
+                ],
+            }
         )
-
-        @asynccontextmanager
-        async def cookie_ctx(*args: object, **kwargs: object) -> AsyncIterator[SimpleNamespace]:
-            yield SimpleNamespace(file_path="/tmp/cookies.txt")
-
-        class FakeYoutubeDL:
-            def __init__(self, params: dict) -> None:
-                self.params = params
-
-            def __enter__(self) -> "FakeYoutubeDL":
-                return self
-
-            def __exit__(self, *args: object) -> None:
-                return None
-
-            def extract_info(self, url: str, download: bool) -> dict:
-                return {
-                    "_type": "playlist",
-                    "id": "playlist-id",
-                    "title": "Playlist title",
-                    "entries": [
-                        {
-                            "id": "video-id",
-                            "title": "Episode title",
-                            "description": "Episode description",
-                            "thumbnails": [{"url": "https://img/cover.jpg"}],
-                            "webpage_url": "https://example.com/video",
-                        }
-                    ],
-                }
-
-        monkeypatch.setattr("src.modules.api.misc.cookie_file_ctx", cookie_ctx)
-        monkeypatch.setattr("src.modules.api.misc.yt_dlp.YoutubeDL", FakeYoutubeDL)
 
         response = client.get(self.url, params={"url": "https://example.com/playlist"})
 
@@ -99,15 +152,9 @@ class TestPlaylistRetrieveAPI:
     def test_get_playlist__source_parse_error__fail(
         self,
         client: TestClient[PodcastApp],
-        monkeypatch: pytest.MonkeyPatch,
+        mock_source_info: Callable[..., None],
     ) -> None:
-        def raise_parse_error(url: str, playlist: bool) -> None:
-            raise ValueError("bad playlist")
-
-        monkeypatch.setattr(
-            "src.modules.api.misc.common_utils.extract_source_info",
-            raise_parse_error,
-        )
+        mock_source_info(error=ValueError("bad playlist"))
 
         response = client.get(self.url, params={"url": "not-a-playlist"})
 
@@ -123,33 +170,14 @@ class TestPlaylistRetrieveAPI:
         self,
         client: TestClient[PodcastApp],
         misc_repositories: SimpleNamespace,
-        monkeypatch: pytest.MonkeyPatch,
+        mock_source_info: Callable[..., None],
+        mock_cookie_file_context: Callable[[str | None], None],
+        mock_youtube_dl: Callable[..., None],
     ) -> None:
         source_info = SimpleNamespace(id="video-id", type=SourceType.YOUTUBE)
-        monkeypatch.setattr(
-            "src.modules.api.misc.common_utils.extract_source_info",
-            lambda url, playlist: source_info,
-        )
-
-        @asynccontextmanager
-        async def cookie_ctx(*args: object, **kwargs: object) -> AsyncIterator[None]:
-            yield None
-
-        class FakeYoutubeDL:
-            def __init__(self, params: dict) -> None:
-                self.params = params
-
-            def __enter__(self) -> "FakeYoutubeDL":
-                return self
-
-            def __exit__(self, *args: object) -> None:
-                return None
-
-            def extract_info(self, url: str, download: bool) -> dict:
-                return {"_type": "video", "id": "video-id"}
-
-        monkeypatch.setattr("src.modules.api.misc.cookie_file_ctx", cookie_ctx)
-        monkeypatch.setattr("src.modules.api.misc.yt_dlp.YoutubeDL", FakeYoutubeDL)
+        mock_source_info(result=source_info)
+        mock_cookie_file_context(None)
+        mock_youtube_dl(result={"_type": "video", "id": "video-id"})
 
         response = client.get(self.url, params={"url": "https://example.com/video"})
 
@@ -165,33 +193,14 @@ class TestPlaylistRetrieveAPI:
         self,
         client: TestClient[PodcastApp],
         misc_repositories: SimpleNamespace,
-        monkeypatch: pytest.MonkeyPatch,
+        mock_source_info: Callable[..., None],
+        mock_cookie_file_context: Callable[[str | None], None],
+        mock_youtube_dl: Callable[..., None],
     ) -> None:
         source_info = SimpleNamespace(id="playlist-id", type=SourceType.YOUTUBE)
-        monkeypatch.setattr(
-            "src.modules.api.misc.common_utils.extract_source_info",
-            lambda url, playlist: source_info,
-        )
-
-        @asynccontextmanager
-        async def cookie_ctx(*args: object, **kwargs: object) -> AsyncIterator[None]:
-            yield None
-
-        class FakeYoutubeDL:
-            def __init__(self, params: dict) -> None:
-                self.params = params
-
-            def __enter__(self) -> "FakeYoutubeDL":
-                return self
-
-            def __exit__(self, *args: object) -> None:
-                return None
-
-            def extract_info(self, url: str, download: bool) -> dict:
-                raise misc_api.yt_dlp.utils.DownloadError("download failed")
-
-        monkeypatch.setattr("src.modules.api.misc.cookie_file_ctx", cookie_ctx)
-        monkeypatch.setattr("src.modules.api.misc.yt_dlp.YoutubeDL", FakeYoutubeDL)
+        mock_source_info(result=source_info)
+        mock_cookie_file_context(None)
+        mock_youtube_dl(error=misc_api.yt_dlp.utils.DownloadError("download failed"))
 
         response = client.get(self.url, params={"url": "https://example.com/playlist"})
 
@@ -209,12 +218,11 @@ class TestProgressRetrieveAPI:
         self,
         client: TestClient[PodcastApp],
         misc_repositories: SimpleNamespace,
-        monkeypatch: pytest.MonkeyPatch,
+        mock_progress_state: Callable[[object], AsyncMock],
     ) -> None:
         misc_repositories.podcasts.all.return_value = []
         misc_repositories.episodes.all_in_progress = AsyncMock(return_value=[])
-        check_state = AsyncMock(return_value=[])
-        monkeypatch.setattr("src.modules.api.misc.check_state", check_state)
+        check_state = mock_progress_state([])
 
         response = client.get("/api/progress/")
 
@@ -228,7 +236,7 @@ class TestProgressRetrieveAPI:
         client: TestClient[PodcastApp],
         current_user: User,
         misc_repositories: SimpleNamespace,
-        monkeypatch: pytest.MonkeyPatch,
+        mock_progress_state: Callable[[object], AsyncMock],
         query: str,
     ) -> None:
         podcast = make_podcast(id=20, owner_id=current_user.id)
@@ -241,8 +249,8 @@ class TestProgressRetrieveAPI:
         misc_repositories.podcasts.all.return_value = [podcast]
         misc_repositories.episodes.first.return_value = episode
         misc_repositories.episodes.all_in_progress = AsyncMock(return_value=[episode])
-        check_state = AsyncMock(
-            return_value=[
+        mock_progress_state(
+            [
                 {
                     "episode_id": episode.id,
                     "podcast_id": podcast.id,
@@ -253,7 +261,6 @@ class TestProgressRetrieveAPI:
                 }
             ]
         )
-        monkeypatch.setattr("src.modules.api.misc.check_state", check_state)
 
         response = client.get(f"/api/progress/{query}")
 
