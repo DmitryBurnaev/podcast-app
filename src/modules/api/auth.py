@@ -22,14 +22,13 @@ from src.modules.db.models.users import UserAccessToken
 from src.modules.db.models.podcasts import Podcast
 from src.modules.db.repositories import (
     PodcastRepository,
-    OwnerScope,
-    SystemScope,
     UserAccessTokenRepository,
     UserInviteRepository,
     UserIPRepository,
     UserRepository,
     UserSessionRepository,
 )
+from modules.common.types import OwnerScope
 from src.modules.db.services import SASessionUOW
 from src.modules.schemas.auth import (
     ChangePasswordRequest,
@@ -101,7 +100,6 @@ class AuthCoreAPIController(BaseAuthAPIController):
         self,
         data: JSONBody[SignUpRequest],
         request: Request,
-        settings: NamedDependency[AppSettings],
     ) -> TokenResponse:
         """Create an invited user and issue a token pair."""
         async with SASessionUOW() as uow:
@@ -111,7 +109,7 @@ class AuthCoreAPIController(BaseAuthAPIController):
                     details=f"User with email '{data.email}' already exists."
                 )
 
-            invite_repository = UserInviteRepository(uow.session, scope=SystemScope.ALL)
+            invite_repository = UserInviteRepository(uow.session)
             invite = await invite_repository.get_valid(data.invite_token, str(data.email))
             if invite is None:
                 raise InvalidParametersAPIError(
@@ -126,7 +124,8 @@ class AuthCoreAPIController(BaseAuthAPIController):
             )
             await uow.flush()
             await invite_repository.update(invite, is_applied=True, user_id=user.id)
-            await PodcastRepository(uow.session, scope=OwnerScope(user.id)).create(
+            podcast_repository = PodcastRepository(uow.session, scope=OwnerScope(user.id))
+            await podcast_repository.create(
                 publish_id=Podcast.generate_publish_id(),
                 name="Your podcast",
                 description=(
@@ -204,9 +203,7 @@ class AuthCoreAPIController(BaseAuthAPIController):
                 )
 
             await user_repository.update(user, password=User.make_password(data.password_1))
-            await UserSessionRepository(uow.session, scope=OwnerScope(user.id)).deactivate_for_user(
-                user.id
-            )
+            await UserSessionRepository(uow.session).deactivate_for_user(user.id)
             uow.mark_for_commit()
 
         return OKResponse()
@@ -240,7 +237,7 @@ class AuthInviteAPIController(BaseAuthAPIController):
     ) -> Pagination[UserInviteResponse]:
         """Return paginated user invitations."""
         async with SASessionUOW() as uow:
-            user_invite_repo = UserInviteRepository(uow.session, scope=SystemScope.ALL)
+            user_invite_repo = UserInviteRepository(uow.session)
             invites, total = await user_invite_repo.all_paginated(limit=limit, offset=offset)
 
         return Pagination[UserInviteResponse](
@@ -265,7 +262,7 @@ class AuthInviteAPIController(BaseAuthAPIController):
             if await UserRepository(uow.session).get_by_email(email):
                 raise StateConflictAPIError(details=f"User with email '{email}' already exists.")
 
-            invite_repository = UserInviteRepository(uow.session, scope=SystemScope.ALL)
+            invite_repository = UserInviteRepository(uow.session)
             token: str = UserInvite.generate_token()
             expired_at = utcnow() + timedelta(seconds=settings.invite_link_expires_in)
             invite = await invite_repository.first(email=email)
@@ -341,9 +338,8 @@ class AuthProfileAPIController(BaseAuthAPIController):
     ) -> Pagination[UserIPResponse]:
         """Return registered hashed addresses for the current user."""
         async with SASessionUOW() as uow:
-            ips, total = await UserIPRepository(
-                uow.session, scope=OwnerScope(current_user.id)
-            ).all_paginated(
+            scope = OwnerScope(current_user.id)
+            ips, total = await UserIPRepository(uow.session, scope=scope).all_paginated(
                 limit=limit,
                 offset=offset,
             )
@@ -358,11 +354,11 @@ class AuthProfileAPIController(BaseAuthAPIController):
     async def delete_user_ips(
         self,
         data: JSONBody[DeleteUserIPsRequest],
-        current_user: NamedDependency[User],
+        user_scope: NamedDependency[OwnerScope],
     ) -> OKResponse:
         """Delete selected registered-address history entries."""
         async with SASessionUOW() as uow:
-            repository = UserIPRepository(uow.session, scope=OwnerScope(current_user.id))
+            repository = UserIPRepository(uow.session, scope=user_scope)
             ips = await repository.all(ids=data.ids)
             await repository.delete_by_ids([ip.id for ip in ips])
             uow.mark_for_commit()
@@ -374,13 +370,13 @@ class AuthAccessTokenAPIController(BaseAuthAPIController):
     @get("/access-tokens/")
     async def get_access_tokens(
         self,
-        current_user: NamedDependency[User],
+        user_scope: NamedDependency[OwnerScope],
         limit: FromQuery[int] = 10,
         offset: FromQuery[int] = 0,
     ) -> Pagination[UserAccessTokenResponse]:
         """Return long-lived API tokens without their stored hashes."""
         async with SASessionUOW() as uow:
-            repository = UserAccessTokenRepository(uow.session, scope=OwnerScope(current_user.id))
+            repository = UserAccessTokenRepository(uow.session, scope=user_scope)
             tokens, total = await repository.all_paginated(
                 limit=limit,
                 offset=offset,
@@ -395,14 +391,12 @@ class AuthAccessTokenAPIController(BaseAuthAPIController):
     async def create_access_token(
         self,
         data: JSONBody[UserAccessTokenCreateRequest],
-        current_user: NamedDependency[User],
+        user_scope: NamedDependency[OwnerScope],
     ) -> CreatedUserAccessTokenResponse:
         """Create a long-lived API token and show its raw value once."""
         raw_token = UserAccessToken.generate_token()
         async with SASessionUOW() as uow:
-            access_token = await UserAccessTokenRepository(
-                uow.session, scope=OwnerScope(current_user.id)
-            ).create(
+            access_token = await UserAccessTokenRepository(uow.session, scope=user_scope).create(
                 token=hash_string(raw_token),
                 name=data.name,
                 expires_in=utcnow() + timedelta(days=data.expires_in_days),
@@ -425,10 +419,11 @@ class AuthAccessTokenAPIController(BaseAuthAPIController):
         token_id: FromPath[int],
         data: JSONBody[UserAccessTokenUpdateRequest],
         current_user: NamedDependency[User],
+        user_scope: NamedDependency[OwnerScope],
     ) -> UserAccessTokenResponse:
         """Rename, enable, or disable one of the current user's API tokens."""
         async with SASessionUOW() as uow:
-            repository = UserAccessTokenRepository(uow.session, scope=OwnerScope(current_user.id))
+            repository = UserAccessTokenRepository(uow.session, scope=user_scope)
             access_token = await repository.first(id=token_id)
             if access_token is None:
                 raise InvalidParametersAPIError(details=f"Access token #{token_id} not found.")
@@ -439,11 +434,13 @@ class AuthAccessTokenAPIController(BaseAuthAPIController):
 
     @delete("/access-tokens/{token_id:int}/", status_code=HTTP_204_NO_CONTENT)
     async def delete_access_token(
-        self, token_id: FromPath[int], current_user: NamedDependency[User]
+        self,
+        token_id: FromPath[int],
+        user_scope: NamedDependency[OwnerScope],
     ) -> None:
         """Delete one of the current user's API tokens."""
         async with SASessionUOW() as uow:
-            repository = UserAccessTokenRepository(uow.session, scope=OwnerScope(current_user.id))
+            repository = UserAccessTokenRepository(uow.session, scope=user_scope)
             access_token = await repository.first(id=token_id)
             if access_token is None:
                 raise InvalidParametersAPIError(details=f"Access token #{token_id} not found.")

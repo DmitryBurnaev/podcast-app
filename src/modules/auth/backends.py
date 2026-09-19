@@ -34,9 +34,8 @@ from src.modules.db.repositories import (
     UserRepository,
     UserSessionRepository,
     UserIPRepository,
-    OwnerScope,
-    SystemScope,
 )
+from modules.common.types import OwnerScope, SystemScope
 from src.modules.utils.common import utcnow, hash_string
 from src.modules.auth.tokens import TokenCollection, decode_jwt, LENGTH_USER_ACCESS_TOKEN
 
@@ -112,7 +111,7 @@ class BaseAuthBackend(abc.ABC):
             by_token_data = self._decode_jwt(jwt_token, token_type)
 
         user_id = by_token_data.user_id
-        user_repo = UserRepository(session=db_session)
+        user_repo = UserRepository(session=db_session, scope=SystemScope.ALL)
         user = await user_repo.first(id=user_id, is_active=True)
         if not user:
             msg = "Couldn't found active user with id=%s."
@@ -126,7 +125,7 @@ class BaseAuthBackend(abc.ABC):
         if not session_id:
             raise AuthCredentialsInvalidError("Incorrect data in JWT: session_id is missed")
 
-        user_session_repo = AuthUserSessionRepository(session=db_session, scope=SystemScope.ALL)
+        user_session_repo = AuthUserSessionRepository(session=db_session)
         user_session = await user_session_repo.get_active_by_public_id(session_id)
         if not user_session:
             raise AuthCredentialsInvalidError(
@@ -144,8 +143,8 @@ class BaseAuthBackend(abc.ABC):
         async with SASessionUOW() as uow:
             return await self._authenticate_user(token, uow.session, token_type)
 
+    @staticmethod
     async def _authenticate_credentials(
-        self,
         email: str,
         password: str,
         *,
@@ -156,7 +155,7 @@ class BaseAuthBackend(abc.ABC):
             raise AuthCredentialsInvalidError("Email or password is required.")
 
         async with SASessionUOW() as uow:
-            user = await UserRepository(uow.session).get_by_email(email)
+            user = await UserRepository(uow.session, scope=SystemScope.ALL).get_by_email(email)
 
         if user is None or not user.is_active:
             raise AuthCredentialsInvalidError("Active user not found")
@@ -190,6 +189,7 @@ class BaseAuthBackend(abc.ABC):
                 created_at=now,
                 refreshed_at=now,
             )
+
         return token, expired_at
 
     async def deactivate_cookie_session(self, token: str) -> None:
@@ -200,9 +200,7 @@ class BaseAuthBackend(abc.ABC):
             return
 
         async with SASessionUOW() as uow:
-            await UserSessionRepository(uow.session, scope=SystemScope.ALL).deactivate_by_public_id(
-                session_id
-            )
+            await UserSessionRepository(uow.session).deactivate_by_public_id(session_id)
 
     def _decode_jwt(self, token: str, token_type: AuthTokenType) -> ByTokenData:
         """
@@ -255,7 +253,7 @@ class BaseAuthBackend(abc.ABC):
         :return: ByTokenData instance (stores token-specific info)
         """
         logger.debug("Logging via UserAccess token. Got token: %s", token)
-        user_token_repo = UserAccessTokenRepository(session=db_session, scope=SystemScope.ALL)
+        user_token_repo = UserAccessTokenRepository(session=db_session)
         user_access_token = await user_token_repo.get_active_by_token(hash_string(token))
         if not user_access_token:
             raise AuthCredentialsInvalidError("Provided access token is unknown.")
@@ -327,7 +325,7 @@ class APIAuthBackend(BaseAuthBackend):
         session_id: str | None = (self.request.auth or {}).get("session_id")
         if session_id is not None:
             async with SASessionUOW() as uow:
-                session_repo = UserSessionRepository(uow.session, scope=SystemScope.ALL)
+                session_repo = UserSessionRepository(uow.session)
                 await session_repo.deactivate_by_public_id(session_id)
 
     async def login(self, email: str, password: str) -> SuccessLoginData:
@@ -365,7 +363,7 @@ class APIAuthBackend(BaseAuthBackend):
             settings=self.settings,
         )
         async with SASessionUOW() as uow:
-            session_repo = UserSessionRepository(uow.session, scope=SystemScope.ALL)
+            session_repo = UserSessionRepository(uow.session)
             user_session = await session_repo.get(auth.session.id)
             await session_repo.update(
                 user_session,
@@ -413,7 +411,7 @@ class APIAuthBackend(BaseAuthBackend):
         )
 
         async with SASessionUOW() as uow:
-            session_repo = UserSessionRepository(uow.session, scope=SystemScope.ALL)
+            session_repo = UserSessionRepository(uow.session)
             pair = await session_repo.get_active_with_user(payload["session_id"])
             if pair is None:
                 raise SessionInactiveAPIError()

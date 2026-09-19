@@ -13,8 +13,8 @@ from src.modules.db.repositories import (
     FileRepository,
     EpisodeRepository,
     CreateT,
-    SystemScope,
 )
+from modules.common.types import SystemScope
 
 __all__ = ["GenerateRSSTask"]
 logger = logging.getLogger(__name__)

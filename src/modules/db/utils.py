@@ -6,7 +6,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.modules.common.constants import SourceType
 from src.modules.db.models.podcasts import Cookie
-from src.modules.db.repositories import CookieRepository, OwnerScope, SystemScope
+from src.modules.db.repositories import CookieRepository
+from modules.common.types import OwnerScope, SystemScope
 from src.modules.utils import processing as processing_utils
 
 logger = logging.getLogger(__name__)

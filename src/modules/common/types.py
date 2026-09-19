@@ -1,4 +1,6 @@
 import logging
+from dataclasses import dataclass
+from enum import StrEnum
 from typing import TypedDict, NotRequired, Callable, Mapping, Any, TYPE_CHECKING
 
 from litestar.connection import Request
@@ -22,3 +24,19 @@ class YTDLParamsT(TypedDict):
     cookiefile: NotRequired[str | None]
     noplaylist: NotRequired[bool]
     proxy: NotRequired[str]
+
+
+@dataclass(frozen=True, slots=True)
+class OwnerScope:
+    """Restrict a repository to resources owned by one user."""
+
+    user_id: int
+
+    def __str__(self) -> str:
+        return f"user #{self.user_id}"
+
+
+class SystemScope(StrEnum):
+    """Explicitly allow trusted code to operate across all owners."""
+
+    ALL = "all"

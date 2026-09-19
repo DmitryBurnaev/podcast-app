@@ -1,24 +1,29 @@
 from litestar import get
+from litestar.di import NamedDependency
 from litestar.response import Template
 
 from src.modules.common.types import AppRequest
 from src.modules.db import SASessionUOW
-from src.modules.db.repositories import EpisodeRepository, OwnerScope, PodcastRepository
+from src.modules.db.repositories import EpisodeRepository, PodcastRepository
+from src.modules.common.types import OwnerScope
 from src.modules.services.statistic import StatisticService
 from src.modules.views.base import BaseViewController
 
 
 class IndexController(BaseViewController):
     @get("/")
-    async def get(self, request: AppRequest) -> Template:
+    async def get(
+        self,
+        request: AppRequest,
+        user_scope: NamedDependency[OwnerScope],
+    ) -> Template:
         """Render the application dashboard."""
         async with SASessionUOW() as uow:
-            user = request.user
-            podcast_repository = PodcastRepository(session=uow.session, scope=OwnerScope(user.id))
+            podcast_repository = PodcastRepository(session=uow.session, scope=user_scope)
             podcasts, _ = await podcast_repository.all_with_aggregations()
-            episodes_repository = EpisodeRepository(session=uow.session, scope=OwnerScope(user.id))
+            episodes_repository = EpisodeRepository(session=uow.session, scope=user_scope)
             recent_episodes, _ = await episodes_repository.all_paginated(limit=7)
-            stats = await StatisticService(uow).get_app_statistics(owner_id=user.id)
+            stats = await StatisticService(uow, scope=user_scope).get_app_statistics()
 
         return self.get_response_template(
             template_name="index.html",
