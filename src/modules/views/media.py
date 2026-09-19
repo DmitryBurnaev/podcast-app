@@ -11,7 +11,7 @@ from src.modules.common.constants import AuthSkip
 from src.modules.common.exceptions import NotSupportedError
 from src.modules.db import SASessionUOW
 from src.modules.db.models.media import File, MediaType
-from src.modules.db.repositories import FileRepository, SystemScope
+from src.modules.db.repositories import FileRepository
 from src.modules.services.storage import get_file_presigned_url
 from src.modules.views.base import BaseViewController
 
@@ -54,7 +54,7 @@ class MediaByTokenController(BaseViewController):
             raise NotFoundException("Media not found")
 
         async with SASessionUOW() as uow:
-            repo = FileRepository(session=uow.session, scope=SystemScope.ALL)
+            repo = FileRepository(session=uow.session)
             media_file = await repo.first_by_access_token(access_token)
             if (
                 media_file is None

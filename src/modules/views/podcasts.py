@@ -10,7 +10,8 @@ from litestar.response import File, Template
 from src.modules.common.exceptions import NotFoundError
 from src.modules.db import SASessionUOW
 from src.modules.db.models import File as MediaFile
-from src.modules.db.repositories import EpisodeRepository, OwnerScope, PodcastRepository
+from src.modules.db.repositories import EpisodeRepository, PodcastRepository
+from src.modules.common.types import OwnerScope
 from src.modules.services.cover import CoverService
 from src.modules.services.statistic import StatisticService
 from src.modules.views.base import BaseViewController
@@ -21,13 +22,15 @@ from src.modules.utils.common import cut_string
 
 class PodcastsController(BaseViewController):
     @get("/podcasts/")
-    async def get(self, request: AppRequest) -> Template:
+    async def get(
+        self,
+        request: AppRequest,
+        user_scope: NamedDependency[OwnerScope],
+    ) -> Template:
         """Render the podcast list page."""
 
         async with SASessionUOW() as uow:
-            podcast_repository = PodcastRepository(
-                session=uow.session, scope=OwnerScope(request.user.id)
-            )
+            podcast_repository = PodcastRepository(session=uow.session, scope=user_scope)
             podcasts, _ = await podcast_repository.all_with_aggregations()
 
         return self.get_response_template(
@@ -47,24 +50,21 @@ class PodcastsDetailsController(BaseViewController):
         self,
         podcast_id: FromPath[int],
         request: AppRequest,
+        user_scope: NamedDependency[OwnerScope],
         settings: NamedDependency[AppSettings],
     ) -> Template:
         """Get podcast detail page with episodes list"""
 
         async with SASessionUOW() as uow:
-            podcast_repository = PodcastRepository(
-                session=uow.session, scope=OwnerScope(request.user.id)
-            )
-            episode_repository = EpisodeRepository(
-                session=uow.session, scope=OwnerScope(request.user.id)
-            )
+            podcast_repository = PodcastRepository(session=uow.session, scope=user_scope)
+            episode_repository = EpisodeRepository(session=uow.session, scope=user_scope)
             podcast = await podcast_repository.get(podcast_id)
             episodes, _ = await episode_repository.all_paginated(
-                podcast_id=podcast_id, limit=settings.default_pagination_limit
+                podcast_id=podcast_id,
+                limit=settings.default_pagination_limit,
             )
-            podcast_stats = await StatisticService(uow).get_podcast_statistics(
-                podcast_id, user_id=request.user.id
-            )
+            service = StatisticService(uow, scope=user_scope)
+            podcast_stats = await service.get_podcast_statistics(podcast_id)
 
         return self.get_response_template(
             template_name="podcasts_detail.html",
@@ -86,13 +86,15 @@ class PodcastCoverController(BaseViewController):
     cache_file_prefix: ClassVar[str] = "podcast_cover"
 
     @get("/podcasts/{podcast_id:int}/cover/")
-    async def get_cover(self, podcast_id: FromPath[int], request: AppRequest) -> File:
+    async def get_cover(
+        self,
+        podcast_id: FromPath[int],
+        user_scope: NamedDependency[OwnerScope],
+    ) -> File:
         """Return podcast cover image; download from S3 or source_url and cache."""
 
         async with SASessionUOW() as uow:
-            podcast_repository = PodcastRepository(
-                session=uow.session, scope=OwnerScope(request.user.id)
-            )
+            podcast_repository = PodcastRepository(session=uow.session, scope=user_scope)
             podcast = await podcast_repository.get(podcast_id)
             if not podcast.image_id or not podcast.image:
                 raise NotFoundError(f"Podcast {podcast_id} has no cover image")

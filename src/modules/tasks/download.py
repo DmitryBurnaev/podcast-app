@@ -7,9 +7,9 @@ from yt_dlp.utils import YoutubeDLError
 from src.modules.utils import download
 from src.modules.common.constants import EpisodeStatus
 from src.modules.common.exceptions import UserCancellationError, DownloadingInterrupted
-from src.modules.db import SASessionUOW
 from src.modules.db.models import Episode
-from src.modules.db.repositories import EpisodeRepository, FileRepository, FilterT, SystemScope
+from src.modules.db.repositories import EpisodeRepository, FileRepository, FilterT
+from modules.common.types import SystemScope
 from src.modules.db.utils import cookie_file_ctx
 from src.modules.services.redis import RedisClient
 from src.modules.services.storage import StorageS3
@@ -30,13 +30,6 @@ __all__ = [
     "DownloadEpisodeTask",
     "UploadedEpisodeTask",
 ]
-
-
-async def _async_episode_update(episode_id: int, new_status: EpisodeStatus):
-    async with SASessionUOW() as uow:
-        await EpisodeRepository(uow.session, scope=SystemScope.ALL).update_by_ids(
-            [episode_id], {"status": new_status}
-        )
 
 
 class DownloadEpisodeTask(RQTask):

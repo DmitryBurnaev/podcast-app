@@ -4,7 +4,8 @@ from pathlib import Path
 
 from src.settings.app import get_app_settings, AppSettings
 from src.modules.db.models import File, Episode
-from src.modules.db.repositories import EpisodeRepository, FileRepository, SystemScope
+from src.modules.db.repositories import EpisodeRepository, FileRepository
+from modules.common.types import SystemScope
 from src.modules.services.storage import StorageS3
 from src.modules.tasks.base import RQTask, TaskResultCode
 from src.modules.utils import ffmpeg

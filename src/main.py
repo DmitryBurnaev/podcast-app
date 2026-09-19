@@ -2,7 +2,7 @@ import logging
 from collections.abc import Awaitable, Callable
 from contextlib import asynccontextmanager
 from enum import StrEnum
-from typing import Any, AsyncGenerator
+from typing import Any, AsyncGenerator, TYPE_CHECKING
 
 import rq
 import uvicorn
@@ -42,7 +42,11 @@ from src.modules.api.errors import (
     http_redirect_handler,
 )
 from src.modules.views import VIEW_CONTROLLERS
+from src.modules.common.types import OwnerScope
 from src.settings.app import APP_DIR, AppSettings, get_app_settings
+
+if TYPE_CHECKING:
+    pass
 
 logger = logging.getLogger("app")
 
@@ -140,6 +144,13 @@ def provide_current_user(request: Request):
     return request.user
 
 
+def provide_current_user_scope(request: Request) -> OwnerScope:
+    """
+    Simple dependency for getting current user's scope for DB's repositories
+    """
+    return OwnerScope(user_id=request.user.id)
+
+
 def make_app(settings: AppSettings | None = None) -> PodcastApp:
     """Forming Application instance with required settings and dependencies"""
     app_settings: AppSettings = settings or get_app_settings()
@@ -213,6 +224,7 @@ def make_app(settings: AppSettings | None = None) -> PodcastApp:
         dependencies={
             "settings": Provide(provide_settings, sync_to_thread=False),
             "current_user": Provide(provide_current_user, sync_to_thread=False),
+            "user_scope": Provide(provide_current_user_scope, sync_to_thread=False),
         },
         settings=app_settings,
     )

@@ -3,8 +3,6 @@
 import logging
 import uuid
 from collections.abc import Collection, Mapping
-from dataclasses import dataclass
-from enum import StrEnum
 from pathlib import Path
 from datetime import UTC, datetime
 from typing import (
@@ -41,6 +39,7 @@ from sqlalchemy.sql.elements import SQLCoreOperations
 from sqlalchemy.sql.operators import isnot
 from sqlalchemy.sql.roles import ColumnsClauseRole
 
+from modules.common.types import OwnerScope, SystemScope
 from src.modules.common.exceptions import NotFoundError
 from src.modules.db.models import BaseModel, User, UserSession, File
 from src.modules.db.models.users import UserAccessToken, UserIP, UserInvite
@@ -73,20 +72,6 @@ type EpisodeOrderT = Literal[
     "id", "title", "created_at", "updated_at", "-created_at", "-updated_at"
 ]
 
-
-@dataclass(frozen=True, slots=True)
-class OwnerScope:
-    """Restrict a repository to resources owned by one user."""
-
-    user_id: int
-
-
-class SystemScope(StrEnum):
-    """Explicitly allow trusted code to operate across all owners."""
-
-    ALL = "all"
-
-
 type RepositoryScope = OwnerScope | SystemScope
 
 
@@ -114,23 +99,25 @@ class BaseRepository(Generic[ModelT]):
     """Base repository interface."""
 
     model: type[ModelT]
+    scope_default: ClassVar[SystemScope | None] = None
     scope_field: ClassVar[str | None] = None
 
     def __init__(
         self,
         session: AsyncSession,
-        *,
         scope: RepositoryScope | None = None,
     ) -> None:
         self.session: AsyncSession = session
-        if self.scope_field is None:
-            if scope is not None:
-                raise ValueError(f"{self.__class__.__name__} does not support ownership scopes")
-        elif scope is None:
+        scope_ = scope or self.scope_default
+        if self.scope_field is None and scope_ is None:
+            raise ValueError(f"{self.__class__.__name__} does not support ownership scopes")
+
+        elif scope_ is None:
             raise ValueError(
                 f"{self.__class__.__name__} requires OwnerScope or explicit SystemScope.ALL"
             )
-        self.scope = scope
+
+        self.scope = scope_
 
     async def get(self, instance_id: int, **filters: FilterT) -> ModelT:
         """Selects instance by provided ID"""
@@ -187,15 +174,6 @@ class BaseRepository(Generic[ModelT]):
             Tuple of (objects list, total count)
         """
         logger.debug("[DB] Getting paginated %s (offset=%i, limit=%i)", self.model, offset, limit)
-
-        # TODO: recheck and remove commented
-        # Prepare base statement for count
-        # count_filters = filters.copy() | self._get_owner_kwarg()
-        # count_filters_stmts: list[BinaryExpression[bool]] = []
-        # if (ids := count_filters.pop("ids", None)) and isinstance(ids, list):
-        #     count_filters_stmts.append(self.model.id.in_(ids))
-
-        # Get paginated releases
         statement = self._prepare_statement(filters=filters)
         oder_by_criteria = self._sort_criteria(order_by)
         objects = await self.session.scalars(
@@ -370,6 +348,7 @@ class UserSessionRepository(BaseRepository[UserSession]):
 
     model = UserSession
     scope_field = "user_id"
+    scope_default = SystemScope.ALL
 
     async def get_active_with_user(self, public_id: str) -> tuple[UserSession, User] | None:
         """Return session and user if cookie id is valid and not expired."""
@@ -409,6 +388,7 @@ class UserInviteRepository(BaseRepository[UserInvite]):
 
     model = UserInvite
     scope_field = "owner_id"
+    scope_default = SystemScope.ALL
 
     async def get_valid(self, token: str, email: str) -> UserInvite | None:
         """Return an unused, unexpired invitation matching an email."""
@@ -830,6 +810,7 @@ class FileRepository(BaseRepository[File]):
 
     model = File
     scope_field = "owner_id"
+    scope_default = SystemScope.ALL
 
     async def get_total_size(self) -> int:
         """Return the total size of all file rows in bytes."""
@@ -928,6 +909,7 @@ class FileRepository(BaseRepository[File]):
         """Create a file row copied inside the active owner scope."""
         if not isinstance(self.scope, OwnerScope):
             raise ValueError("FileRepository.copy() requires OwnerScope")
+
         source_file: File = await self.get(file_id)
         logger.debug("Copying file: source %s | owner_id %s", source_file, self.scope.user_id)
         return await self.create(
@@ -945,6 +927,7 @@ class AuthUserSessionRepository(BaseRepository[UserSession]):
 
     model = UserSession
     scope_field = "user_id"
+    scope_default = SystemScope.ALL
 
     async def get_active(self, user_id: int) -> UserSession | None:
         """Get active user session."""

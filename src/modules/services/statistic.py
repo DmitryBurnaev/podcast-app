@@ -2,7 +2,8 @@
 
 from src.modules.schemas.statistics import AppStatistics, PodcastStatistics, RecentActivity
 from src.modules.db.services import SASessionUOW
-from src.modules.db.repositories import EpisodeRepository, OwnerScope, PodcastRepository
+from src.modules.db.repositories import EpisodeRepository, PodcastRepository
+from modules.common.types import OwnerScope
 
 __all__ = ("StatisticService",)
 
@@ -10,13 +11,14 @@ __all__ = ("StatisticService",)
 class StatisticService:
     """Service that builds app and podcast statistics using UOW-backed repositories."""
 
-    def __init__(self, uow: SASessionUOW) -> None:
+    def __init__(self, uow: SASessionUOW, scope: OwnerScope) -> None:
         self._uow = uow
+        self.scope = scope
 
-    async def get_app_statistics(self, owner_id: int) -> AppStatistics:
+    async def get_app_statistics(self) -> AppStatistics:
         """Build application-wide statistics (podcasts count, episodes agg, recent activity)."""
-        podcast_repo = PodcastRepository(session=self._uow.session, scope=OwnerScope(owner_id))
-        episode_repo = EpisodeRepository(session=self._uow.session, scope=OwnerScope(owner_id))
+        podcast_repo = PodcastRepository(session=self._uow.session, scope=self.scope)
+        episode_repo = EpisodeRepository(session=self._uow.session, scope=self.scope)
         podcasts = await podcast_repo.all()
         episodes_agg = await episode_repo.get_aggregated()
 
@@ -39,9 +41,9 @@ class StatisticService:
             recent_activity=RecentActivity(text=recent_text, time=recent_time),
         )
 
-    async def get_podcast_statistics(self, podcast_id: int, user_id: int) -> PodcastStatistics:
+    async def get_podcast_statistics(self, podcast_id: int) -> PodcastStatistics:
         """Build statistics for a single podcast from its episodes aggregation."""
-        episode_repo = EpisodeRepository(session=self._uow.session, scope=OwnerScope(user_id))
+        episode_repo = EpisodeRepository(session=self._uow.session, scope=self.scope)
         agg = await episode_repo.get_aggregated(podcast_id=podcast_id)
         return PodcastStatistics(
             episodes_count=agg.total_count,

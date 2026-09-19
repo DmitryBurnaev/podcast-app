@@ -4,6 +4,7 @@ from unittest.mock import AsyncMock, Mock
 
 import pytest
 
+from modules.common.types import OwnerScope
 from src.modules.db.repositories import EpisodesStatData
 from src.modules.services.statistic import StatisticService
 from src.tests.factories import make_podcast
@@ -39,9 +40,10 @@ class TestStatisticService:
             Mock(return_value=episode_repository),
         )
 
-        result = await StatisticService(SimpleNamespace(session=MockSession())).get_app_statistics(
-            owner_id=7
-        )
+        result = await StatisticService(
+            SimpleNamespace(session=MockSession()),
+            owner_scope=OwnerScope(user_id=7),
+        ).get_app_statistics()
 
         assert result.total_episodes == 3
         assert result.total_podcasts == 2
