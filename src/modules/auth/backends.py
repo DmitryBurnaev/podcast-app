@@ -35,7 +35,7 @@ from src.modules.db.repositories import (
     UserSessionRepository,
     UserIPRepository,
 )
-from modules.common.types import OwnerScope, SystemScope
+from src.modules.common.types import OwnerScope, SystemScope
 from src.modules.utils.common import utcnow, hash_string
 from src.modules.auth.tokens import TokenCollection, decode_jwt, LENGTH_USER_ACCESS_TOKEN
 

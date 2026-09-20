@@ -196,10 +196,16 @@ class TestProfileAccessTokenAPI:
     ) -> None:
         client, _, _ = auth_api_client
         profile = client.patch("/api/auth/me/", json={"email": "updated@podcast.dev"})
+        assert profile.status_code == 200, profile.text
+
         me = client.get("/api/auth/me/", headers={"X-Real-IP": "203.0.113.10"})
+        assert me.status_code == 200, me.text
+
         tokens = client.post(
             "/api/auth/access-tokens/", json={"name": "automation", "expires_in_days": 7}
         )
+        assert tokens.status_code == 201, tokens.text
+
         token_id = tokens.json()["id"]
         listed = client.get("/api/auth/access-tokens/")
         updated = client.patch(f"/api/auth/access-tokens/{token_id}/", json={"enabled": False})

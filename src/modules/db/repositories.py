@@ -39,7 +39,7 @@ from sqlalchemy.sql.elements import SQLCoreOperations
 from sqlalchemy.sql.operators import isnot
 from sqlalchemy.sql.roles import ColumnsClauseRole
 
-from modules.common.types import OwnerScope, SystemScope
+from src.modules.common.types import OwnerScope, SystemScope
 from src.modules.common.exceptions import NotFoundError
 from src.modules.db.models import BaseModel, User, UserSession, File
 from src.modules.db.models.users import UserAccessToken, UserIP, UserInvite
@@ -333,6 +333,7 @@ class UserRepository(BaseRepository[User]):
     """User's repository."""
 
     model = User
+    scope_default = SystemScope.ALL
 
     async def get_by_email(self, email: str) -> User | None:
         """Get user by email (login)."""

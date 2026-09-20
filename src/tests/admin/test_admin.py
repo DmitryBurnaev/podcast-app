@@ -2,6 +2,7 @@ import pytest
 from litestar.testing import TestClient
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
+from modules.common.types import SystemScope, OwnerScope
 from src import main as app_main
 from src.main import DbStartMode, PodcastApp, make_app
 from src.modules.admin.app import ADMIN_VIEWS
@@ -35,8 +36,14 @@ class MockUOW:
 
 
 class FakeUserRepository:
-    def __init__(self, user: User | None) -> None:
+
+    def __init__(
+        self,
+        user: User | None,
+        scope: SystemScope | OwnerScope = SystemScope.ALL,
+    ) -> None:
         self.user = user
+        self.scope = scope
 
     async def get_by_email(self, email: str) -> User | None:
         return self.user if self.user and self.user.email == email else None
@@ -48,8 +55,13 @@ class FakeUserRepository:
 
 
 class FakeUserSessionRepository:
-    def __init__(self) -> None:
+
+    def __init__(
+        self,
+        scope: SystemScope | OwnerScope = SystemScope.ALL,
+    ) -> None:
         self.sessions: dict[str, object] = {}
+        self.scope = scope
 
     async def create(self, *, public_id: str, **_: object) -> None:
         self.sessions[public_id] = object()
@@ -72,7 +84,6 @@ def make_admin_client(
     user: User | None = None,
 ) -> TestClient[PodcastApp]:
     session_factory = async_sessionmaker(class_=AsyncSession)
-    session_repository = FakeUserSessionRepository()
     lifecycle = FakeLifecycle()
     monkeypatch.setitem(
         app_main._DB_STARTUP_CHECKS,
@@ -89,13 +100,15 @@ def make_admin_client(
     monkeypatch.setattr("src.modules.auth.backends.SASessionUOW", lambda: MockUOW())
     monkeypatch.setattr(
         "src.modules.auth.backends.UserRepository",
-        lambda session: FakeUserRepository(user),
+        lambda session, scope: FakeUserRepository(user, scope),
     )
     monkeypatch.setattr(
-        "src.modules.auth.backends.UserSessionRepository", lambda session: session_repository
+        "src.modules.auth.backends.UserSessionRepository",
+        lambda session, scope: FakeUserSessionRepository(scope),
     )
     monkeypatch.setattr(
-        "src.modules.auth.backends.AuthUserSessionRepository", lambda session: session_repository
+        "src.modules.auth.backends.AuthUserSessionRepository",
+        lambda session, scope: FakeUserSessionRepository(scope),
     )
     monkeypatch.setattr(
         "src.modules.auth.backends.UserIPRepository", lambda session: FakeUserIPRepository()

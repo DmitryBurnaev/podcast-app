@@ -7,15 +7,17 @@ The harness never uses ``DB_NAME`` for writes.  A caller must explicitly set
 import asyncio
 import os
 import re
-import subprocess
-import sys
 from collections.abc import AsyncIterator, Iterator
 from dataclasses import dataclass
+from typing import AsyncGenerator, Any
 
-import asyncpg
+import asyncpg  # type: ignore
 import pytest
+import pytest_asyncio
+import sqlalchemy
 from sqlalchemy import text
 from sqlalchemy.engine import URL, make_url
+from sqlalchemy.exc import ProgrammingError, OperationalError
 from sqlalchemy.ext.asyncio import (
     AsyncEngine,
     AsyncSession,
@@ -23,12 +25,14 @@ from sqlalchemy.ext.asyncio import (
     create_async_engine,
 )
 from sqlalchemy.pool import NullPool
+from sqlalchemy.util import concurrency
 
 from src.modules.db import session as db_session
 from src.modules.db.models import BaseModel, Podcast, User
 from src.modules.db.repositories import UserRepository
 from src.modules.db.services import SASessionUOW
 from src.settings.db import DBSettings
+from src.tests.helpers import make_db_session
 
 _DATABASE_NAME_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 
@@ -78,22 +82,77 @@ async def _create_database_if_needed(database: TestDatabase) -> None:
         await connection.close()
 
 
-def _run_migrations(database: TestDatabase) -> None:
-    environment = os.environ.copy()
-    environment["DB_NAME"] = database.name
-    subprocess.run(
-        [sys.executable, "-m", "alembic", "upgrade", "head"],
-        check=True,
-        env=environment,
-    )
+# def _run_migrations(database: TestDatabase) -> None:
+#     environment = os.environ.copy()
+#     environment["DB_NAME"] = database.name
+#     subprocess.run(
+#         [sys.executable, "-m", "alembic", "upgrade", "head"],
+#         check=True,
+#         env=environment,
+#     )
 
 
+@pytest_asyncio.fixture
+async def dbs() -> AsyncGenerator[Any, Any]:
+    async with make_db_session() as db_session:
+        yield db_session
+
+
+def db_prep():
+    print("Dropping the old test db…")
+    settings = DBSettings()
+    engine = sqlalchemy.create_engine(settings.database_dsn)
+    conn = engine.connect()
+
+    def exec_sql(query: str):
+        return conn.execute(sqlalchemy.text(query))
+
+    db_exists = conn.execute(
+        sqlalchemy.text(f"SELECT 1 FROM pg_database WHERE datname = '{settings.name}'")
+    ).scalar()
+    try:
+        conn = conn.execution_options(autocommit=False)
+        exec_sql("ROLLBACK")
+        # exec_sql(f"DROP DATABASE {settings.name}")
+    except ProgrammingError:
+        print("Could not drop the database, probably does not exist.")
+        exec_sql("ROLLBACK")
+    except OperationalError:
+        print("Could not drop database because it’s being accessed by other users")
+        exec_sql("ROLLBACK")
+
+    if not db_exists:
+        print(f"Test db is about to create {settings.name}")
+        exec_sql(f"CREATE DATABASE {settings.name}")
+
+    try:
+        exec_sql(f"CREATE USER {settings.user} WITH ENCRYPTED PASSWORD '{settings.password}'")
+    except Exception as e:
+        print(f"User already exists. ({e})")
+        exec_sql(f"GRANT ALL PRIVILEGES ON DATABASE {settings.name} TO {settings.user}")
+
+    conn.close()
+
+
+@pytest_asyncio.fixture(autouse=True, scope="session")
+async def db_migration():
+    settings = DBSettings()
+
+    def create_tables():
+        db_prep()
+        print("Creating tables...")
+        engine = sqlalchemy.create_engine(settings.database_dsn)
+        BaseModel.metadata.create_all(engine)
+
+    await concurrency.greenlet_spawn(create_tables)
+    print("DB and tables were successful created.")
+
+
+#
 @pytest.fixture(scope="session")
 def test_database(pytestconfig: pytest.Config) -> Iterator[TestDatabase]:
     """Provision one protected PostgreSQL database and migrate it once."""
     database = _test_database(pytestconfig)
-    asyncio.run(_create_database_if_needed(database))
-    _run_migrations(database)
     yield database
 
 
