@@ -7,6 +7,7 @@ from zoneinfo import ZoneInfo
 from pydantic import SecretStr, Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from src.settings import APP_DIR, ROOT_DIR
 from src.settings.db import DBSettings, RedisSettings, S3Settings
 from src.settings.utils import prepare_settings
 from src.settings.log import LogSettings
@@ -18,15 +19,13 @@ __all__ = (
     "SMTPSettings",
 )
 
-APP_DIR = Path(__file__).parent.parent
-ROOT_DIR = APP_DIR.parent
 logger = logging.getLogger(__name__)
 
 
 class FlagsSettings(BaseSettings):
     """Implements settings which are loaded from environment variables"""
 
-    model_config = SettingsConfigDict(env_prefix="FLAG_")
+    model_config = SettingsConfigDict(env_prefix="FLAG_", extra="ignore")
 
     debug_mode: bool = False
     api_debug_mode: bool = False
@@ -81,7 +80,7 @@ class SMTPSettings(BaseSettings):
 class AppSettings(BaseSettings):
     """Application settings which are loaded from environment variables"""
 
-    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+    model_config = SettingsConfigDict(env_file=ROOT_DIR / ".env", extra="ignore")
 
     # core app settings
     app_secret_key: SecretStr = Field(

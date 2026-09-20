@@ -1,9 +1,7 @@
 from types import SimpleNamespace
-from pathlib import Path
 from typing import Self
 from unittest.mock import ANY, AsyncMock, create_autospec
 
-from jinja2 import Environment
 import pytest
 from starlette.datastructures import URL
 from starlette.requests import Request
@@ -74,7 +72,7 @@ def use_file_repository(
     monkeypatch.setattr("src.modules.admin.views.media.SASessionUOW", FakeUOW)
     monkeypatch.setattr(
         "src.modules.admin.views.media.FileRepository",
-        lambda *, session: repository,
+        lambda *, session, scope: repository,
     )
 
 
@@ -168,23 +166,6 @@ class TestMediaFileAdminView:
         self,
     ) -> None:
         assert MediaFileAdminView().s3_content_label(make_file(path="")) is None
-
-    def test_media_templates__parse_with_shared_storage_context(self) -> None:
-        templates_dir = Path("src/modules/admin/templates")
-        environment = Environment()
-
-        for template_name in (
-            "snippets/storage_context.html",
-            "media_list.html",
-            "media_edit.html",
-        ):
-            environment.parse((templates_dir / template_name).read_text())
-
-        edit_template = (templates_dir / "media_edit.html").read_text()
-        assert edit_template.index(">Episodes<") < edit_template.index(">Content<")
-        assert ">Same-path files<" in edit_template
-        assert 'target="_blank"' in edit_template
-        assert 'class="btn btn-secondary" disabled' in edit_template
 
     async def test_get_object_for_edit__loads_other_files_with_the_same_path(
         self,

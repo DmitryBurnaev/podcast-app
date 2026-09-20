@@ -6,6 +6,7 @@ from typing import Annotated, TypedDict, Any
 from pydantic import StringConstraints
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from src.settings import ROOT_DIR
 from src.settings.utils import prepare_settings
 
 __all__ = (
@@ -57,7 +58,7 @@ class JsonFormatter(logging.Formatter):
 class LogSettings(BaseSettings):
     """Implements settings which are loaded from environment variables"""
 
-    model_config = SettingsConfigDict(env_prefix="LOG_")
+    model_config = SettingsConfigDict(env_file=ROOT_DIR / ".env", env_prefix="LOG_", extra="ignore")
 
     level: LogLevelString = "INFO"
     sa_level: LogLevelString = "WARNING"

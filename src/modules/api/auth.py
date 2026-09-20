@@ -28,7 +28,7 @@ from src.modules.db.repositories import (
     UserRepository,
     UserSessionRepository,
 )
-from modules.common.types import OwnerScope
+from src.modules.common.types import OwnerScope
 from src.modules.db.services import SASessionUOW
 from src.modules.schemas.auth import (
     ChangePasswordRequest,

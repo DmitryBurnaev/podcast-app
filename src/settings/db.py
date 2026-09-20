@@ -7,6 +7,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 from sqlalchemy.engine import URL
 
 from src.settings.utils import prepare_settings
+from src.settings import ROOT_DIR
 
 __all__ = (
     "get_db_settings",
@@ -21,13 +22,12 @@ __all__ = (
 class DBSettings(BaseSettings):
     """Database settings which are loaded from environment variables"""
 
-    model_config = SettingsConfigDict(env_file=".env", extra="ignore", env_prefix="DB_")
+    model_config = SettingsConfigDict(env_file=ROOT_DIR / ".env", extra="ignore", env_prefix="DB_")
 
     driver: str = "postgresql+asyncpg"
     host: str | None = None
     port: int | None = None
     user: str | None = None
-    username: str | None = None
     password: SecretStr | None = None
     name: str = "podcast"
     pool_min_size: int = 1
@@ -41,7 +41,7 @@ class DBSettings(BaseSettings):
     @cached_property
     def database_dsn(self) -> str:
         """Build database DSN from settings"""
-        username = self.username or self.user or ""
+        username = self.user or ""
         password = self.password.get_secret_value() if self.password else ""
         host = self.host or "localhost"
         port = self.port or 5432
@@ -58,7 +58,7 @@ class DBSettings(BaseSettings):
 class S3Settings(BaseSettings):
     """S3 storage settings which are loaded from environment variables"""
 
-    model_config = SettingsConfigDict(env_file=".env", extra="ignore", env_prefix="S3_")
+    model_config = SettingsConfigDict(env_file=ROOT_DIR / ".env", extra="ignore", env_prefix="S3_")
 
     env: Literal["dev", "prod"] = "prod"
     storage_url: str | None = None
@@ -88,7 +88,11 @@ class S3Settings(BaseSettings):
 class RedisSettings(BaseSettings):
     """Redis settings which are loaded from environment variables"""
 
-    model_config = SettingsConfigDict(env_file=".env", extra="ignore", env_prefix="REDIS_")
+    model_config = SettingsConfigDict(
+        env_file=ROOT_DIR / ".env",
+        extra="ignore",
+        env_prefix="REDIS_",
+    )
 
     host: str = "localhost"
     port: int = 6379
