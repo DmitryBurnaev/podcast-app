@@ -1,14 +1,31 @@
-from collections.abc import Generator, Iterator
+from collections.abc import Generator
+import asyncio
+import os
+import re
+from dataclasses import dataclass
+from typing import AsyncGenerator, Any, Iterator
 
-import pytest
 from litestar.middleware import AuthenticationResult
 from litestar.testing import TestClient
 from pydantic import SecretStr
+import asyncpg  # type: ignore
+import pytest
+import pytest_asyncio
+import sqlalchemy
+from sqlalchemy.engine import URL, make_url
+from sqlalchemy.exc import ProgrammingError, OperationalError
+from sqlalchemy.ext.asyncio import (
+    AsyncEngine,
+    AsyncSession,
+    async_sessionmaker,
+    create_async_engine,
+)
+from sqlalchemy.pool import NullPool
+from sqlalchemy.util import concurrency
 
 from src import main as app_main
 from src.main import DbStartMode, PodcastApp, make_app
 from src.modules import tasks
-from src.modules.db.models import User
 from src.modules.services import email as email_service
 from src.modules.utils import common as common_utils
 from src.modules.utils import ffmpeg
@@ -25,6 +42,11 @@ from src.tests.fakes import (
     FakeTaskQueue,
 )
 from src.tests.mocks import mock_target_class
+from src.modules.db.models import BaseModel, User
+from src.settings.db import DBSettings
+from src.tests.helpers import make_db_session
+
+_DATABASE_NAME_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 
 
 def _make_settings(*, api_debug_mode: bool) -> AppSettings:
@@ -161,3 +183,67 @@ def auth_required_client(
     auth_required_app: PodcastApp,
 ) -> Generator[TestClient[PodcastApp], None, None]:
     yield TestClient(app=auth_required_app, raise_server_exceptions=False)
+
+
+def _worker_database_name(base_name: str, worker_id: str) -> str:
+    if worker_id in {"master", ""}:
+        return base_name
+    return f"{base_name}_{worker_id}"
+
+
+@pytest_asyncio.fixture
+async def dbs() -> AsyncGenerator[Any, Any]:
+    async with make_db_session() as db_session:
+        yield db_session
+
+
+def db_prep() -> str:
+    print("Dropping the old test db…")
+    settings = DBSettings()
+    db_name = settings.name_test
+    engine = sqlalchemy.create_engine(settings.database_dsn)
+    conn = engine.connect()
+
+    def exec_sql(query: str):
+        return conn.execute(sqlalchemy.text(query))
+
+    db_exists = conn.execute(
+        sqlalchemy.text(f"SELECT 1 FROM pg_database WHERE datname = '{db_name}'")
+    ).scalar()
+    try:
+        conn = conn.execution_options(autocommit=False)
+        exec_sql("ROLLBACK")
+        # exec_sql(f"DROP DATABASE {db_name}")
+    except ProgrammingError:
+        print("Could not drop the database, probably does not exist.")
+        exec_sql("ROLLBACK")
+    except OperationalError:
+        print("Could not drop database because it’s being accessed by other users")
+        exec_sql("ROLLBACK")
+
+    if not db_exists:
+        print(f"Test db is about to create {db_name}")
+        exec_sql(f"CREATE DATABASE {db_name}")
+
+    try:
+        exec_sql(f"CREATE USER {settings.user} WITH ENCRYPTED PASSWORD '{settings.password}'")
+    except Exception as e:
+        print(f"User already exists. ({e})")
+        exec_sql(f"GRANT ALL PRIVILEGES ON DATABASE {db_name} TO {settings.user}")
+
+    conn.close()
+    return db_name
+
+
+@pytest_asyncio.fixture(autouse=True, scope="session")
+async def db_migration():
+    settings = DBSettings()
+
+    def create_tables():
+        db_prep()
+        print(f"Creating tables in DB '{settings.name_test}' ... ")
+        engine = sqlalchemy.create_engine(settings.database_dsn_test)
+        BaseModel.metadata.create_all(engine)
+
+    await concurrency.greenlet_spawn(create_tables)
+    print("DB and tables were successful created.")

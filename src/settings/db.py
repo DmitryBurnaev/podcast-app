@@ -30,6 +30,7 @@ class DBSettings(BaseSettings):
     user: str | None = None
     password: SecretStr | None = None
     name: str = "podcast"
+    name_test: str = "podcast_test"
     pool_min_size: int = 1
     pool_max_size: int = 16
     ssl: str | None = None
@@ -41,6 +42,15 @@ class DBSettings(BaseSettings):
     @cached_property
     def database_dsn(self) -> str:
         """Build database DSN from settings"""
+        return self._get_dsn(self.name)
+
+    @cached_property
+    def database_dsn_test(self) -> str:
+        """Build database DSN from settings"""
+        return self._get_dsn(self.name_test)
+
+    def _get_dsn(self, name: str) -> str:
+        """Build database DSN from settings"""
         username = self.user or ""
         password = self.password.get_secret_value() if self.password else ""
         host = self.host or "localhost"
@@ -51,7 +61,7 @@ class DBSettings(BaseSettings):
             password=password,
             host=host,
             port=port,
-            database=self.name,
+            database=name,
         ).render_as_string(hide_password=False)
 
 
