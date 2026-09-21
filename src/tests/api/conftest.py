@@ -69,17 +69,17 @@ def _test_database(pytestconfig: pytest.Config) -> TestDatabase:
     return TestDatabase(url=url, name=database_name)
 
 
-async def _create_database_if_needed(database: TestDatabase) -> None:
-    admin_url = database.url.set(drivername="postgresql", database="postgres")
-    connection = await asyncpg.connect(admin_url.render_as_string(hide_password=False))
-    try:
-        exists = await connection.fetchval(
-            "SELECT 1 FROM pg_database WHERE datname = $1", database.name
-        )
-        if not exists:
-            await connection.execute(f'CREATE DATABASE "{database.name}"')
-    finally:
-        await connection.close()
+# async def _create_database_if_needed(database: TestDatabase) -> None:
+#     admin_url = database.url.set(drivername="postgresql", database="postgres")
+    # connection = await asyncpg.connect(admin_url.render_as_string(hide_password=False))
+    # try:
+    #     exists = await connection.fetchval(
+    #         "SELECT 1 FROM pg_database WHERE datname = $1", database.name
+    #     )
+    #     if not exists:
+    #         await connection.execute(f'CREATE DATABASE "{database.name}"')
+    # finally:
+    #     await connection.close()
 
 
 # def _run_migrations(database: TestDatabase) -> None:
@@ -90,62 +90,62 @@ async def _create_database_if_needed(database: TestDatabase) -> None:
 #         check=True,
 #         env=environment,
 #     )
-
-
-@pytest_asyncio.fixture
-async def dbs() -> AsyncGenerator[Any, Any]:
-    async with make_db_session() as db_session:
-        yield db_session
-
-
-def db_prep():
-    print("Dropping the old test db…")
-    settings = DBSettings()
-    engine = sqlalchemy.create_engine(settings.database_dsn)
-    conn = engine.connect()
-
-    def exec_sql(query: str):
-        return conn.execute(sqlalchemy.text(query))
-
-    db_exists = conn.execute(
-        sqlalchemy.text(f"SELECT 1 FROM pg_database WHERE datname = '{settings.name}'")
-    ).scalar()
-    try:
-        conn = conn.execution_options(autocommit=False)
-        exec_sql("ROLLBACK")
-        # exec_sql(f"DROP DATABASE {settings.name}")
-    except ProgrammingError:
-        print("Could not drop the database, probably does not exist.")
-        exec_sql("ROLLBACK")
-    except OperationalError:
-        print("Could not drop database because it’s being accessed by other users")
-        exec_sql("ROLLBACK")
-
-    if not db_exists:
-        print(f"Test db is about to create {settings.name}")
-        exec_sql(f"CREATE DATABASE {settings.name}")
-
-    try:
-        exec_sql(f"CREATE USER {settings.user} WITH ENCRYPTED PASSWORD '{settings.password}'")
-    except Exception as e:
-        print(f"User already exists. ({e})")
-        exec_sql(f"GRANT ALL PRIVILEGES ON DATABASE {settings.name} TO {settings.user}")
-
-    conn.close()
-
-
-@pytest_asyncio.fixture(autouse=True, scope="session")
-async def db_migration():
-    settings = DBSettings()
-
-    def create_tables():
-        db_prep()
-        print("Creating tables...")
-        engine = sqlalchemy.create_engine(settings.database_dsn)
-        BaseModel.metadata.create_all(engine)
-
-    await concurrency.greenlet_spawn(create_tables)
-    print("DB and tables were successful created.")
+#
+#
+# @pytest_asyncio.fixture
+# async def dbs() -> AsyncGenerator[Any, Any]:
+#     async with make_db_session() as db_session:
+#         yield db_session
+#
+#
+# def db_prep():
+#     print("Dropping the old test db…")
+#     settings = DBSettings()
+#     engine = sqlalchemy.create_engine(settings.database_dsn)
+#     conn = engine.connect()
+#
+#     def exec_sql(query: str):
+#         return conn.execute(sqlalchemy.text(query))
+#
+#     db_exists = conn.execute(
+#         sqlalchemy.text(f"SELECT 1 FROM pg_database WHERE datname = '{settings.name}'")
+#     ).scalar()
+#     try:
+#         conn = conn.execution_options(autocommit=False)
+#         exec_sql("ROLLBACK")
+#         # exec_sql(f"DROP DATABASE {settings.name}")
+#     except ProgrammingError:
+#         print("Could not drop the database, probably does not exist.")
+#         exec_sql("ROLLBACK")
+#     except OperationalError:
+#         print("Could not drop database because it’s being accessed by other users")
+#         exec_sql("ROLLBACK")
+#
+#     if not db_exists:
+#         print(f"Test db is about to create {settings.name}")
+#         exec_sql(f"CREATE DATABASE {settings.name}")
+#
+#     try:
+#         exec_sql(f"CREATE USER {settings.user} WITH ENCRYPTED PASSWORD '{settings.password}'")
+#     except Exception as e:
+#         print(f"User already exists. ({e})")
+#         exec_sql(f"GRANT ALL PRIVILEGES ON DATABASE {settings.name} TO {settings.user}")
+#
+#     conn.close()
+#
+#
+# @pytest_asyncio.fixture(autouse=True, scope="session")
+# async def db_migration():
+#     settings = DBSettings()
+#
+#     def create_tables():
+#         db_prep()
+#         print("Creating tables...")
+#         engine = sqlalchemy.create_engine(settings.database_dsn)
+#         BaseModel.metadata.create_all(engine)
+#
+#     await concurrency.greenlet_spawn(create_tables)
+#     print("DB and tables were successful created.")
 
 
 #
