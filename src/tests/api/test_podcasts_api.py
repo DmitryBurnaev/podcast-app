@@ -189,13 +189,13 @@ class TestPodcastDetailsAPI:
             details,
             status_code=404,
             code="NOT_FOUND",
-            message=f"Podcast with id {foreign_podcast.id} not found",
+            message=f"No instance with id {foreign_podcast.id} found",
         )
         assert_error_response(
             updated,
             status_code=404,
             code="NOT_FOUND",
-            message=f"Podcast with id {foreign_podcast.id} not found",
+            message=f"No instance with id {foreign_podcast.id} found",
         )
 
     async def test_update_and_delete__owned_podcast__persist_state(
@@ -263,7 +263,7 @@ class TestPodcastDetailsAPI:
             response,
             status_code=404,
             code="NOT_FOUND",
-            message="Podcast with id 999 not found",
+            message="No instance with id 999 found",
         )
 
 
@@ -356,7 +356,7 @@ class TestPodcastRSSGenerationAPI:
             missing,
             status_code=404,
             code="NOT_FOUND",
-            message="Podcast with id 999 not found",
+            message="No instance with id 999 found",
         )
 
     async def test_generate_rss__repeated_request__enqueues_one_task_per_request(
@@ -397,6 +397,6 @@ class TestPodcastRSSGenerationAPI:
             response,
             status_code=404,
             code="NOT_FOUND",
-            message=f"Podcast with id {podcast.id} not found",
+            message=f"No instance with id {podcast.id} found",
         )
         assert queue.enqueued == []

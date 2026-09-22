@@ -21,7 +21,7 @@ def assert_error_response(
     error = response_data["error"]
     assert error["code"] == code, error
     if message is not None:
-        assert error["message"] == message, error
+        assert error["details"] == message, error
 
     return error
 
