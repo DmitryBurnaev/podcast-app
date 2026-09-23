@@ -25,9 +25,9 @@ class DBSettings(BaseSettings):
     model_config = SettingsConfigDict(env_file=ROOT_DIR / ".env", extra="ignore", env_prefix="DB_")
 
     driver: str = "postgresql+asyncpg"
-    host: str | None = None
-    port: int | None = None
-    user: str | None = None
+    host: str = "localhost"
+    port: int = 5432
+    user: str = "postgres"
     password: SecretStr | None = None
     name: str = "podcast"
     name_test: str = "podcast_test"
@@ -48,6 +48,13 @@ class DBSettings(BaseSettings):
     def database_dsn_test(self) -> str:
         """Build database DSN from settings"""
         return self._get_dsn(self.name_test)
+
+    @cached_property
+    def password_secret(self) -> str:
+        if self.password is None:
+            raise ValueError("Missing DB password secret")
+
+        return self.password.get_secret_value()
 
     def _get_dsn(self, name: str) -> str:
         """Build database DSN from settings"""

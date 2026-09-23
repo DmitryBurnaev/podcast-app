@@ -185,12 +185,6 @@ def auth_required_client(
     yield TestClient(app=auth_required_app, raise_server_exceptions=False)
 
 
-def _worker_database_name(base_name: str, worker_id: str) -> str:
-    if worker_id in {"master", ""}:
-        return base_name
-    return f"{base_name}_{worker_id}"
-
-
 @pytest_asyncio.fixture
 async def dbs() -> AsyncGenerator[Any, Any]:
     async with make_db_session() as db_session:
