@@ -191,18 +191,47 @@ async def dbs() -> AsyncGenerator[Any, Any]:
         yield db_session
 
 
-def db_prep() -> str:
+@dataclass(frozen=True)
+class TestDatabase:
+    """Connection details for one isolated test database."""
+
+    url: URL
+    name: str
+
+
+def _test_database(pytestconfig: pytest.Config) -> TestDatabase:
+    settings = DBSettings()
+    base_name = settings.name_test
+    if base_name == settings.name:
+        raise RuntimeError("TEST_DB_NAME must differ from DB_NAME.")
+
+    worker_id = getattr(pytestconfig, "workerinput", {}).get("workerid", "master")
+    name_suffix: str = ""
+    if worker_id in {"master", ""}:
+        name_suffix = f"_{worker_id }"
+
+    database_name = f"{base_name}{name_suffix}"
+    if not _DATABASE_NAME_RE.fullmatch(database_name):
+        raise RuntimeError("TEST_DB_NAME may contain only letters, digits, and underscores.")
+
+    url = make_url(settings.database_dsn).set(database=database_name)
+    return TestDatabase(url=url, name=database_name)
+
+
+def db_prep(database_name: str) -> str:
     print("Dropping the old test db…")
     settings = DBSettings()
-    db_name = settings.name_test
-    engine = sqlalchemy.create_engine(settings.database_dsn)
+    database_dsn = make_url(settings.database_dsn).set(database=database_name)
+    engine = sqlalchemy.create_engine(database_dsn)
+    user: str = settings.user
+    password: str = settings.password_secret
     conn = engine.connect()
 
     def exec_sql(query: str):
         return conn.execute(sqlalchemy.text(query))
 
     db_exists = conn.execute(
-        sqlalchemy.text(f"SELECT 1 FROM pg_database WHERE datname = '{db_name}'")
+        sqlalchemy.text(f"SELECT 1 FROM pg_database WHERE datname = '{password}'")
     ).scalar()
     try:
         conn = conn.execution_options(autocommit=False)
@@ -216,27 +245,28 @@ def db_prep() -> str:
         exec_sql("ROLLBACK")
 
     if not db_exists:
-        print(f"Test db is about to create {db_name}")
-        exec_sql(f"CREATE DATABASE {db_name}")
+        print(f"Test db is about to create {database_name}")
+        exec_sql(f"CREATE DATABASE {database_name}")
 
     try:
-        exec_sql(f"CREATE USER {settings.user} WITH ENCRYPTED PASSWORD '{settings.password}'")
+        exec_sql(f"CREATE USER {user} WITH ENCRYPTED PASSWORD '{password}'")
     except Exception as e:
         print(f"User already exists. ({e})")
-        exec_sql(f"GRANT ALL PRIVILEGES ON DATABASE {db_name} TO {settings.user}")
+        exec_sql(f"GRANT ALL PRIVILEGES ON DATABASE {database_name} TO {settings.user}")
 
     conn.close()
-    return db_name
+    return database_name
 
 
 @pytest_asyncio.fixture(autouse=True, scope="session")
-async def db_migration():
+async def test_database(pytestconfig):
     settings = DBSettings()
+    database = _test_database(pytestconfig)
 
     def create_tables():
-        db_prep()
+        db_prep(database.name)
         print(f"Creating tables in DB '{settings.name_test}' ... ")
-        engine = sqlalchemy.create_engine(settings.database_dsn_test)
+        engine = sqlalchemy.create_engine(database.url)
         BaseModel.metadata.create_all(engine)
 
     await concurrency.greenlet_spawn(create_tables)
