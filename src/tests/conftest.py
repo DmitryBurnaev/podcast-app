@@ -1,6 +1,4 @@
 from collections.abc import Generator
-import asyncio
-import os
 import re
 from dataclasses import dataclass
 from typing import AsyncGenerator, Any, Iterator
@@ -8,19 +6,11 @@ from typing import AsyncGenerator, Any, Iterator
 from litestar.middleware import AuthenticationResult
 from litestar.testing import TestClient
 from pydantic import SecretStr
-import asyncpg  # type: ignore
 import pytest
 import pytest_asyncio
 import sqlalchemy
 from sqlalchemy.engine import URL, make_url
 from sqlalchemy.exc import ProgrammingError, OperationalError
-from sqlalchemy.ext.asyncio import (
-    AsyncEngine,
-    AsyncSession,
-    async_sessionmaker,
-    create_async_engine,
-)
-from sqlalchemy.pool import NullPool
 from sqlalchemy.util import concurrency
 
 from src import main as app_main

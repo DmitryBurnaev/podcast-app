@@ -5,19 +5,11 @@ The harness never uses ``DB_NAME`` for writes.  A caller must explicitly set
 """
 
 import asyncio
-import os
 import re
 from collections.abc import AsyncIterator, Iterator
-from dataclasses import dataclass
-from typing import AsyncGenerator, Any
 
-import asyncpg  # type: ignore
 import pytest
-import pytest_asyncio
-import sqlalchemy
 from sqlalchemy import text
-from sqlalchemy.engine import URL, make_url
-from sqlalchemy.exc import ProgrammingError, OperationalError
 from sqlalchemy.ext.asyncio import (
     AsyncEngine,
     AsyncSession,
@@ -25,15 +17,12 @@ from sqlalchemy.ext.asyncio import (
     create_async_engine,
 )
 from sqlalchemy.pool import NullPool
-from sqlalchemy.util import concurrency
 
 from src.modules.db import session as db_session
 from src.modules.db.models import BaseModel, Podcast, User
 from src.modules.db.repositories import UserRepository
 from src.modules.db.services import SASessionUOW
-from src.settings.db import DBSettings
-from src.tests.helpers import make_db_session
-from tests.conftest import TestDatabase
+from src.tests.conftest import TestDatabase
 
 _DATABASE_NAME_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 
@@ -188,11 +177,11 @@ async def functional_session(
     functional_session_factory: async_sessionmaker[AsyncSession],
 ) -> AsyncIterator[AsyncSession]:
     """Yield a clean database session and reset every table around the test."""
-    # await _truncate_all_tables(functional_engine)
+    await _truncate_all_tables(functional_engine)
     async with functional_session_factory() as session:
         yield session
         await session.rollback()
-    # await _truncate_all_tables(functional_engine)
+    await _truncate_all_tables(functional_engine)
 
 
 @pytest.fixture

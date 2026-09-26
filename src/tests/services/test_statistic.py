@@ -4,7 +4,7 @@ from unittest.mock import AsyncMock, Mock
 
 import pytest
 
-from modules.common.types import OwnerScope
+from src.modules.common.types import OwnerScope
 from src.modules.db.repositories import EpisodesStatData
 from src.modules.services.statistic import StatisticService
 from src.tests.factories import make_podcast
@@ -42,7 +42,7 @@ class TestStatisticService:
 
         result = await StatisticService(
             SimpleNamespace(session=MockSession()),
-            owner_scope=OwnerScope(user_id=7),
+            scope=OwnerScope(user_id=7),
         ).get_app_statistics()
 
         assert result.total_episodes == 3
@@ -50,7 +50,7 @@ class TestStatisticService:
         assert result.total_duration == 120
         assert result.total_size == 2048
         assert result.recent_activity.text == "Last episode: 16 May, 2026 12:30"
-        podcast_repository.all.assert_awaited_once_with(owner_id=7)
+        podcast_repository.all.assert_awaited_once_with()
         episode_repository.get_aggregated.assert_awaited_once_with()
 
     async def test_get_app_statistics__without_last_episode(
@@ -70,9 +70,9 @@ class TestStatisticService:
             ),
         )
 
-        result = await StatisticService(SimpleNamespace(session=MockSession())).get_app_statistics(
-            owner_id=1
-        )
+        result = await StatisticService(
+            SimpleNamespace(session=MockSession()), scope=OwnerScope(user_id=1)
+        ).get_app_statistics()
 
         assert result.recent_activity.text == "No episodes yet"
         assert result.recent_activity.time is None
@@ -91,8 +91,8 @@ class TestStatisticService:
         )
 
         result = await StatisticService(
-            SimpleNamespace(session=MockSession())
-        ).get_podcast_statistics(10, user_id=1)
+            SimpleNamespace(session=MockSession()), scope=OwnerScope(user_id=1)
+        ).get_podcast_statistics(10)
 
         assert result.episodes_count == 4
         assert result.total_duration == 99

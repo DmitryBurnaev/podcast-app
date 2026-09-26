@@ -108,9 +108,9 @@ class TestDownloadContent:
         tmp_path,
     ) -> None:
         client = _FakeAsyncClient([SimpleNamespace(status_code=200, content=b"data", text="OK")])
-        monkeypatch.setattr("src.utils.httpx.AsyncClient", Mock(return_value=client))
+        monkeypatch.setattr("src.modules.utils.common.httpx.AsyncClient", Mock(return_value=client))
         monkeypatch.setattr(
-            "src.utils.get_app_settings",
+            "src.modules.utils.common.get_app_settings",
             lambda: SimpleNamespace(http_proxy_url="http://proxy", tmp_path=tmp_path),
         )
 
@@ -129,9 +129,9 @@ class TestDownloadContent:
         client = _FakeAsyncClient(
             [SimpleNamespace(status_code=HTTPStatus.NOT_FOUND, content=b"", text="")]
         )
-        monkeypatch.setattr("src.utils.httpx.AsyncClient", Mock(return_value=client))
+        monkeypatch.setattr("src.modules.utils.common.httpx.AsyncClient", Mock(return_value=client))
         monkeypatch.setattr(
-            "src.utils.get_app_settings",
+            "src.modules.utils.common.get_app_settings",
             lambda: SimpleNamespace(http_proxy_url=None, tmp_path=tmp_path),
         )
 
@@ -151,10 +151,10 @@ class TestDownloadContent:
             ]
         )
         sleep = AsyncMock()
-        monkeypatch.setattr("src.utils.httpx.AsyncClient", Mock(return_value=client))
-        monkeypatch.setattr("src.utils.asyncio.sleep", sleep)
+        monkeypatch.setattr("src.modules.utils.common.httpx.AsyncClient", Mock(return_value=client))
+        monkeypatch.setattr("src.modules.utils.common.asyncio.sleep", sleep)
         monkeypatch.setattr(
-            "src.utils.get_app_settings",
+            "src.modules.utils.common.get_app_settings",
             lambda: SimpleNamespace(http_proxy_url=None, tmp_path=tmp_path),
         )
 
@@ -170,10 +170,10 @@ class TestDownloadContent:
         tmp_path,
     ) -> None:
         client = _FakeAsyncClient([RuntimeError("network"), RuntimeError("network")])
-        monkeypatch.setattr("src.utils.httpx.AsyncClient", Mock(return_value=client))
-        monkeypatch.setattr("src.utils.asyncio.sleep", AsyncMock())
+        monkeypatch.setattr("src.modules.utils.common.httpx.AsyncClient", Mock(return_value=client))
+        monkeypatch.setattr("src.modules.utils.common.asyncio.sleep", AsyncMock())
         monkeypatch.setattr(
-            "src.utils.get_app_settings",
+            "src.modules.utils.common.get_app_settings",
             lambda: SimpleNamespace(http_proxy_url=None, tmp_path=tmp_path),
         )
 

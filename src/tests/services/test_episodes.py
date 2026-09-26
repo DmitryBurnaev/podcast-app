@@ -5,6 +5,7 @@ from unittest.mock import AsyncMock, Mock
 import pytest
 
 from src.modules.common.constants import SourceType
+from src.modules.common.types import OwnerScope
 from src.modules.db.models.media import MediaType
 from src.modules.common.exceptions import SourceFetchError
 from src.modules.dto.podcasts import EpisodeChapter
@@ -27,10 +28,6 @@ class TestEpisodeCreatorCreate:
         monkeypatch.setattr(
             "src.modules.services.episodes.EpisodeRepository",
             Mock(return_value=episode_repository),
-        )
-        monkeypatch.setattr(
-            "src.modules.services.episodes.PodcastRepository",
-            Mock(return_value=SimpleNamespace()),
         )
         monkeypatch.setattr(
             "src.modules.services.episodes.common_utils.extract_source_info",
@@ -56,10 +53,6 @@ class TestEpisodeCreatorCreate:
         monkeypatch.setattr(
             "src.modules.services.episodes.EpisodeRepository",
             Mock(return_value=episode_repository),
-        )
-        monkeypatch.setattr(
-            "src.modules.services.episodes.PodcastRepository",
-            Mock(return_value=SimpleNamespace()),
         )
         monkeypatch.setattr(
             "src.modules.services.episodes.common_utils.extract_source_info",
@@ -142,6 +135,7 @@ class TestEpisodeCreatorData:
         creator = EpisodeCreator.__new__(EpisodeCreator)
         creator.db_session = MockSession()
         creator.user_id = 7
+        creator.user_scope = OwnerScope(user_id=7)
         creator.podcast_id = 10
         creator.source_info = source_info
         creator.settings = SimpleNamespace(render_links=False)
@@ -182,6 +176,7 @@ class TestEpisodeCreatorData:
         creator = EpisodeCreator.__new__(EpisodeCreator)
         creator.db_session = MockSession()
         creator.user_id = 7
+        creator.user_scope = OwnerScope(user_id=7)
         creator.podcast_id = 10
         creator.source_info = SourceInfo(id="source", type=SourceType.YOUTUBE)
         creator._create_files = AsyncMock(return_value=(copied_audio, copied_image))
@@ -243,22 +238,20 @@ class TestEpisodeCreatorFiles:
         creator = EpisodeCreator.__new__(EpisodeCreator)
         creator.db_session = MockSession()
         creator.user_id = 7
+        creator.user_scope = OwnerScope(user_id=7)
 
         result = await creator._create_files(same_episode=same_episode, source_info=None)
 
         assert result == (audio_file, image_file)
-        assert file_repository.copy.await_args_list[0].kwargs == {"owner_id": 7, "file_id": 11}
-        assert file_repository.copy.await_args_list[1].kwargs == {
-            "file_id": 12,
-            "owner_id": 7,
-            "available": False,
-        }
+        assert file_repository.copy.await_args_list[0].kwargs == {"file_id": 11}
+        assert file_repository.copy.await_args_list[1].kwargs == {"file_id": 12, "available": False}
 
     async def test_create_files__same_episode_without_file_ids__fail(self) -> None:
         same_episode = make_episode()
         creator = EpisodeCreator.__new__(EpisodeCreator)
         creator.db_session = MockSession()
         creator.user_id = 7
+        creator.user_scope = OwnerScope(user_id=7)
 
         with pytest.raises(RuntimeError, match="missing image/audio"):
             await creator._create_files(same_episode=same_episode, source_info=None)
@@ -277,6 +270,7 @@ class TestEpisodeCreatorFiles:
         creator = EpisodeCreator.__new__(EpisodeCreator)
         creator.db_session = MockSession()
         creator.user_id = 7
+        creator.user_scope = OwnerScope(user_id=7)
         source_info = SourceMediaInfo(
             watch_url="https://watch",
             source_id="source",
@@ -300,6 +294,7 @@ class TestEpisodeCreatorFiles:
         creator = EpisodeCreator.__new__(EpisodeCreator)
         creator.db_session = MockSession()
         creator.user_id = 7
+        creator.user_scope = OwnerScope(user_id=7)
         creator.source_info = SourceInfo(id="source", type=SourceType.YOUTUBE)
 
         with pytest.raises(SourceFetchError):

@@ -18,7 +18,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.modules.common.exceptions import NotSupportedError, StorageConfigurationError
 from src.modules.db.models import File
 from src.modules.db.repositories import FileRepository
-from modules.common.types import SystemScope
+from src.modules.common.types import SystemScope
 from src.modules.db.services import SASessionUOW
 from src.modules.services.redis import RedisClient
 from src.settings.app import get_app_settings

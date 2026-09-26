@@ -18,7 +18,7 @@ from src.modules.admin.utils import (
 from src.modules.db import SASessionUOW
 from src.modules.db.models import File
 from src.modules.db.repositories import FileRepository
-from modules.common.types import SystemScope
+from src.modules.common.types import SystemScope
 from src.modules.admin.views.base import BaseModelView
 from src.modules.services.storage import (
     FileCleanupBatchResult,
