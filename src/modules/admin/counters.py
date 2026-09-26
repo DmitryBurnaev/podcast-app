@@ -8,7 +8,7 @@ from src.modules.db.repositories import (
     FileRepository,
     PodcastRepository,
 )
-from modules.common.types import SystemScope
+from src.modules.common.types import SystemScope
 
 
 @dataclasses.dataclass(frozen=True)

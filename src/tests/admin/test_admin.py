@@ -2,7 +2,7 @@ import pytest
 from litestar.testing import TestClient
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from modules.common.types import SystemScope, OwnerScope
+from src.modules.common.types import SystemScope, OwnerScope
 from src import main as app_main
 from src.main import DbStartMode, PodcastApp, make_app
 from src.modules.admin.app import ADMIN_VIEWS

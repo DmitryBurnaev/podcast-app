@@ -12,6 +12,7 @@ from src.modules.views.podcasts import (
     PodcastsDetailsController,
 )
 from src.modules.common.exceptions import NotFoundError
+from src.modules.common.types import OwnerScope
 from src.tests.factories import make_file, make_podcast
 from src.tests.mocks import MockUOW
 from src.settings.app import AppSettings
@@ -21,8 +22,10 @@ def _controller[T](controller_type: T) -> T:
     return controller_type.__new__(controller_type)
 
 
-async def _get_podcasts(controller: PodcastsController, request: SimpleNamespace) -> object:
-    return await PodcastsController.get.fn(controller, request)
+async def _get_podcasts(
+    controller: PodcastsController, request: SimpleNamespace, user_scope: OwnerScope
+) -> object:
+    return await PodcastsController.get.fn(controller, request, user_scope)
 
 
 async def _get_podcast_detail(
@@ -31,14 +34,14 @@ async def _get_podcast_detail(
     request: SimpleNamespace,
 ) -> object:
     return await PodcastsDetailsController.get_detail.fn(
-        controller, podcast_id, request, AppSettings()
+        controller, podcast_id, request, OwnerScope(user_id=request.user.id), AppSettings()
     )
 
 
 async def _get_podcast_cover(
-    controller: PodcastCoverController, podcast_id: int, request: SimpleNamespace
+    controller: PodcastCoverController, podcast_id: int, user_scope: OwnerScope
 ) -> File:
-    return await PodcastCoverController.get_cover.fn(controller, podcast_id, request)
+    return await PodcastCoverController.get_cover.fn(controller, podcast_id, user_scope)
 
 
 class TestPodcastsController:
@@ -58,10 +61,10 @@ class TestPodcastsController:
             Mock(return_value=repository),
         )
 
-        result = await _get_podcasts(controller, request)
+        result = await _get_podcasts(controller, request, OwnerScope(user_id=7))
 
         assert result is template
-        repository.all_with_aggregations.assert_awaited_once_with(owner_id=7)
+        repository.all_with_aggregations.assert_awaited_once_with()
         controller.get_response_template.assert_called_once_with(
             template_name="podcasts.html",
             context={
@@ -109,7 +112,7 @@ class TestPodcastsDetailsController:
         assert result is template
         podcast_repository.get.assert_awaited_once_with(1)
         episode_repository.all_paginated.assert_awaited_once_with(podcast_id=1, limit=20)
-        statistic_service.get_podcast_statistics.assert_awaited_once_with(1, user_id=1)
+        statistic_service.get_podcast_statistics.assert_awaited_once_with(1)
         controller.get_response_template.assert_called_once_with(
             template_name="podcasts_detail.html",
             context={
@@ -154,7 +157,6 @@ class TestPodcastCoverController:
         podcast.image_id = image.id
         podcast.image = image
         cached_path = tmp_path / "cover.jpg"
-        request = SimpleNamespace(user=SimpleNamespace(id=1))
         repository = SimpleNamespace(get=AsyncMock(return_value=podcast))
         cover_service = SimpleNamespace(get_or_download=AsyncMock(return_value=cached_path))
         monkeypatch.setattr("src.modules.views.podcasts.SASessionUOW", lambda: MockUOW())
@@ -167,7 +169,9 @@ class TestPodcastCoverController:
             Mock(return_value=cover_service),
         )
 
-        result = await _get_podcast_cover(_controller(PodcastCoverController), 1, request)
+        result = await _get_podcast_cover(
+            _controller(PodcastCoverController), 1, OwnerScope(user_id=1)
+        )
 
         assert isinstance(result, File)
         assert result.file_path == cached_path
@@ -205,9 +209,7 @@ class TestPodcastCoverController:
         )
 
         with pytest.raises(NotFoundError):
-            await _get_podcast_cover(
-                _controller(PodcastCoverController), 1, SimpleNamespace(user=SimpleNamespace(id=1))
-            )
+            await _get_podcast_cover(_controller(PodcastCoverController), 1, OwnerScope(user_id=1))
 
     def test_build_cover_file_response__unknown_extension__uses_octet_stream(
         self,

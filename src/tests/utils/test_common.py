@@ -77,7 +77,7 @@ class TestDownloadProcessHook:
 
     def test_download_process_hook__ok(self, monkeypatch: pytest.MonkeyPatch) -> None:
         episode_process_hook = Mock()
-        monkeypatch.setattr("src.modules.utils.common.episode_process_hook", episode_process_hook)
+        monkeypatch.setattr("src.modules.utils.download.episode_process_hook", episode_process_hook)
 
         download_process_hook(
             {
@@ -98,7 +98,7 @@ class TestDownloadProcessHook:
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         episode_process_hook = Mock()
-        monkeypatch.setattr("src.modules.utils.common.episode_process_hook", episode_process_hook)
+        monkeypatch.setattr("src.modules.utils.download.episode_process_hook", episode_process_hook)
 
         download_process_hook({"total_bytes": 100})
 
@@ -120,8 +120,8 @@ class TestYtDlpIntegrationWrappers:
             return ydl
 
         youtube_dl = Mock(side_effect=youtube_dl_factory)
-        monkeypatch.setattr("src.modules.utils.common.get_app_settings", lambda: settings)
-        monkeypatch.setattr("src.modules.utils.common.yt_dlp.YoutubeDL", youtube_dl)
+        monkeypatch.setattr("src.modules.utils.download.get_app_settings", lambda: settings)
+        monkeypatch.setattr("src.modules.utils.download.yt_dlp.YoutubeDL", youtube_dl)
         cookie_path = tmp_path / "cookies.txt"
 
         result = await download_audio(

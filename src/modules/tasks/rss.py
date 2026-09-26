@@ -14,7 +14,7 @@ from src.modules.db.repositories import (
     EpisodeRepository,
     CreateT,
 )
-from modules.common.types import SystemScope
+from src.modules.common.types import SystemScope
 
 __all__ = ["GenerateRSSTask"]
 logger = logging.getLogger(__name__)

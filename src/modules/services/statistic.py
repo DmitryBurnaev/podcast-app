@@ -3,7 +3,7 @@
 from src.modules.schemas.statistics import AppStatistics, PodcastStatistics, RecentActivity
 from src.modules.db.services import SASessionUOW
 from src.modules.db.repositories import EpisodeRepository, PodcastRepository
-from modules.common.types import OwnerScope
+from src.modules.common.types import OwnerScope
 
 __all__ = ("StatisticService",)
 

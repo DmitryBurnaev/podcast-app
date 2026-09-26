@@ -13,7 +13,7 @@ from src.modules.common.exceptions import (
 )
 from src.modules.db.models.podcasts import Cookie
 from src.modules.db.repositories import CookieRepository, EpisodeRepository
-from modules.common.types import OwnerScope
+from src.modules.common.types import OwnerScope
 from src.modules.db.services import SASessionUOW
 from src.modules.schemas.cookies import CookieResponse
 from src.modules.utils.common import utcnow

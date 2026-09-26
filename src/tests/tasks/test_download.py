@@ -148,7 +148,7 @@ class TestDownloadEpisodeTaskSteps:
             lambda *args, **kwargs: _AsyncContext(None),
         )
         monkeypatch.setattr(
-            "src.modules.tasks.download.common_utils.download_audio",
+            "src.modules.tasks.download.download.download_audio",
             AsyncMock(side_effect=YoutubeDLError("download failed")),
         )
 

@@ -13,7 +13,7 @@ from src.modules.db.models import File
 from src.modules.db.models.media import MediaType
 from src.modules.db.models.podcasts import Episode
 from src.modules.db.repositories import EpisodeRepository, FileRepository
-from modules.common.types import OwnerScope
+from src.modules.common.types import OwnerScope
 from src.modules.db.utils import cookie_file_ctx
 from src.modules.utils import common as common_utils
 from src.modules.utils.common import SourceInfo, SourceConfig, SOURCE_CFG_MAP, SourceMediaInfo

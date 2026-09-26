@@ -13,7 +13,7 @@ from src.modules.api.base import BaseApiController
 from src.modules.common.exceptions import InvalidParametersAPIError
 from src.modules.db import User
 from src.modules.db.repositories import EpisodeRepository, PodcastRepository
-from modules.common.types import OwnerScope
+from src.modules.common.types import OwnerScope
 from src.modules.db.services import SASessionUOW
 from src.modules.db.utils import cookie_file_ctx
 from src.modules.utils import common as common_utils
