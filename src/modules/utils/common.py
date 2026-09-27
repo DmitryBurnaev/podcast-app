@@ -17,7 +17,6 @@ from typing import (
     cast,
     TypeVar,
     ParamSpec,
-    TYPE_CHECKING,
 )
 
 import httpx
@@ -29,9 +28,7 @@ from src.modules.common.types import YTDLParamsT
 from src.modules.common.constants import SourceType
 from src.modules.common.exceptions import InvalidRequestError, NotFoundError
 from src.modules.auth.hashers import get_random_hash
-
-if TYPE_CHECKING:
-    from src.modules.dto.podcasts import EpisodeChapter
+from src.modules.dto.podcasts import EpisodeChapter
 
 logger = logging.getLogger(__name__)
 
