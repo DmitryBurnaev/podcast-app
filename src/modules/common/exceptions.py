@@ -247,7 +247,7 @@ class InvalidParametersAPIError(APIError):
     status_code = 400
 
 
-class NotFoundAPIAPIError(APIError):
+class NotFoundAPIError(APIError):
     code = ErrorCode.NOT_FOUND
     message = "Requested object was not found."
     status_code = 404
@@ -255,7 +255,7 @@ class NotFoundAPIAPIError(APIError):
 
 class StateConflictAPIError(APIError):
     code = ErrorCode.CONFLICT
-    message = "Requested operation conflicts with the current state."
+    message = "Conflict detected."
     status_code = 409
 
 
@@ -277,7 +277,10 @@ def exception_logging_handler(logger: Logger, scope: Scope, tb: list[str]) -> No
         logger.info("Unauthorized access to '%s'...", scope["path"])
         return
 
-    log_method = logger.warning if is_auth_error else logger.exception
+    api_error_names = [error.__name__ for error in APIError.get_subclasses()]
+    is_api_error = any(error_name in last_record_in_tb for error_name in api_error_names)
+
+    log_method = logger.warning if (is_auth_error or is_api_error) else logger.exception
     log_method(
         "Root level's application error occurred | %s: %r | err: '%s'",
         scope["type"],

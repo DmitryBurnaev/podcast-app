@@ -120,7 +120,7 @@ class TestAuthRegistrationSessionAPI:
             response,
             status_code=400,
             code="INVALID_PARAMETERS",
-            message="Requested data is not valid.",
+            details="Invitation link is expired or unavailable.",
         )
         users = list((await functional_session.scalars(select(User))).all())
         assert [user.email for user in users] == ["functional-user@podcast.dev"]
@@ -139,7 +139,7 @@ class TestAuthRegistrationSessionAPI:
             response,
             status_code=401,
             code="AUTH_INVALID",
-            message="Authentication credentials are invalid.",
+            details="Unable to authenticate user",
         )
 
 
@@ -184,7 +184,7 @@ class TestAuthRefreshTokenAPI:
             response,
             status_code=400,
             code="INVALID_PARAMETERS",
-            message="Requested data is not valid.",
+            details=[{"message": "Field required", "key": "refresh_token"}],
         )
 
 
@@ -243,6 +243,7 @@ class TestProfileAccessTokenAPI:
             status_code=409,
             code="CONFLICT",
             message="Requested operation conflicts with the current state.",
+            details="User with email 'other@podcast.dev' already exists.",
         )
         functional_session.expire_all()
         persisted = await functional_session.get(User, db_user_id)
@@ -310,7 +311,7 @@ class TestAuthAccessTokenAPI:
             response,
             status_code=400,
             code="INVALID_PARAMETERS",
-            message="Requested data is not valid.",
+            details="Access token #999 not found.",
         )
 
     def test_create__invalid_access_token_payload__fails(
@@ -324,7 +325,10 @@ class TestAuthAccessTokenAPI:
             response,
             status_code=400,
             code="INVALID_PARAMETERS",
-            message="Requested data is not valid.",
+            details=[
+                {"message": "String should have at least 1 character", "key": "name"},
+                {"message": "Input should be greater than 0", "key": "expires_in_days"},
+            ],
         )
 
 

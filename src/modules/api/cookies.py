@@ -8,7 +8,7 @@ from src.modules.common.constants import SourceType
 from src.modules.api.base import BaseApiController
 from src.modules.common.exceptions import (
     InvalidParametersAPIError,
-    NotFoundAPIAPIError,
+    NotFoundAPIError,
     StateConflictAPIError,
 )
 from src.modules.db.models.podcasts import Cookie
@@ -72,7 +72,7 @@ class CookieAPIController(BaseApiController):
             cookie = await cookie_repository.first(id=cookie_id)
 
         if cookie is None:
-            raise NotFoundAPIAPIError()
+            raise NotFoundAPIError()
 
         return CookieResponse.model_validate(cookie)
 
@@ -90,7 +90,7 @@ class CookieAPIController(BaseApiController):
             cookie_repository = CookieRepository(uow.session, scope=user_scope)
             cookie = await cookie_repository.first(id=cookie_id, owner_id=request.user.id)
             if cookie is None:
-                raise NotFoundAPIAPIError()
+                raise NotFoundAPIError()
 
             await cookie_repository.update(
                 cookie,
@@ -115,7 +115,7 @@ class CookieAPIController(BaseApiController):
             cookie_repository = CookieRepository(uow.session, scope=user_scope)
             cookie = await cookie_repository.first(id=cookie_id)
             if cookie is None:
-                raise NotFoundAPIAPIError()
+                raise NotFoundAPIError()
 
             linked_episodes = await EpisodeRepository(
                 uow.session, scope=user_scope
