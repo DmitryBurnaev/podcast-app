@@ -140,7 +140,7 @@ class TestPodcastListCreateAPI:
             response,
             status_code=400,
             code="INVALID_PARAMETERS",
-            message="Requested data is not valid.",
+            details="Requested data is not valid.",
         )
         assert not list((await functional_session.scalars(select(Podcast))).all())
 
@@ -190,12 +190,14 @@ class TestPodcastDetailsAPI:
             status_code=404,
             code="NOT_FOUND",
             message=f"No instance with id {foreign_podcast.id} found",
+            details="No instance with id {foreign_podcast.id} found",
         )
         assert_error_response(
             updated,
             status_code=404,
             code="NOT_FOUND",
             message=f"No instance with id {foreign_podcast.id} found",
+            details="No instance with id {foreign_podcast.id} found",
         )
 
     async def test_update_and_delete__owned_podcast__persist_state(
@@ -264,6 +266,7 @@ class TestPodcastDetailsAPI:
             status_code=404,
             code="NOT_FOUND",
             message="No instance with id 999 found",
+            details="No instance with id 999 found",
         )
 
 
@@ -357,6 +360,7 @@ class TestPodcastRSSGenerationAPI:
             status_code=404,
             code="NOT_FOUND",
             message="No instance with id 999 found",
+            details="No instance with id 999 found",
         )
 
     async def test_generate_rss__repeated_request__enqueues_one_task_per_request(
@@ -398,5 +402,6 @@ class TestPodcastRSSGenerationAPI:
             status_code=404,
             code="NOT_FOUND",
             message=f"No instance with id {podcast.id} found",
+            details="No instance with id 999 found",
         )
         assert queue.enqueued == []

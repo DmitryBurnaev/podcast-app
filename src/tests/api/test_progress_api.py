@@ -162,7 +162,7 @@ class TestPlaylistRetrieveAPI:
             response,
             status_code=400,
             code="INVALID_PARAMETERS",
-            message="Requested data is not valid.",
+            details="Requested data is not valid.",
         )
         assert error["details"] == "bad playlist"
 
@@ -185,7 +185,7 @@ class TestPlaylistRetrieveAPI:
             response,
             status_code=400,
             code="INVALID_PARAMETERS",
-            message="Requested data is not valid.",
+            details="Requested data is not valid.",
         )
         assert error["details"] == "It seems like incorrect playlist URL."
 
@@ -208,7 +208,7 @@ class TestPlaylistRetrieveAPI:
             response,
             status_code=400,
             code="INVALID_PARAMETERS",
-            message="Requested data is not valid.",
+            details="It seems like incorrect playlist URL.",
         )
         assert "Couldn't extract playlist:" in error["details"]
 

@@ -147,7 +147,8 @@ class TestPodcastEpisodeCreateAPI:
             response,
             status_code=404,
             code="NOT_FOUND",
-            message=f"Podcast with id {podcast.id} not found",
+            message="Instance not found",
+            details=f"Podcast with id {podcast.id} not found",
         )
 
     async def test_create_from_url__foreign_cached_source_and_extraction_failure__does_not_reuse(
@@ -330,6 +331,7 @@ class TestUploadedEpisodeAPI:
             status_code=404,
             code="NOT_FOUND",
             message="Uploaded episode file with hash missinghash not found",
+            details="Episode file with hash missinghash not found",
         )
 
 
@@ -453,12 +455,17 @@ class TestEpisodeLifecycleAPI:
             denied,
             status_code=404,
             code="NOT_FOUND",
-            message=f"Episode with id {foreign_episode.id} not found",
+            details=f"Episode with id {foreign_episode.id} not found",
+            message="Not found.",
         )
         assert updated.status_code == 200, updated.text
         assert downloaded.status_code == 200, downloaded.text
         assert_error_response(
-            conflict, status_code=409, code="CONFLICT", message="Episode is already in progress"
+            conflict,
+            status_code=409,
+            code="CONFLICT",
+            message="conflict",
+            details="Episode is already in progress",
         )
         episode_id = episode.id
         functional_session.expire_all()
@@ -471,7 +478,8 @@ class TestEpisodeLifecycleAPI:
             cannot_delete,
             status_code=409,
             code="CONFLICT",
-            message="Episode in progress cannot be deleted",
+            details="Episode in progress cannot be deleted",
+            message="Not found.",
         )
 
 
@@ -580,6 +588,7 @@ class TestCookieLifecycleAPI:
             status_code=400,
             code="INVALID_PARAMETERS",
             message=message,
+            details={"source_type": "Unsupported source type."},
         )
         assert not list((await functional_session.scalars(select(Cookie))).all())
 
@@ -651,13 +660,13 @@ class TestCookieLifecycleAPI:
             linked,
             status_code=409,
             code="CONFLICT",
-            message="There are episodes related to this cookie.",
+            message="Conflict detected.",
         )
         assert_error_response(
             foreign,
             status_code=404,
             code="NOT_FOUND",
-            message="Requested object was not found.",
+            details="Cookie with this cookie does not exist.",
         )
 
 
@@ -717,22 +726,24 @@ class TestMediaUploadAPI:
             response,
             status_code=400,
             code="INVALID_PARAMETERS",
-            message="Requested data is not valid.",
+            details="Requested data is not valid.",
         )
         assert error["details"] == {"file": "Could not upload image file."}
 
     @pytest.mark.parametrize(
-        ("path", "files"),
+        ("path", "files", "details"),
         [
-            ("/api/media/upload/audio/", {}),
-            ("/api/media/upload/image/", {}),
+            ("/api/media/upload/audio/", {}, {"file": "File is required."}),
+            ("/api/media/upload/image/", {}, {"file": "File is required."}),
             (
                 "/api/media/upload/audio/",
                 {"file": ("cover.jpg", b"image", "image/jpeg")},
+                {"file": "File must be audio."},
             ),
             (
                 "/api/media/upload/image/",
                 {"file": ("episode.mp3", b"audio", "audio/mpeg")},
+                {"file": "File must be image."},
             ),
         ],
     )
@@ -743,6 +754,7 @@ class TestMediaUploadAPI:
         ],
         path: str,
         files: dict[str, tuple[str, bytes, str]],
+        details: dict[str, str],
     ) -> None:
         client, _, storage, _ = episode_api_client
 
@@ -752,6 +764,6 @@ class TestMediaUploadAPI:
             response,
             status_code=400,
             code="INVALID_PARAMETERS",
-            message="Requested data is not valid.",
+            details=details,
         )
         assert storage.uploads == []
