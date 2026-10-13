@@ -72,7 +72,7 @@ class CookieAPIController(BaseApiController):
             cookie = await cookie_repository.first(id=cookie_id)
 
         if cookie is None:
-            raise NotFoundAPIError()
+            raise NotFoundAPIError(details=f"Cookie with id {cookie_id} not found")
 
         return CookieResponse.model_validate(cookie)
 
@@ -90,7 +90,7 @@ class CookieAPIController(BaseApiController):
             cookie_repository = CookieRepository(uow.session, scope=user_scope)
             cookie = await cookie_repository.first(id=cookie_id, owner_id=request.user.id)
             if cookie is None:
-                raise NotFoundAPIError()
+                raise NotFoundAPIError(details=f"Cookie with id {cookie_id} not found")
 
             await cookie_repository.update(
                 cookie,
@@ -115,7 +115,7 @@ class CookieAPIController(BaseApiController):
             cookie_repository = CookieRepository(uow.session, scope=user_scope)
             cookie = await cookie_repository.first(id=cookie_id)
             if cookie is None:
-                raise NotFoundAPIError()
+                raise NotFoundAPIError(details=f"Cookie with id {cookie_id} not found")
 
             linked_episodes = await EpisodeRepository(
                 uow.session, scope=user_scope
@@ -124,7 +124,7 @@ class CookieAPIController(BaseApiController):
                 owner_id=request.user.id,
             )
             if linked_episodes:
-                raise StateConflictAPIError(message="There are episodes related to this cookie.")
+                raise StateConflictAPIError(details="There are episodes related to this cookie.")
 
             await cookie_repository.delete(cookie)
             uow.mark_for_commit()

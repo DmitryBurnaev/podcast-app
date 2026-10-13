@@ -5,11 +5,11 @@ from typing import Any, cast
 from litestar import Request, delete, get, patch, post, put
 from litestar.datastructures import UploadFile
 from litestar.di import NamedDependency
-from litestar.exceptions import HTTPException, NotFoundException
 from litestar.params import FromPath, FromQuery, JSONBody, MultipartBody
 from litestar.status_codes import HTTP_201_CREATED, HTTP_204_NO_CONTENT
 
 from src.modules.common.constants import FileType
+from src.modules.common.exceptions import APIError, InvalidParametersAPIError, NotFoundAPIError
 from src.modules.db import User
 from src.modules.db.models import File
 from src.modules.db.models.podcasts import Podcast
@@ -42,6 +42,16 @@ logger = logging.getLogger(__name__)
 class PodcastAPIController(BaseApiController):
     path = "/api/podcasts"
     tags = ["Podcasts"]
+
+    @staticmethod
+    async def _get_owned_podcast(
+        repository: PodcastRepository,
+        podcast_id: int,
+    ) -> Podcast:
+        podcast = await repository.first(id=podcast_id)
+        if podcast is None:
+            raise NotFoundAPIError(details=f"Podcast with id {podcast_id} not found")
+        return podcast
 
     @post("/", status_code=HTTP_201_CREATED)
     async def create(
@@ -137,7 +147,7 @@ class PodcastAPIController(BaseApiController):
             podcast = await podcast_repository.get_first_with_aggregations(ids=[podcast_id])
 
         if not podcast:
-            raise NotFoundException(f"Podcast with id {podcast_id} not found")
+            raise NotFoundAPIError(details=f"Podcast with id {podcast_id} not found")
 
         logger.info("[API] Requested podcast details for %s | podcast #%i", user_scope, podcast_id)
         return PodcastResponse.model_validate(podcast)
@@ -154,7 +164,7 @@ class PodcastAPIController(BaseApiController):
         update_data = data.model_dump(exclude_unset=True)
         async with SASessionUOW() as uow:
             podcast_repository = PodcastRepository(session=uow.session, scope=user_scope)
-            podcast = await podcast_repository.get(podcast_id)
+            podcast = await self._get_owned_podcast(podcast_repository, podcast_id)
             if update_data:
                 await podcast_repository.update(podcast, **update_data)
                 await uow.flush()
@@ -163,7 +173,7 @@ class PodcastAPIController(BaseApiController):
             updated_podcast = await podcast_repository.get_first_with_aggregations(ids=[podcast_id])
 
         if not updated_podcast:
-            raise NotFoundException(f"Podcast with id {podcast_id} not found")
+            raise NotFoundAPIError(details=f"Podcast with id {podcast_id} not found")
 
         logger.info("[API] Updated podcast #%i | user #%i", podcast_id, current_user.id)
         return PodcastResponse.model_validate(updated_podcast)
@@ -178,7 +188,7 @@ class PodcastAPIController(BaseApiController):
         async with SASessionUOW() as uow:
             podcast_repository = PodcastRepository(session=uow.session, scope=user_scope)
             episode_repository = EpisodeRepository(session=uow.session, scope=user_scope)
-            podcast = await podcast_repository.get(podcast_id)
+            podcast = await self._get_owned_podcast(podcast_repository, podcast_id)
             episodes = await episode_repository.all(podcast_id=podcast_id)
             for episode in episodes:
                 await episode_repository.safe_delete(episode)
@@ -198,16 +208,16 @@ class PodcastAPIController(BaseApiController):
         """Upload and attach a cover image to a podcast."""
         uploaded_file = data.get("file") or next(iter(data.values()), None)
         if not isinstance(uploaded_file, UploadFile):
-            raise HTTPException(status_code=400, detail="Image file is required")
+            raise InvalidParametersAPIError(details="Image file is required")
 
         async with SASessionUOW() as uow:
             podcast_repository = PodcastRepository(session=uow.session, scope=user_scope)
             file_repository = FileRepository(session=uow.session, scope=user_scope)
-            podcast = await podcast_repository.get(podcast_id)
+            podcast = await self._get_owned_podcast(podcast_repository, podcast_id)
             try:
                 remote_path, file_size = await self._upload_podcast_image(uploaded_file)
             except ValueError as exc:
-                raise HTTPException(status_code=400, detail=str(exc)) from exc
+                raise InvalidParametersAPIError(details=str(exc)) from exc
 
             image_file = await file_repository.create(
                 type=FileType.IMAGE,
@@ -223,7 +233,7 @@ class PodcastAPIController(BaseApiController):
             updated_podcast = await podcast_repository.get_first_with_aggregations(ids=[podcast_id])
 
         if not updated_podcast:
-            raise NotFoundException(f"Podcast with id {podcast_id} not found")
+            raise NotFoundAPIError(details=f"Podcast with id {podcast_id} not found")
 
         logger.info("[API] Uploaded image for podcast #%i | %s", podcast_id, user_scope)
         return PodcastResponse.model_validate(updated_podcast)
@@ -239,7 +249,7 @@ class PodcastAPIController(BaseApiController):
         """Enqueue RSS generation for a podcast."""
         async with SASessionUOW() as uow:
             podcast_repository = PodcastRepository(session=uow.session, scope=user_scope)
-            podcast = await podcast_repository.get(podcast_id)
+            podcast = await self._get_owned_podcast(podcast_repository, podcast_id)
 
         job_id = await self._enqueue_task(request, GenerateRSSTask, podcast.id)
         logger.info(
@@ -278,6 +288,6 @@ class PodcastAPIController(BaseApiController):
             dst_path=settings.s3.bucket_podcast_images_path,
         )
         if not remote_path:
-            raise HTTPException(status_code=500, detail="Unable to upload podcast image")
+            raise APIError(details="Unable to upload podcast image")
 
         return remote_path, get_file_size(local_path)

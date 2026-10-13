@@ -118,7 +118,7 @@ class PermissionDeniedError(BaseApplicationError):
 
 class NotFoundError(BaseApplicationError):
     status_code = 404
-    message = "Requested object not found."
+    message = "Requested object was not found."
     response_code = ResponseCode.NOT_FOUND
 
 

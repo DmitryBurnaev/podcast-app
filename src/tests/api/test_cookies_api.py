@@ -147,7 +147,6 @@ class TestPodcastEpisodeCreateAPI:
             response,
             status_code=404,
             code="NOT_FOUND",
-            message="Instance not found",
             details=f"Podcast with id {podcast.id} not found",
         )
 
@@ -330,8 +329,7 @@ class TestUploadedEpisodeAPI:
             response,
             status_code=404,
             code="NOT_FOUND",
-            message="Uploaded episode file with hash missinghash not found",
-            details="Episode file with hash missinghash not found",
+            details="Uploaded episode file with hash missinghash not found",
         )
 
 
@@ -456,7 +454,6 @@ class TestEpisodeLifecycleAPI:
             status_code=404,
             code="NOT_FOUND",
             details=f"Episode with id {foreign_episode.id} not found",
-            message="Not found.",
         )
         assert updated.status_code == 200, updated.text
         assert downloaded.status_code == 200, downloaded.text
@@ -464,7 +461,6 @@ class TestEpisodeLifecycleAPI:
             conflict,
             status_code=409,
             code="CONFLICT",
-            message="conflict",
             details="Episode is already in progress",
         )
         episode_id = episode.id
@@ -479,7 +475,6 @@ class TestEpisodeLifecycleAPI:
             status_code=409,
             code="CONFLICT",
             details="Episode in progress cannot be deleted",
-            message="Not found.",
         )
 
 
@@ -558,15 +553,26 @@ class TestCookieLifecycleAPI:
         assert first.id not in {item["id"] for item in items}
 
     @pytest.mark.parametrize(
-        "data, files, message",
+        "data, files, message, details",
         [
-            ({}, {}, "Requested data is not valid."),
+            (
+                {},
+                {},
+                "Requested data is not valid.",
+                {"source_type": "Source type is required."},
+            ),
             (
                 {"source_type": "unsupported"},
                 {"file": ("cookie.txt", b"x", "text/plain")},
                 "Requested data is not valid.",
+                {"source_type": "Unsupported source type."},
             ),
-            ({"source_type": "youtube"}, {}, "Invalid multipart/form-data"),
+            (
+                {"source_type": "youtube"},
+                {},
+                "Requested data is not valid.",
+                "Invalid multipart/form-data",
+            ),
         ],
     )
     async def test_create__invalid_multipart__does_not_persist(
@@ -578,6 +584,7 @@ class TestCookieLifecycleAPI:
         data: dict[str, str],
         files: dict[str, tuple[str, bytes, str]],
         message: str,
+        details: str | dict[str, str],
     ) -> None:
         client, _, _, _ = episode_api_client
 
@@ -588,7 +595,7 @@ class TestCookieLifecycleAPI:
             status_code=400,
             code="INVALID_PARAMETERS",
             message=message,
-            details={"source_type": "Unsupported source type."},
+            details=details,
         )
         assert not list((await functional_session.scalars(select(Cookie))).all())
 
@@ -660,13 +667,13 @@ class TestCookieLifecycleAPI:
             linked,
             status_code=409,
             code="CONFLICT",
-            message="Conflict detected.",
+            details="There are episodes related to this cookie.",
         )
         assert_error_response(
             foreign,
             status_code=404,
             code="NOT_FOUND",
-            details="Cookie with this cookie does not exist.",
+            details=f"Cookie with id {foreign_cookie.id} not found",
         )
 
 
@@ -722,13 +729,12 @@ class TestMediaUploadAPI:
                 files={"file": ("cover.jpg", b"image-content", "image/jpeg")},
             )
 
-        error = assert_error_response(
+        assert_error_response(
             response,
             status_code=400,
             code="INVALID_PARAMETERS",
-            details="Requested data is not valid.",
+            details={"file": "Could not upload image file."},
         )
-        assert error["details"] == {"file": "Could not upload image file."}
 
     @pytest.mark.parametrize(
         ("path", "files", "details"),

@@ -158,13 +158,12 @@ class TestPlaylistRetrieveAPI:
 
         response = client.get(self.url, params={"url": "not-a-playlist"})
 
-        error = assert_error_response(
+        assert_error_response(
             response,
             status_code=400,
             code="INVALID_PARAMETERS",
-            details="Requested data is not valid.",
+            details="bad playlist",
         )
-        assert error["details"] == "bad playlist"
 
     def test_get_playlist__not_playlist__fail(
         self,
@@ -181,13 +180,12 @@ class TestPlaylistRetrieveAPI:
 
         response = client.get(self.url, params={"url": "https://example.com/video"})
 
-        error = assert_error_response(
+        assert_error_response(
             response,
             status_code=400,
             code="INVALID_PARAMETERS",
-            details="Requested data is not valid.",
+            details="It seems like incorrect playlist URL.",
         )
-        assert error["details"] == "It seems like incorrect playlist URL."
 
     def test_get_playlist__download_error__fail(
         self,
@@ -204,13 +202,12 @@ class TestPlaylistRetrieveAPI:
 
         response = client.get(self.url, params={"url": "https://example.com/playlist"})
 
-        error = assert_error_response(
+        assert_error_response(
             response,
             status_code=400,
             code="INVALID_PARAMETERS",
-            details="It seems like incorrect playlist URL.",
+            details="Couldn't extract playlist: download failed",
         )
-        assert "Couldn't extract playlist:" in error["details"]
 
 
 class TestProgressRetrieveAPI:

@@ -4,11 +4,15 @@ from typing import Any, cast
 
 from litestar import Request, delete, get, patch, post, put
 from litestar.di import NamedDependency
-from litestar.exceptions import HTTPException, NotFoundException
 from litestar.params import FromPath, FromQuery, JSONBody
 from litestar.status_codes import HTTP_201_CREATED, HTTP_204_NO_CONTENT
 
 from src.modules.common.constants import SourceType
+from src.modules.common.exceptions import (
+    InvalidParametersAPIError,
+    NotFoundAPIError,
+    StateConflictAPIError,
+)
 from src.modules import tasks
 from src.modules.api.base import BaseApiController
 from src.modules.db import User
@@ -59,7 +63,7 @@ class EpisodeTaskMixin:
     ) -> Episode:
         episode = await repository.first(id=episode_id, owner_id=owner_id)
         if not episode:
-            raise NotFoundException(f"Episode with id {episode_id} not found")
+            raise NotFoundAPIError(details=f"Episode with id {episode_id} not found")
         return episode
 
     @staticmethod
@@ -70,7 +74,7 @@ class EpisodeTaskMixin:
     ) -> None:
         podcast = await repository.first(id=podcast_id, owner_id=owner_id)
         if not podcast:
-            raise NotFoundException(f"Podcast with id {podcast_id} not found")
+            raise NotFoundAPIError(details=f"Podcast with id {podcast_id} not found")
 
 
 class PodcastEpisodeAPIController(EpisodeTaskMixin, BaseApiController):
@@ -133,13 +137,13 @@ class PodcastEpisodeAPIController(EpisodeTaskMixin, BaseApiController):
             podcast_repository = PodcastRepository(session=uow.session, scope=user_scope)
             podcast = await podcast_repository.first(id=podcast_id)
             if not podcast:
-                raise NotFoundException(f"Podcast with id {podcast_id} not found")
+                raise NotFoundAPIError(details=f"Podcast with id {podcast_id} not found")
 
             creator = EpisodeCreator(db_session=uow.session, user_id=current_user.id)
             try:
                 episode = await creator.create(podcast_id=podcast_id, source_url=source_url)
             except ValueError as exc:
-                raise HTTPException(status_code=400, detail=str(exc)) from exc
+                raise InvalidParametersAPIError(details=str(exc)) from exc
 
             if podcast.download_automatically:
                 await EpisodeRepository(uow.session, scope=user_scope).update(
@@ -175,8 +179,8 @@ class PodcastEpisodeAPIController(EpisodeTaskMixin, BaseApiController):
             audio_file = await file_repository.first(hash=data.hash, type=MediaType.AUDIO)
             if not audio_file:
                 if not data.path or data.size is None:
-                    raise NotFoundException(
-                        f"Uploaded episode file with hash {data.hash} not found"
+                    raise NotFoundAPIError(
+                        details=f"Uploaded episode file with hash {data.hash} not found"
                     )
 
                 audio_file = await file_repository.create(
@@ -239,7 +243,7 @@ class PodcastEpisodeAPIController(EpisodeTaskMixin, BaseApiController):
                     status=EpisodeStatus.DOWNLOADING,
                 )
             if episode is None:
-                raise NotFoundException(f"Episode with hash {data.hash} not found")
+                raise NotFoundAPIError(details=f"Episode with hash {data.hash} not found")
 
             episode.audio = audio_file
             if image_file is not None:
@@ -278,7 +282,7 @@ class PodcastEpisodeAPIController(EpisodeTaskMixin, BaseApiController):
             )
 
         if not uploaded_file:
-            raise NotFoundException(f"Uploaded episode file with hash {hash} not found")
+            raise NotFoundAPIError(details=f"Uploaded episode file with hash {hash} not found")
 
         return UploadedEpisodeResponse.model_validate(uploaded_file)
 
@@ -341,11 +345,13 @@ class EpisodeAPIController(EpisodeTaskMixin, BaseApiController):
         """Update editable fields for an episode owned by the current user."""
         update_data = data.update_data
         if not update_data:
-            raise HTTPException(status_code=400, detail="No update fields provided")
+            raise InvalidParametersAPIError(details="No update fields provided")
 
         async with SASessionUOW() as uow:
             episode_repository = EpisodeRepository(session=uow.session, scope=user_scope)
-            episode = await episode_repository.get(episode_id)
+            episode = await episode_repository.first(id=episode_id)
+            if episode is None:
+                raise NotFoundAPIError(details=f"Episode with id {episode_id} not found")
             await episode_repository.update(episode, **update_data)
             await uow.flush()
             uow.mark_for_commit()
@@ -361,11 +367,13 @@ class EpisodeAPIController(EpisodeTaskMixin, BaseApiController):
         """Delete an episode owned by the current user."""
         async with SASessionUOW() as uow:
             episode_repository = EpisodeRepository(session=uow.session, scope=user_scope)
-            episode = await episode_repository.get(episode_id)
+            episode = await episode_repository.first(id=episode_id)
+            if episode is None:
+                raise NotFoundAPIError(details=f"Episode with id {episode_id} not found")
             try:
                 await episode_repository.safe_delete(episode)
             except ValueError as exc:
-                raise HTTPException(status_code=409, detail=str(exc)) from exc
+                raise StateConflictAPIError(details=str(exc)) from exc
 
             uow.mark_for_commit()
 
@@ -379,9 +387,11 @@ class EpisodeAPIController(EpisodeTaskMixin, BaseApiController):
         """Start downloading or processing an episode."""
         async with SASessionUOW() as uow:
             episode_repository = EpisodeRepository(session=uow.session, scope=user_scope)
-            episode = await episode_repository.get(episode_id)
+            episode = await episode_repository.first(id=episode_id)
+            if episode is None:
+                raise NotFoundAPIError(details=f"Episode with id {episode_id} not found")
             if episode.status in Episode.PROGRESS_STATUSES:
-                raise HTTPException(status_code=409, detail="Episode is already in progress")
+                raise StateConflictAPIError(details="Episode is already in progress")
 
             await episode_repository.update(episode, status=EpisodeStatus.DOWNLOADING)
             task_class = (
@@ -411,7 +421,7 @@ class EpisodeAPIController(EpisodeTaskMixin, BaseApiController):
                 current_user.id,
             )
             if episode.status != EpisodeStatus.DOWNLOADING:
-                raise HTTPException(status_code=409, detail="Episode is not downloading")
+                raise StateConflictAPIError(details="Episode is not downloading")
 
             await episode_repository.update(episode, status=EpisodeStatus.CANCELING)
             await uow.flush()

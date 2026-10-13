@@ -11,6 +11,15 @@ from src.modules.schemas.errors import ErrorCode, ErrorPayload, ErrorResponse
 logger = logging.getLogger(__name__)
 
 
+HTTP_ERROR_DEFAULTS: dict[int, tuple[ErrorCode, str]] = {
+    400: (ErrorCode.INVALID_PARAMETERS, "Requested data is not valid."),
+    401: (ErrorCode.AUTH_INVALID, "Authentication credentials are invalid."),
+    403: (ErrorCode.FORBIDDEN, "You do not have permission to perform this action."),
+    404: (ErrorCode.NOT_FOUND, "Requested object was not found."),
+    409: (ErrorCode.CONFLICT, "Conflict detected."),
+}
+
+
 def api_error_response(
     code: ErrorCode | str,
     message: str,
@@ -89,20 +98,14 @@ def http_redirect_handler(request: Request, exc: AuthenticationError) -> Respons
 
 def http_error_handler(_: Request, exc: HTTPException) -> Response[dict[str, Any]]:
     status_code = cast(int, getattr(exc, "status_code", 500) or 500)
-    code = ErrorCode.INTERNAL_ERROR
-    if status_code == 400:
-        code = ErrorCode.INVALID_PARAMETERS
-    elif status_code == 401:
-        code = ErrorCode.AUTH_INVALID
-    elif status_code == 403:
-        code = ErrorCode.FORBIDDEN
-    elif status_code == 404:
-        code = ErrorCode.NOT_FOUND
-    elif status_code == 409:
-        code = ErrorCode.CONFLICT
+    code, message = HTTP_ERROR_DEFAULTS.get(
+        status_code,
+        (ErrorCode.INTERNAL_ERROR, "Something went wrong."),
+    )
 
     return api_error_response(
         code=code,
-        message=str(getattr(exc, "detail", None) or "HTTP error."),
+        message=message,
+        details=getattr(exc, "detail", None),
         status_code=status_code,
     )
