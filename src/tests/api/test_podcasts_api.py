@@ -125,12 +125,26 @@ class TestPodcastListCreateAPI:
         assert payload["offset"] == 1
         assert [item["name"] for item in payload["items"]] == ["Second"]
 
-    @pytest.mark.parametrize("payload", [{}, {"name": ""}, {"name": "x" * 257}])
+    @pytest.mark.parametrize(
+        ("payload", "details"),
+        [
+            ({}, [{"message": "Field required", "key": "name"}]),
+            (
+                {"name": ""},
+                [{"message": "String should have at least 1 character", "key": "name"}],
+            ),
+            (
+                {"name": "x" * 257},
+                [{"message": "String should have at most 256 characters", "key": "name"}],
+            ),
+        ],
+    )
     async def test_create__invalid_request__does_not_persist(
         self,
         podcast_api_client: tuple[TestClient[PodcastApp], FakeStorage, FakeTaskQueue],
         functional_session: AsyncSession,
         payload: dict[str, str],
+        details: list[dict[str, str]],
     ) -> None:
         client, _, _ = podcast_api_client
 
@@ -140,7 +154,7 @@ class TestPodcastListCreateAPI:
             response,
             status_code=400,
             code="INVALID_PARAMETERS",
-            details="Requested data is not valid.",
+            details=details,
         )
         assert not list((await functional_session.scalars(select(Podcast))).all())
 
@@ -189,15 +203,13 @@ class TestPodcastDetailsAPI:
             details,
             status_code=404,
             code="NOT_FOUND",
-            message=f"No instance with id {foreign_podcast.id} found",
-            details="No instance with id {foreign_podcast.id} found",
+            details=f"Podcast with id {foreign_podcast.id} not found",
         )
         assert_error_response(
             updated,
             status_code=404,
             code="NOT_FOUND",
-            message=f"No instance with id {foreign_podcast.id} found",
-            details="No instance with id {foreign_podcast.id} found",
+            details=f"Podcast with id {foreign_podcast.id} not found",
         )
 
     async def test_update_and_delete__owned_podcast__persist_state(
@@ -265,8 +277,7 @@ class TestPodcastDetailsAPI:
             response,
             status_code=404,
             code="NOT_FOUND",
-            message="No instance with id 999 found",
-            details="No instance with id 999 found",
+            details="Podcast with id 999 not found",
         )
 
 
@@ -359,8 +370,7 @@ class TestPodcastRSSGenerationAPI:
             missing,
             status_code=404,
             code="NOT_FOUND",
-            message="No instance with id 999 found",
-            details="No instance with id 999 found",
+            details="Podcast with id 999 not found",
         )
 
     async def test_generate_rss__repeated_request__enqueues_one_task_per_request(
@@ -401,7 +411,6 @@ class TestPodcastRSSGenerationAPI:
             response,
             status_code=404,
             code="NOT_FOUND",
-            message=f"No instance with id {podcast.id} found",
-            details="No instance with id 999 found",
+            details=f"Podcast with id {podcast.id} not found",
         )
         assert queue.enqueued == []

@@ -9,6 +9,9 @@ from modules.schemas.errors import ErrorCode
 DEFAULT_MESSAGES: dict[ErrorCode, str] = {
     ErrorCode.INVALID_PARAMETERS: "Requested data is not valid.",
     ErrorCode.AUTH_INVALID: "Authentication credentials are invalid.",
+    ErrorCode.FORBIDDEN: "You do not have permission to perform this action.",
+    ErrorCode.NOT_FOUND: "Requested object was not found.",
+    ErrorCode.CONFLICT: "Conflict detected.",
 }
 
 

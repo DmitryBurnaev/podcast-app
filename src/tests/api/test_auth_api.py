@@ -242,7 +242,6 @@ class TestProfileAccessTokenAPI:
             response,
             status_code=409,
             code="CONFLICT",
-            message="Requested operation conflicts with the current state.",
             details="User with email 'other@podcast.dev' already exists.",
         )
         functional_session.expire_all()

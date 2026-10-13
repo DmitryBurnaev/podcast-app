@@ -49,4 +49,9 @@ def test_http_error_handler__maps_auth_status_codes(
 
     assert response.status_code == status_code
     assert response.content["error"]["code"] == expected_code
-    assert response.content["error"]["message"] == "Denied"
+    assert response.content["error"]["message"] == (
+        "Authentication credentials are invalid."
+        if status_code == 401
+        else "You do not have permission to perform this action."
+    )
+    assert response.content["error"]["details"] == "Denied"
