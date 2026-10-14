@@ -2,6 +2,7 @@
     'use strict';
     const {request, RequestError} = window.PodcastHTTP;
     const operations = new Set();
+    const finishingOperations = new Set();
     const trackedEpisodes = new Map();
     const rssTasks = new Map();
     const busyControls = new WeakMap();
@@ -17,6 +18,7 @@
     let pollDelay = 2000;
     let authExpired = false;
     let rssDiscovered = false;
+    let refreshPending = false;
 
     const byId = id => document.getElementById(id);
     const episodeForm = () => byId('edit-episode-form');
@@ -93,18 +95,31 @@
 
     function syncButtons() {
         const detail = document.querySelector('[data-refresh-region="episode-state"]');
+        const busy = key => operations.has(key) || finishingOperations.has(key);
+        const requestBusy = operations.size > 0 || finishingOperations.size > 0;
         actionButtons().forEach(button => {
             if (button.closest('[data-busy="true"]')) return;
             const action = button.dataset.action;
+            const id = Number(button.dataset.id);
+            const episodeBusy = busy(`episode:${id}`);
+            const podcastBusy = busy(`podcast:${id}`);
             if (['download-episode', 'cancel-episode', 'delete-episode'].includes(action)) {
                 const card = button.closest('[data-episode-card]');
                 const status = card?.dataset.status || detail?.dataset.status || '';
                 const active = activeStatus(status);
-                button.disabled = authExpired || (action === 'cancel-episode' ? status !== 'DOWNLOADING' : active);
+                button.disabled = authExpired || episodeBusy || (action === 'cancel-episode' ? status !== 'DOWNLOADING' : active);
                 if (action === 'cancel-episode') button.hidden = !active;
                 if (action === 'download-episode') button.hidden = active || Boolean(card && ['PUBLISHED', 'ARCHIVED'].includes(status));
             }
-            if (action === 'generate-rss') button.disabled = authExpired || rssTasks.has(Number(button.dataset.id));
+            if (action === 'generate-rss') button.disabled = authExpired || podcastBusy || rssTasks.has(id);
+            if (['add-episode', 'delete-podcast'].includes(action)) button.disabled = authExpired || podcastBusy;
+            if (action === 'add-podcast') button.disabled = authExpired || busy('create-podcast');
+            if (['add-podcast', 'add-episode', 'delete-podcast', 'delete-episode', 'download-episode',
+                'cancel-episode', 'generate-rss'].includes(action)) button.disabled ||= requestBusy;
+        });
+        document.querySelectorAll('[data-form]').forEach(form => {
+            if (form.closest('[data-busy="true"]')) return;
+            form.querySelectorAll('button[type="submit"]').forEach(button => { button.disabled = authExpired || requestBusy; });
         });
     }
 
@@ -165,7 +180,7 @@
         confirmation = {kind, id};
     }
 
-    async function refreshPage(url = new URL(window.location.href)) {
+    async function refreshPage(url = new URL(window.location.href), allowFilters = false) {
         const location = new URL(url);
         location.searchParams.set('fragment', '1');
         const perform = async () => {
@@ -173,7 +188,7 @@
             const parsed = new DOMParser().parseFromString(html, 'text/html');
             const incoming = [...parsed.querySelectorAll('[data-refresh-region]')];
             if (!incoming.length) throw new RequestError('The server returned an unexpected page response.');
-            if (operations.size && !operations.has('filters')) return false;
+            if (operations.size && !(allowFilters && operations.size === 1 && operations.has('filters'))) return false;
             const scroll = document.querySelector('main')?.scrollTop;
             const focused = document.activeElement;
             const focusKey = focused?.dataset?.action;
@@ -192,6 +207,7 @@
                 [...actionButtons()].find(button => button.dataset.action === focusKey && button.dataset.id === focusId)?.focus({preventScroll: true});
             }
             initPlayer();
+            syncFilterForm();
             syncButtons();
             return true;
         };
@@ -201,10 +217,11 @@
 
     async function refreshAfterSuccess() {
         try {
-            await refreshPage();
+            refreshPending = !(await refreshPage());
             wakePoll();
             return true;
         } catch (error) {
+            refreshPending = true;
             pageMessage('The operation succeeded, but the page data could not be refreshed. ' + error.message, error, 'operation', true);
             wakePoll();
             return false;
@@ -212,7 +229,7 @@
     }
 
     async function mutate(key, scope, label, send, success) {
-        if (operations.has(key) || operations.has('filters')) return;
+        if (operations.size || finishingOperations.size || authExpired) return;
         operations.add(key);
         setBusy(scope, true);
         feedback(scope, label, 'pending');
@@ -220,8 +237,8 @@
         let failure;
         try { data = await send(); } catch (error) { failure = error; }
         operations.delete(key);
-        setBusy(scope, false);
         if (failure) {
+            setBusy(scope, false);
             if (scope.matches('form, [data-modal]')) feedback(scope, failure.message, 'error', failure);
             else { feedback(scope, ''); showError(failure); }
             if (failure.details?.episode_id) {
@@ -233,10 +250,18 @@
                 box?.append(link);
                 await refreshAfterSuccess();
             }
+            wakePoll();
             return;
         }
-        feedback(scope, 'Done.');
-        await success(data);
+        finishingOperations.add(key);
+        syncButtons();
+        try {
+            await success(data);
+        } finally {
+            finishingOperations.delete(key);
+            setBusy(scope, false);
+            wakePoll();
+        }
     }
 
     function savedForm(form, values) {
@@ -295,19 +320,33 @@
     }
 
     async function changeFilters(url, scope = byId('page-feedback')) {
-        if (operations.size) return;
+        if (operations.size || finishingOperations.size || authExpired) return;
         operations.add('filters');
         setBusy(scope, true);
         feedback(scope, 'Updating episodes…', 'pending');
         try {
-            await refreshPage(url);
+            await refreshPage(url, true);
             window.history.pushState({}, '', url.pathname + url.search);
+            syncFilterForm();
             const search = byId('search-input');
             if (search) search.value = url.searchParams.get('search') || '';
             feedback(scope, '');
             if (activeModal === scope) closeModal(true);
         } catch (error) { feedback(scope, error.message, 'error', error); }
         finally { operations.delete('filters'); setBusy(scope, false); }
+    }
+
+    function syncFilterForm() {
+        const form = document.querySelector('[data-form="filters"]');
+        if (!form || activeModal?.contains(form)) return;
+        const params = new URL(window.location.href).searchParams;
+        for (const field of form.elements) {
+            if (!field.name) continue;
+            if (field.name === 'status') field.checked = (params.get('status') || '').split(',').includes(field.value);
+            else if (['search', 'podcast', 'size_min', 'size_max'].includes(field.name)) field.value = params.get(field.name) || '';
+            if (field.type === 'checkbox') field.defaultChecked = field.checked;
+            else field.defaultValue = field.value;
+        }
     }
 
     async function handleAction(button) {
@@ -322,7 +361,7 @@
                 openModal('addEpisodeModal', button);
                 break;
             case 'close-modal': closeModal(); break;
-            case 'open-filters': openModal('filtersModal', button); break;
+            case 'open-filters': syncFilterForm(); openModal('filtersModal', button); break;
             case 'delete-podcast': confirmDelete('podcast', id, button); break;
             case 'delete-episode': confirmDelete('episode', id, button); break;
             case 'confirm-delete': {
@@ -419,7 +458,7 @@
                 trackedEpisodes.set(item.episode.id, item.episode);
                 paintProgress(item);
             }
-            let refresh = false;
+            let refresh = refreshPending;
             for (const [id, previous] of trackedEpisodes) {
                 if (active.has(id)) continue;
                 const episode = await request(`/web-api/episodes/${id}/`).catch(error => {
@@ -454,7 +493,10 @@
                     feedback(byId('rss-feedback'), task.error || 'Unable to confirm the RSS task result. Check the feed or try again.', 'error');
                 }
             }
-            if (refresh) await refreshPage();
+            if (refresh) {
+                refreshPending = true;
+                refreshPending = !(await refreshPage());
+            }
             syncButtons();
             pollDelay = 2000;
             if (byId('page-feedback')?.dataset.source === 'poll') feedback(byId('page-feedback'), '');
@@ -568,7 +610,7 @@
         document.querySelectorAll('[data-episode-card], [data-refresh-region="episode-state"]').forEach(card => {
             if (activeStatus(card.dataset.status)) trackedEpisodes.set(Number(card.dataset.id || card.dataset.episodeId), {title: card.dataset.name});
         });
-        initPlayer(); syncButtons(); wakePoll();
+        initPlayer(); syncFilterForm(); syncButtons(); wakePoll();
     }
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
     else init();
