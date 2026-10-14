@@ -75,6 +75,14 @@
     Расширенный набор API/views/services/tasks/utils: 393 passed; views без
     PostgreSQL: 50 passed. `ruff`, `mypy` приложения и новых тестовых модулей,
     `git diff --check` зелёные. Отчёт: `../plans/ajax-mechanics-stage1-report.md`.
+  - [~] **AJAX frontend — контрольная точка этапа 2, 2026-10-14.** Фронт
+    подключён к `/web-api/*`; добавлены ожидание, ошибки, polling и обновление
+    фрагментов. Целевые API/services/views: 113 passed; HTTP-клиент и JS
+    event handlers: 16 passed. `ruff`, `mypy` приложения и явных новых
+    тестовых модулей, JS syntax и diff check зелёные. Реальный browser
+    walkthrough остаётся открытым: встроенный инструмент не запускает Node,
+    Chrome через Playwright завершается с SIGABRT. Эти результаты не закрывают
+    P6b. Отчёт: `../plans/ajax-mechanics-stage2-report.md`.
   - [ ] **P6b — оставшиеся HTML views.** Полное покрытие auth/ownership/errors
     всех HTML-контроллеров, включая episode cover. Завершение P6 не заявляется
     на основании готовности JSON API и fragment context.

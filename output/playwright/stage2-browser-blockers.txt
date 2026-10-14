@@ -1,0 +1,16 @@
+Stage 2 browser validation, 2026-10-14
+
+Built-in browser:
+  cua.getState() failed before initialization.
+  Node OpenSSL configuration error: Operation not permitted opening
+  /System/Library/OpenSSL//openssl.cnf
+
+Playwright CLI:
+  Installed Chrome exited with SIGABRT before opening the login page.
+  Retrying with requested elevated access produced the same failure.
+  CLI test session: podcast-stage2; URL: http://127.0.0.1:8019/login
+  Earlier Chromium download attempt: HTTP 403, Domain not in allowlist.
+
+No UI scenario, screenshot, trace or audio playback was verified.
+No production data was used. Automated HTTP/JS checks are documented in
+.ai/plans/ajax-mechanics-stage2-report.md.
