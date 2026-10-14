@@ -121,6 +121,4 @@ def make_episode(
         created_at=utcnow(),
         published_at=None,
     )
-    episode.audio = None
-    episode.image = None
     return episode

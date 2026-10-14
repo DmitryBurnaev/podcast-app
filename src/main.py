@@ -30,6 +30,7 @@ from src.modules.common.exceptions import (
 )
 from src.modules.admin.app import make_admin
 from src.modules.auth.middlewares import APIAuthMiddleware, WebAuthMiddleware
+from src.modules.web_api import WEB_API_CONTROLLERS
 from src.modules.db import close_database, initialize_database, verify_database_reachable
 from src.modules.services.redis import check_redis_connection, close_async_redis_connection
 from src.modules.services.storage import validate_s3_settings
@@ -208,6 +209,7 @@ def make_app(settings: AppSettings | None = None) -> PodcastApp:
         route_handlers=[
             *API_CONTROLLERS,
             *VIEW_CONTROLLERS,
+            *WEB_API_CONTROLLERS,
             static_files_router,
         ],
         openapi_config=openapi_config,

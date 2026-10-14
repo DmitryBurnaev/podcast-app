@@ -3,9 +3,13 @@ from typing import Any, cast
 
 from litestar.connection import Request
 from litestar.exceptions import HTTPException, ValidationException
-from litestar.response import Response, Redirect
+from litestar.response import Redirect, Response
 
-from src.modules.common.exceptions import APIError, BaseApplicationError, AuthenticationError
+from src.modules.common.exceptions import (
+    APIError,
+    AuthenticationError,
+    BaseApplicationError,
+)
 from src.modules.schemas.errors import ErrorCode, ErrorPayload, ErrorResponse
 
 logger = logging.getLogger(__name__)
@@ -83,7 +87,10 @@ def validation_error_handler(_: Request, exc: ValidationException) -> Response[d
 
 def http_redirect_handler(request: Request, exc: AuthenticationError) -> Response[dict[str, Any]]:
     """Return API auth failures as JSON and redirect only HTML requests to login."""
-    if request.url.path.startswith("/api/"):
+    if (
+        request.url.path.startswith(("/api/", "/web-api/"))
+        or request.query_params.get("fragment") == "1"
+    ):
         return api_error_response(
             code=ErrorCode.AUTH_MISSING,
             message="Authentication credentials were not provided.",

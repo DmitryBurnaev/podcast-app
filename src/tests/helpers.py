@@ -4,7 +4,7 @@ from typing import Any
 from httpx import Response
 from sqlalchemy.ext.asyncio import async_sessionmaker, AsyncSession
 
-from modules.schemas.errors import ErrorCode
+from src.modules.schemas.errors import ErrorCode
 
 DEFAULT_MESSAGES: dict[ErrorCode, str] = {
     ErrorCode.INVALID_PARAMETERS: "Requested data is not valid.",

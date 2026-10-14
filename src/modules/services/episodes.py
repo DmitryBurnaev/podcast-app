@@ -72,6 +72,7 @@ class EpisodeCreator:
         :return: New <Episode> object
         """
         self.podcast_id: int = podcast_id
+        self.created = False
         self.source_info: SourceInfo = common_utils.extract_source_info(source_url)
 
         same_episodes = await self.episode_repository.all(source_id=self.source_info.id)
@@ -108,6 +109,7 @@ class EpisodeCreator:
             audio_id=episode_data.get("audio_id"),
         )
         episode.audio, episode.image = audio, image
+        self.created = True
         return episode
 
     def _replace_special_symbols(self, value):

@@ -41,6 +41,15 @@ class BaseViewController(Controller):
         """Build a template response with shared base context."""
         template_name = template_name or self.default_template_name
         base = self.get_base_context(request)
+        if getattr(request, "query_params", {}).get("fragment") == "1" and template_name in {
+            "index.html",
+            "podcasts.html",
+            "podcasts_detail.html",
+            "episodes.html",
+            "episodes_detail.html",
+        }:
+            context = context | {"page_shell": "fragments/base.html"}
+            template_name = f"fragments/{template_name}"
         return Template(template_name=template_name, context=(base | context))
 
     @staticmethod

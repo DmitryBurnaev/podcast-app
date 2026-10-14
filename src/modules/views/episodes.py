@@ -1,29 +1,29 @@
 import logging
 import mimetypes
+from decimal import Decimal, InvalidOperation
 from pathlib import Path
-from typing import ClassVar, cast
+from typing import ClassVar, TypedDict, cast
 
-from litestar import get, post, Request
+from litestar import Request, get, post
 from litestar.di import NamedDependency
+from litestar.exceptions import HTTPException, NotFoundException
 from litestar.params import FromPath
 from litestar.response import File, Template
-from litestar.exceptions import HTTPException, NotFoundException
 from litestar.status_codes import HTTP_201_CREATED
 from pydantic import ValidationError
 
 from src.modules.common.constants import EpisodeStatus
-from src.modules import tasks
+from src.modules.common.types import AppRequest, OwnerScope
 from src.modules.db import SASessionUOW
 from src.modules.db.models import File as MediaFile
 from src.modules.db.repositories import EpisodeRepository, PodcastRepository
-from src.modules.common.types import OwnerScope
-from src.modules.schemas.episodes import EpisodeCreateSchema
+from src.modules.schemas.episodes import EpisodeCreateNestedSchema, EpisodeCreateSchema
 from src.modules.services.cover import CoverService
-from src.modules.services.episodes import EpisodeCreator
-from src.modules.views.base import BaseViewController, TaskQueueApp
-from src.modules.common.types import AppRequest
-from src.settings.app import get_app_settings, AppSettings
+from src.modules.services.episodes_operations import PodcastEpisodeOperations
+from src.modules.services.task_queue import TaskQueueApp
 from src.modules.utils.common import cut_string
+from src.modules.views.base import BaseViewController
+from src.settings.app import AppSettings, get_app_settings
 
 logger = logging.getLogger(__name__)
 
@@ -53,47 +53,14 @@ class EpisodesController(BaseViewController):
             "id": 1
         }
         """
-        episode_create_schema = await self._validate_create_episode_request(request)
-        podcast_id = episode_create_schema.podcast_id
-        source_url = episode_create_schema.normalized_source_url
-        logger.info(
-            "Creating episode from source_url (podcast_id=%s, source_url=%s)",
-            podcast_id,
-            source_url,
+        data = await self._validate_create_episode_request(request)
+        episode = await PodcastEpisodeOperations().create(
+            queue=cast(TaskQueueApp, request.app).rq_queue,
+            podcast_id=data.podcast_id,
+            current_user=request.user,
+            user_scope=user_scope,
+            data=EpisodeCreateNestedSchema(sourceURL=data.normalized_source_url),
         )
-
-        async with SASessionUOW() as uow:
-            podcast_repository = PodcastRepository(session=uow.session, scope=user_scope)
-            podcast = await podcast_repository.first(podcast_id)
-            if not podcast:
-                raise NotFoundException(f"Podcast with id {podcast_id} not found")
-
-            creator = EpisodeCreator(db_session=uow.session, user_id=request.user.id)
-            try:
-                episode = await creator.create(podcast_id=podcast_id, source_url=source_url)
-            except ValueError as e:
-                logger.warning("Episode creation failed: %s", e)
-                raise HTTPException(status_code=400, detail=str(e)) from e
-            except Exception as e:
-                logger.warning("Episode creation failed: %s", e)
-                raise HTTPException(status_code=500, detail=str(e)) from e
-
-            episode_repository = EpisodeRepository(uow.session, scope=user_scope)
-            if podcast.download_automatically:
-                await episode_repository.update(episode, status=EpisodeStatus.DOWNLOADING)
-
-        if podcast.download_automatically:
-            app = cast(TaskQueueApp, cast(object, request.app))
-            await self._run_task(app, tasks.DownloadEpisodeTask, episode_id=episode.id)
-
-        app = cast(TaskQueueApp, cast(object, request.app))
-        await self._run_task(app, tasks.DownloadEpisodeImageTask, episode_id=episode.id)
-
-        if logger.isEnabledFor(logging.DEBUG):
-            logger.debug("Episode created: #%s | url: %r", episode.id, source_url)
-        else:
-            logger.info("Episode created: #%s", episode.id)
-
         return {"id": episode.id}
 
     @get("/episodes/")
@@ -104,33 +71,17 @@ class EpisodesController(BaseViewController):
         user_scope: NamedDependency[OwnerScope],
     ) -> Template:
         """Render the episode list page with optional filters."""
-        query_params = request.query_params
-        filters: dict = {}
-        if query_params.get("status"):
-            filters["statuses"] = query_params.get("status")
-
-        if query_params.get("search"):
-            filters["search"] = query_params.get("search")
-
-        if query_params.get("podcast"):
-            filters["podcast__name"] = query_params.get("podcast")
-
-        if size_min := query_params.get("size_min"):
-            filters["audio__size__gte"] = int(size_min)
-
-        if size_max := query_params.get("size_max"):
-            filters["audio__size__lte"] = int(size_max)
+        filters, repository_filters = prepare_episode_filters(dict(request.query_params))
 
         async with SASessionUOW() as uow:
             podcast_repository = PodcastRepository(session=uow.session, scope=user_scope)
             podcasts, _ = await podcast_repository.all_paginated(
                 limit=settings.default_pagination_limit,
-                **filters,
             )
             episodes_repository = EpisodeRepository(session=uow.session, scope=user_scope)
             episodes, _ = await episodes_repository.all_paginated(
                 limit=settings.default_pagination_limit,
-                **filters,
+                **repository_filters,
             )
 
         return self.get_response_template(
@@ -249,3 +200,52 @@ class EpisodeCoverController(BaseViewController):
             None,
         )
         return File(path=cached_path, filename=file_obj.name, media_type=media_type)
+
+
+class EpisodeFilters(TypedDict, total=False):
+    statuses: str
+    search: str
+    podcast__name: str
+    audio__size__gte: int
+    audio__size__lte: int
+
+
+def file_size_bytes(value: str) -> int:
+    try:
+        size = Decimal(value)
+        if not size.is_finite() or size < 0:
+            raise ValueError
+        return int(size * 1024 * 1024)
+    except (InvalidOperation, ValueError, OverflowError) as exc:
+        raise HTTPException(status_code=400, detail="Invalid file size filter.") from exc
+
+
+def prepare_episode_filters(query: dict[str, str]) -> tuple[dict[str, str], EpisodeFilters]:
+    """Separate displayed filters from repository fields and convert MB to bytes."""
+    filters = {
+        key: value.strip()
+        for key, value in query.items()
+        if key in {"status", "search", "podcast", "size_min", "size_max"} and value.strip()
+    }
+    prepared: EpisodeFilters = {}
+    if "status" in filters:
+        statuses = [value.strip().upper() for value in filters["status"].split(",")]
+        statuses = ["NEW" if value == "PENDING" else value for value in statuses]
+        if any(value not in EpisodeStatus.members() for value in statuses):
+            raise HTTPException(status_code=400, detail="Invalid episode status filter.")
+        prepared["statuses"] = ",".join(statuses)
+    if "search" in filters:
+        prepared["search"] = filters["search"]
+    if "podcast" in filters:
+        prepared["podcast__name"] = filters["podcast"]
+    if "size_min" in filters:
+        prepared["audio__size__gte"] = file_size_bytes(filters["size_min"])
+    if "size_max" in filters:
+        prepared["audio__size__lte"] = file_size_bytes(filters["size_max"])
+    if (
+        "size_min" in filters
+        and "size_max" in filters
+        and Decimal(filters["size_min"]) > Decimal(filters["size_max"])
+    ):
+        raise HTTPException(status_code=400, detail="Minimum file size exceeds maximum.")
+    return filters, prepared

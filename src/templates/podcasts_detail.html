@@ -1,4 +1,4 @@
-{% extends "base.html" %}
+{% extends page_shell|default("base.html") %}
 {% block breadcrumbs %}
     <!-- Breadcrumbs -->
     <div class="flex">
@@ -16,6 +16,7 @@
 
     <!-- Two Column Layout: Left - Podcast Info (1/4), Right - Edit Form (3/4) -->
     <div class="grid grid-cols-1 lg:grid-cols-4 gap-6 mb-6">
+{% block refresh_podcast_summary %}<div data-refresh-region="podcast-summary" class="lg:col-span-1">
         <!-- Left Column: Podcast Overview Card (1/4 width) -->
         <div class="lg:col-span-1 bg-slate-800 rounded-lg border border-slate-700 overflow-hidden relative flex flex-col h-full">
             <!-- Background Image with Blur -->
@@ -117,6 +118,7 @@
             </div>
         </div>
 
+</div>{% endblock %}
         <!-- Right Column: Edit Form and Create Episode (3/4 width) -->
         <div class="lg:col-span-3 flex flex-col gap-6 h-full">
             <!-- Edit Podcast Card -->
@@ -201,6 +203,7 @@
         </div>
     </div>
 
+{% block refresh_episodes %}<div data-refresh-region="episodes">
     <!-- Episodes List -->
     <div class="space-y-4">
 {#        <h2 class="text-xl font-semibold text-white mb-4">Episodes</h2>#}
@@ -215,6 +218,7 @@
         {% endif %}
     </div>
 
+</div>{% endblock %}
     <script>
         // Copy RSS link to clipboard
         function copyRssLink() {

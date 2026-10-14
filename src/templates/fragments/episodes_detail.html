@@ -1,0 +1,6 @@
+{% extends "episodes_detail.html" %}
+{% block fragment_content %}
+{{ self.refresh_episode_title() }}
+{{ self.refresh_episode_state() }}
+{{ self.refresh_episode_metadata() }}
+{% endblock %}
