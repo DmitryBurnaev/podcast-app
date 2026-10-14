@@ -361,6 +361,10 @@ class TestBrowserEpisodes:
         assert second.status_code == 201, second.text
         assert second.json()["id"] == first.json()["id"]
         assert first.json()["status"] == ("DOWNLOADING" if automatic else "NEW")
+        persisted = await functional_session.get(Episode, first.json()["id"])
+        assert persisted is not None
+        assert File.token_is_correct(persisted.audio.access_token)
+        assert File.token_is_correct(persisted.image.access_token)
         assert await functional_session.scalar(select(func.count(Episode.id))) == 1
         assert len(mocked_rq_queue.enqueued) == (2 if automatic else 1)
 

@@ -2,7 +2,6 @@
 
 import logging
 import re
-import uuid
 from typing import NotRequired, TypedDict
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -224,14 +223,14 @@ class EpisodeCreator:
                 available=False,
                 owner_id=self.user_id,
                 source_url=source_info.thumbnail_url,
-                access_token=uuid.uuid4().hex,
+                access_token=File.generate_token(),
             )
             audio_file = await file_repository.create(
                 type=MediaType.AUDIO,
                 available=False,
                 owner_id=self.user_id,
                 source_url=source_info.watch_url,
-                access_token=uuid.uuid4().hex,
+                access_token=File.generate_token(),
             )
 
         else:

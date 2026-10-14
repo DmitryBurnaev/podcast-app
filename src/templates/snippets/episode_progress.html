@@ -1,0 +1,4 @@
+<div data-progress class="ui-progress" {% if episode.status not in episode.PROGRESS_STATUSES %}hidden{% endif %}>
+    <span class="ui-spinner" aria-hidden="true"></span><span data-progress-label>{{ get_episode_status_label(episode.status) }}</span>
+    <div class="ui-progress-track"><div data-progress-bar class="ui-progress-bar" style="width: 0%"></div></div>
+</div>

@@ -1,4 +1,4 @@
-<a href="/episodes/{{ episode.id }}/"
+<a data-episode-card data-id="{{ episode.id }}" data-status="{{ episode.status }}" data-name="{{ episode.title }}" href="/episodes/{{ episode.id }}/"
    class="block bg-slate-800 rounded-lg border border-slate-700 hover:border-slate-600 transition overflow-hidden cursor-pointer">
     <div class="p-3 flex items-start gap-4">
         <!-- Episode Image/Icon -->
@@ -61,53 +61,16 @@
 
                 <!-- Right Side: Status and Controls -->
                 <div class="flex flex-col items-end gap-3 flex-shrink-0">
-                    <!-- Status Badge -->
-                    {% set episode_status = episode.status %}
-                    {% set normalized_status = normalize_episode_status(episode_status) %}
-                    {% set status_colors = get_episode_status_color(episode_status) %}
-                    <div class="flex flex-col items-end gap-2">
-                        {% if normalized_status == "downloading" %}
-                            {% if episode.download_progress is defined %}
-                                <span class="relative inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold text-blue-400 border border-blue-500/30 overflow-hidden">
-                                    <span class="absolute inset-0 bg-blue-500/20"></span>
-                                    <span class="absolute inset-0 bg-blue-500/40 transition-all" style="width: {{ episode.download_progress }}%"></span>
-                                    <span class="relative z-10">{{ get_episode_status_label(episode_status) }} {{ episode.download_progress }}%</span>
-                                </span>
-                            {% else %}
-                                <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold {{ status_colors.bg }} {{ status_colors.text }} border {{ status_colors.border }}">
-                                    {{ get_episode_status_label(episode_status) }}
-                                </span>
-                            {% endif %}
-                        {% else %}
-                            <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold {{ status_colors.bg }} {{ status_colors.text }} border {{ status_colors.border }}">
-                                {{ get_episode_status_label(episode_status) }}
-                            </span>
-                        {% endif %}
-                    </div>
+                    <span data-status-label class="text-xs font-semibold text-slate-300">{{ get_episode_status_label(episode.status) }}</span>
+                    {% include "snippets/episode_progress.html" %}
                     <!-- Control Buttons -->
                     <div class="flex items-center gap-2">
-                        {% if normalized_status == "pending" or normalized_status == "error" %}
-                            <button
-                                    onclick="event.preventDefault(); event.stopPropagation(); handleDownloadEpisode({{ episode.id }})"
-                                    class="p-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition"
-                                    title="Download">
-                                {{ icon_download() }}
-                            </button>
-                        {% elif normalized_status == "published" %}
-                        <button
-                                onclick="event.preventDefault(); event.stopPropagation(); handleUpdateEpisode({{ episode.id }})"
-                                class="p-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition"
-                                title="Update">
-                            {{ icon_refresh() }}
-                        </button>
-                        {% endif %}
-                        <button
-                                onclick="event.preventDefault(); event.stopPropagation(); handleDeleteEpisode({{ episode.id }})"
-                                class="p-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition"
-                                title="Delete">
-                            {{ icon_trash() }}
-                        </button>
+                        <button type="button" data-action="download-episode" data-id="{{ episode.id }}" class="p-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg" title="Download" aria-label="Download episode">{{ icon_download() }}</button>
+                        <button type="button" data-action="cancel-episode" data-id="{{ episode.id }}" class="p-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg" title="Cancel download" aria-label="Cancel download">{{ icon_close() }}</button>
+                        <button type="button" data-action="edit-episode" data-id="{{ episode.id }}" class="p-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg" title="Edit" aria-label="Edit episode">{{ icon_edit() }}</button>
+                        <button type="button" data-action="delete-episode" data-id="{{ episode.id }}" class="p-2 bg-red-600 hover:bg-red-700 text-white rounded-lg" title="Delete" aria-label="Delete episode">{{ icon_trash() }}</button>
                     </div>
+                    <div data-feedback data-operation-feedback hidden role="status" aria-live="polite"></div>
                 </div>
             </div>
         </div>
