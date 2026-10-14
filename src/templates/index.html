@@ -20,7 +20,7 @@
     <div class="flex-1 lg:w-2/3">
         <div class="space-y-4">
             {% for podcast in podcasts %}
-            <a href="/podcasts/{{ podcast.id }}/"
+            <a data-podcast-card data-id="{{ podcast.id }}" data-name="{{ podcast.name }}" href="/podcasts/{{ podcast.id }}/"
                 class="block bg-slate-800 rounded-lg border border-slate-700 hover:border-slate-600 transition overflow-hidden cursor-pointer">
                 <div class="p-3 flex items-start gap-4">
                     <!-- Podcast Image/Avatar -->
@@ -45,7 +45,7 @@
                                     {{ podcast.stat.episodes_count }} episodes
                                 </span>
                                 <button
-                                    onclick="event.preventDefault(); event.stopPropagation(); openAddEpisodeModal({{ podcast.id }}, '{{ podcast.name }}')"
+                                    type="button" data-action="add-episode" data-id="{{ podcast.id }}" data-name="{{ podcast.name }}"
                                     class="p-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition"
                                     title="Add Episode">
                                     {{ icon_plus("w-4 h-4") }}
@@ -63,7 +63,7 @@
                 <div class="p-4 flex items-start gap-4">
                     <div class="flex-shrink-0">
                         <button
-                            onclick="event.preventDefault(); event.stopPropagation(); openAddPodcastModal()"
+                            type="button" data-action="add-podcast"
                             class="w-16 h-16 rounded-lg bg-slate-700 flex items-center justify-center"
                             title="Add Episode">
                             {{ icon_plus("w-8 h-8 text-slate-400") }}
@@ -90,7 +90,7 @@
                 {% if recent_episodes %}
                 {% for episode in recent_episodes %}
 
-                <a href="/episodes/{{ episode.id }}/"
+                <a data-episode-card data-id="{{ episode.id }}" data-status="{{ episode.status }}" data-name="{{ episode.title }}" href="/episodes/{{ episode.id }}/"
                    class="block p-4 hover:bg-slate-700/50 transition cursor-pointer">
                     <div class="flex items-start gap-3">
                         <div class="flex-shrink-0">
@@ -110,17 +110,7 @@
                             <p class="text-xs text-slate-400 mb-2">
                                 {{ episode.podcast.name }} • {{ episode.created_at.strftime('%d %b, %Y %H:%M') }}
                             </p>
-                            {% if episode.status == "downloading" and episode.download_progress is defined %}
-                            <div class="flex items-center gap-2">
-                                <span
-                                    class="relative inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold text-blue-400 border border-blue-500/30 overflow-hidden">
-                                    <span class="absolute inset-0 bg-blue-500/20"></span>
-                                    <span class="absolute inset-0 bg-blue-500/40 transition-all"
-                                        style="width: {{ episode.download_progress }}%"></span>
-                                    <span class="relative z-10">{{ episode.download_progress }}%</span>
-                                </span>
-                            </div>
-                            {% endif %}
+                            {% include "snippets/episode_progress.html" %}
                         </div>
                         <div class="flex-shrink-0">
                             {{ icon_chevron_right("w-5 h-5 text-slate-400") }}

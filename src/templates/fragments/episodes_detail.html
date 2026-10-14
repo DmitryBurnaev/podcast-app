@@ -1,6 +1,8 @@
 {% extends "episodes_detail.html" %}
 {% block fragment_content %}
+{{ self.breadcrumbs() }}
 {{ self.refresh_episode_title() }}
 {{ self.refresh_episode_state() }}
+{{ self.refresh_episode_player() }}
 {{ self.refresh_episode_metadata() }}
 {% endblock %}

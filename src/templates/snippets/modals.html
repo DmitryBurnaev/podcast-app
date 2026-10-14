@@ -1,32 +1,37 @@
 {% from "snippets/icons.html" import icon_close %}
 
 {% macro modal_add_podcast() %}
-<div id="addPodcastModal" class="fixed inset-0 bg-black/50 z-50 hidden items-center justify-center">
-    <div class="bg-slate-800 rounded-lg border border-slate-700 w-full max-w-md mx-4 shadow-xl">
+<div id="addPodcastModal" data-modal hidden role="dialog" aria-modal="true" aria-labelledby="add-podcast-title" tabindex="-1" class="fixed inset-0 bg-black/50 z-50 hidden items-center justify-center">
+    <div class="ui-modal-panel bg-slate-800 rounded-lg border border-slate-700 w-full max-w-md mx-4 shadow-xl">
         <div class="p-6 border-b border-slate-700">
             <div class="flex items-center justify-between">
-                <h3 class="text-lg font-semibold text-white">Add New Podcast</h3>
-                <button onclick="closeAddPodcastModal()" class="text-slate-400 hover:text-white transition">
+                <h3 id="add-podcast-title" class="text-lg font-semibold text-white">Add New Podcast</h3>
+                <button type="button" data-action="close-modal" aria-label="Close" class="text-slate-400 hover:text-white transition">
                     {{ icon_close() }}
                 </button>
             </div>
         </div>
-        <form class="p-6 space-y-4" onsubmit="handleAddEpisode(event)">
+        <form class="p-6 space-y-4" id="add-podcast-form" data-form="create-podcast">
             <div>
-                <label for="episodeTitle" class="block text-sm font-medium text-slate-300 mb-2">Podcast Title</label>
-                <input type="text" id="episodeTitle" name="title" required
+                <label for="new-podcast-name" class="block text-sm font-medium text-slate-300 mb-2">Podcast Title</label>
+                <input type="text" id="new-podcast-name" name="name" required maxlength="256" autofocus
                     class="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
                     placeholder="Enter podcast title">
             </div>
             <div>
                 <label for="podcastDescription" class="block text-sm font-medium text-slate-300 mb-2">Description
                     (optional)</label>
-                <textarea id="podcastDescription" name="podcast-description" rows="3"
+                <textarea id="podcastDescription" name="description" rows="3"
                     class="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
                     placeholder="Enter podcast description"></textarea>
             </div>
+            <label class="flex items-center gap-2 text-sm text-slate-300">
+                <input type="checkbox" name="download_automatically" class="rounded bg-slate-700 border-slate-600">
+                Automatically download new episodes
+            </label>
+            <div data-feedback data-operation-feedback hidden role="status" aria-live="polite"></div>
             <div class="flex items-center justify-end gap-3 pt-4 border-t border-slate-700">
-                <button type="button" onclick="closeAddPodcastModal()"
+                <button type="button" data-action="close-modal" aria-label="Close"
                     class="px-4 py-2 text-slate-300 hover:text-white transition">
                     Cancel
                 </button>
@@ -38,67 +43,53 @@
         </form>
     </div>
 </div>
-<script type="application/javascript">
-    function openAddPodcastModal() {
-        const modal = document.getElementById('addPodcastModal');
-        modal.classList.remove('hidden');
-        modal.classList.add('flex');
-        document.body.style.overflow = 'hidden';
-    }
+{% endmacro %}
 
-    function closeAddPodcastModal() {
-        const modal = document.getElementById('addPodcastModal');
-        modal.classList.add('hidden');
-        modal.classList.remove('flex');
-        document.body.style.overflow = '';
-
-        // Reset form
-        const form = modal.querySelector('form');
-        if (form) {
-            form.reset();
-        }
-    }
-    // Close modal on Escape key
-    document.addEventListener('keydown', function (event) {
-        if (event.key === 'Escape') {
-            closeAddPodcastModal();
-        }
-    });
-    // Close modal on background click
-    document.getElementById('addPodcastModal').addEventListener('click', function (event) {
-        if (event.target === this) {
-            closeAddPodcastModal();
-        }
-    });
-</script>
+{% macro modal_action() %}
+<div id="actionModal" data-modal hidden role="dialog" aria-modal="true" aria-labelledby="action-modal-title" tabindex="-1"
+     class="fixed inset-0 bg-black/50 z-50 hidden items-center justify-center">
+    <div class="ui-modal-panel bg-slate-800 rounded-lg border border-slate-700 w-full max-w-md mx-4 shadow-xl p-6 space-y-4">
+        <div class="flex items-center justify-between gap-4">
+            <h3 id="action-modal-title" class="text-lg font-semibold text-white"></h3>
+            <button type="button" data-action="close-modal" aria-label="Close" class="text-slate-400 hover:text-white">{{ icon_close() }}</button>
+        </div>
+        <p id="action-modal-description" class="text-sm text-slate-300"></p>
+        <div data-feedback data-operation-feedback hidden role="status" aria-live="polite"></div>
+        <div class="flex justify-end gap-3 border-t border-slate-700 pt-4">
+            <button type="button" data-action="close-modal" class="px-4 py-2 text-slate-300 hover:text-white">Close</button>
+            <button type="button" id="action-modal-confirm" data-action="confirm-delete" class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg">Delete</button>
+        </div>
+    </div>
+</div>
 {% endmacro %}
 
 
 <!-- Add Episode Modal -->
 {% macro modal_add_episode() %}
-<div id="addEpisodeModal" class="fixed inset-0 bg-black/50 z-50 hidden items-center justify-center">
-    <div class="bg-slate-800 rounded-lg border border-slate-700 w-full max-w-lg mx-4 shadow-xl">
+<div id="addEpisodeModal" data-modal hidden role="dialog" aria-modal="true" aria-labelledby="add-episode-title" tabindex="-1" class="fixed inset-0 bg-black/50 z-50 hidden items-center justify-center">
+    <div class="ui-modal-panel bg-slate-800 rounded-lg border border-slate-700 w-full max-w-lg mx-4 shadow-xl">
         <div class="p-6 border-b border-slate-700">
             <div class="flex items-center justify-between">
-                <h3 class="text-lg font-semibold text-white">Add New Episode</h3>
-                <button onclick="closeAddEpisodeModal()" class="text-slate-400 hover:text-white transition">
+                <h3 id="add-episode-title" class="text-lg font-semibold text-white">Add New Episode</h3>
+                <button type="button" data-action="close-modal" aria-label="Close" class="text-slate-400 hover:text-white transition">
                     {{ icon_close() }}
                 </button>
             </div>
         </div>
-        <form class="p-6 space-y-4" onsubmit="handleAddEpisode(event)">
+        <form id="add-episode-form" data-form="create-episode" class="p-6 space-y-4">
             <div>
-                <label for="episodePodcast" class="block text-sm font-medium text-slate-300 mb-2">Podcast</label>
+                <label for="episodePodcastTitle" class="block text-sm font-medium text-slate-300 mb-2">Podcast</label>
                 <span id="episodePodcastTitle" class="w-full block px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500"></span>
             </div>
             <div>
                 <label for="sourceURL" class="block text-sm font-medium text-slate-300 mb-2">Source URL</label>
-                <input type="text" id="sourceURL" name="sourceURL" required
+                <input type="text" id="sourceURL" name="sourceURL" required maxlength="2048" autofocus
                     class="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
                     placeholder="Enter source URL (ex: YouTube's link)">
             </div>
+            <div data-feedback data-operation-feedback hidden role="status" aria-live="polite"></div>
             <div class="flex items-center justify-end gap-3 pt-4 border-t border-slate-700">
-                <button type="button" onclick="closeAddEpisodeModal()"
+                <button type="button" data-action="close-modal" aria-label="Close"
                     class="px-4 py-2 text-slate-300 hover:text-white transition">
                     Cancel
                 </button>
@@ -110,70 +101,4 @@
         </form>
     </div>
 </div>
-<script type="application/javascript">
-    let addEpisodePodcastId = null;
-
-    function openAddEpisodeModal(podcastId, podcastName) {
-        console.log("here")
-        const modal = document.getElementById('addEpisodeModal');
-        const titleEl = document.getElementById('episodePodcastTitle');
-        titleEl.textContent = podcastName || '';
-        addEpisodePodcastId = podcastId != null ? Number(podcastId) : null;
-
-        modal.classList.remove('hidden');
-        modal.classList.add('flex');
-        document.body.style.overflow = 'hidden';
-    }
-    function closeAddEpisodeModal() {
-        const modal = document.getElementById('addEpisodeModal');
-        modal.classList.add('hidden');
-        modal.classList.remove('flex');
-        document.body.style.overflow = '';
-        addEpisodePodcastId = null;
-
-        const form = modal.querySelector('form');
-        if (form) {
-            form.reset();
-        }
-    }
-    async function handleAddEpisode(event) {
-        event.preventDefault();
-        const sourceUrl = document.getElementById('sourceURL').value?.trim();
-        if (!sourceUrl) {
-            alert('Please enter source URL');
-            return;
-        }
-        const url = '/episodes/'
-        try {
-            const response = await fetch(url, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ sourceURL: sourceUrl, podcastID: addEpisodePodcastId })
-            });
-            const data = await response.json().catch(() => ({}));
-            if (response.ok) {
-                closeAddEpisodeModal();
-                console.log('Episode created', data);
-                location.reload();
-            } else {
-                alert(data.detail || data.message || 'Failed to create episode');
-            }
-        } catch (err) {
-            console.error('Add episode error', err);
-            alert('Failed to create episode');
-        }
-    }
-    // Close modal on Escape key
-    document.addEventListener('keydown', function (event) {
-        if (event.key === 'Escape') {
-            closeAddEpisodeModal();
-        }
-    });
-    // Close modal on background click
-    document.getElementById('addEpisodeModal').addEventListener('click', function (event) {
-        if (event.target === this) {
-            closeAddEpisodeModal();
-        }
-    });
-</script>
 {% endmacro %}

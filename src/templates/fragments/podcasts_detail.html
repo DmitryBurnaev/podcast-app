@@ -1,5 +1,6 @@
 {% extends "podcasts_detail.html" %}
 {% block fragment_content %}
+{{ self.breadcrumbs() }}
 {{ self.refresh_podcast_summary() }}
 {{ self.refresh_episodes() }}
 {% endblock %}

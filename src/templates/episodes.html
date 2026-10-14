@@ -9,7 +9,7 @@
         <label for="search-input"></label>
         <input type="text" id="search-input" placeholder="Search" value="{{ filters.search or '' }}"
                                                  class="block bg-slate-800 w-full pl-10 pr-10 py-2 border border-slate-600 rounded-lg bg-slate-700 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent">
-        <button onclick="openFiltersModal()" class="absolute inset-y-0 right-0 pr-3 flex items-center">
+        <button type="button" data-action="open-filters" aria-label="Filters" class="absolute inset-y-0 right-0 pr-3 flex items-center">
             {% if filters %}
                 {{ icon_filter("h-5 w-5 text-purple-400")}}
                 <span class="absolute top-0 right-0 w-2 h-2 bg-purple-500 rounded-full"></span>
@@ -33,6 +33,7 @@
 {% endblock %}
 
 {% block content %}
+{% block refresh_episodes %}<div data-refresh-region="episodes">
     <!-- Active Filters -->
     {% if filters %}
     <div class="mb-4 flex items-center gap-2 flex-wrap">
@@ -41,21 +42,21 @@
         <span
             class="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-slate-700 text-slate-300">
             Search: {{ filters.search }}
-            <button onclick="removeFilter('search')" class="ml-2 hover:text-white">×</button>
+            <button data-action="remove-filter" data-filter="search" class="ml-2 hover:text-white">×</button>
         </span>
         {% endif %}
         {% if filters.status %}
         <span
             class="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-slate-700 text-slate-300">
             Status: {{ filters.status }}
-            <button onclick="removeFilter('status')" class="ml-2 hover:text-white">×</button>
+            <button data-action="remove-filter" data-filter="status" class="ml-2 hover:text-white">×</button>
         </span>
         {% endif %}
         {% if filters.size_min or filters.size_max %}
         <span
             class="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-slate-700 text-slate-300">
             Size: {% if filters.size_min %}{{ filters.size_min }}{% endif %}-{% if filters.size_max %}{{filters.size_max }}{% endif %} MB
-            <button onclick="removeFilter('size_min'); removeFilter('size_max')"
+            <button data-action="remove-filter" data-filter="size_min,size_max"
                 class="ml-2 hover:text-white">×</button>
         </span>
         {% endif %}
@@ -63,15 +64,14 @@
         <span
             class="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-slate-700 text-slate-300">
             Podcast: {{ filters.podcast }}
-            <button onclick="removeFilter('podcast')" class="ml-2 hover:text-white">×</button>
+            <button data-action="remove-filter" data-filter="podcast" class="ml-2 hover:text-white">×</button>
         </span>
         {% endif %}
-        <button onclick="clearAllFilters()" class="text-xs text-slate-400 hover:text-white underline">Clear
+        <button data-action="clear-filters" class="text-xs text-slate-400 hover:text-white underline">Clear
             all</button>
     </div>
     {% endif %}
 
-{% block refresh_episodes %}<div data-refresh-region="episodes">
     <!-- Episodes List -->
     <div class="space-y-4">
         {% if episodes %}
@@ -90,17 +90,17 @@
 
 {% block modals %}
 <!-- Filters Modal -->
-<div id="filtersModal" class="fixed inset-0 bg-black/50 z-50 hidden items-center justify-center">
+<div id="filtersModal" data-modal hidden role="dialog" aria-modal="true" aria-labelledby="filters-title" tabindex="-1" class="fixed inset-0 bg-black/50 z-50 hidden items-center justify-center">
     <div class="bg-slate-800 rounded-lg border border-slate-700 w-full max-w-md mx-4 shadow-xl">
         <div class="p-6 border-b border-slate-700">
             <div class="flex items-center justify-between">
-                <h3 class="text-lg font-semibold text-white">Filters</h3>
-                <button onclick="closeFiltersModal()" class="text-slate-400 hover:text-white transition">
+                <h3 id="filters-title" class="text-lg font-semibold text-white">Filters</h3>
+                <button data-action="close-modal" class="text-slate-400 hover:text-white transition">
                     {{ icon_close() }}
                 </button>
             </div>
         </div>
-        <form class="p-6 space-y-4" onsubmit="applyFilters(event)">
+        <form class="p-6 space-y-4" data-form="filters">
             <!-- Search -->
             <div>
                 <label for="filterSearch" class="block text-sm font-medium text-slate-300 mb-2">Search</label>
@@ -174,8 +174,9 @@
                 </select>
             </div>
 
+            <div data-feedback data-operation-feedback hidden role="status" aria-live="polite"></div>
             <div class="flex items-center justify-end gap-3 pt-4 border-t border-slate-700">
-                <button type="button" onclick="clearAllFilters()"
+                <button type="button" data-action="clear-filters"
                     class="px-4 py-2 text-slate-300 hover:text-white transition">
                     Clear All
                 </button>
@@ -191,148 +192,4 @@
 
 
 {% block scripts %}
-<script>
-    // Search functionality
-    document.getElementById('search-input').addEventListener('keypress', function (e) {
-        if (e.key === 'Enter') {
-            e.preventDefault();
-            applySearch();
-        }
-    });
-
-    function applySearch() {
-        const searchValue = document.getElementById('search-input').value;
-        const url = new URL(window.location.href);
-        if (searchValue) {
-            url.searchParams.set('search', searchValue);
-        } else {
-            url.searchParams.delete('search');
-        }
-        window.location.href = url.toString();
-    }
-
-    // Filters modal
-    function openFiltersModal() {
-        const modal = document.getElementById('filtersModal');
-        modal.classList.remove('hidden');
-        modal.classList.add('flex');
-        document.body.style.overflow = 'hidden';
-    }
-
-    function closeFiltersModal() {
-        const modal = document.getElementById('filtersModal');
-        modal.classList.add('hidden');
-        modal.classList.remove('flex');
-        document.body.style.overflow = '';
-    }
-
-    function applyFilters(event) {
-        event.preventDefault();
-        const formData = new FormData(event.target);
-        const url = new URL(window.location.href);
-        url.search = '';
-
-        // Search
-        const search = formData.get('search');
-        if (search) {
-            url.searchParams.set('search', search);
-        }
-
-        // Status
-        const statuses = formData.getAll('status');
-        if (statuses.length > 0) {
-            url.searchParams.set('status', statuses.join(','));
-        }
-
-        // Size
-        const sizeMin = formData.get('size_min');
-        const sizeMax = formData.get('size_max');
-        if (sizeMin) {
-            url.searchParams.set('size_min', sizeMin);
-        }
-        if (sizeMax) {
-            url.searchParams.set('size_max', sizeMax);
-        }
-
-        // Podcast
-        const podcast = formData.get('podcast');
-        if (podcast) {
-            url.searchParams.set('podcast', podcast);
-        }
-
-        window.location.href = url.toString();
-    }
-
-    function removeFilter(filterName) {
-        const url = new URL(window.location.href);
-        if (filterName === 'size_min' || filterName === 'size_max') {
-            url.searchParams.delete('size_min');
-            url.searchParams.delete('size_max');
-        } else {
-            url.searchParams.delete(filterName);
-        }
-        window.location.href = url.toString();
-    }
-
-    function clearAllFilters() {
-        window.location.href = '/episodes';
-    }
-
-    // Close modal on Escape key
-    document.addEventListener('keydown', function (event) {
-        if (event.key === 'Escape') {
-            closeFiltersModal();
-        }
-    });
-
-    // Close modal on background click
-    document.getElementById('filtersModal').addEventListener('click', function (event) {
-        if (event.target === this) {
-            closeFiltersModal();
-        }
-    });
-
-    // Dropdown menu functionality
-    (function () {
-        const dropdownButton = document.getElementById('user-dropdown-button');
-        const dropdownMenu = document.getElementById('user-dropdown-menu');
-        const dropdownContainer = document.getElementById('user-dropdown');
-
-        if (dropdownButton && dropdownMenu) {
-            dropdownButton.addEventListener('click', function (e) {
-                e.stopPropagation();
-                dropdownMenu.classList.toggle('hidden');
-            });
-
-            document.addEventListener('click', function (e) {
-                if (!dropdownContainer.contains(e.target)) {
-                    dropdownMenu.classList.add('hidden');
-                }
-            });
-
-            dropdownMenu.addEventListener('click', function (e) {
-                if (e.target.tagName === 'A') {
-                    dropdownMenu.classList.add('hidden');
-                }
-            });
-        }
-    })();
-
-    function handleDownload(episodeId) {
-        console.log('Download episode:', episodeId);
-        alert('Download functionality will be implemented');
-    }
-
-    function handleUpdate(episodeId) {
-        console.log('Update episode:', episodeId);
-        alert('Update functionality will be implemented');
-    }
-
-    function handleDelete(episodeId) {
-        if (confirm('Are you sure you want to delete this episode?')) {
-            console.log('Delete episode:', episodeId);
-            alert('Delete functionality will be implemented');
-        }
-    }
-</script>
 {% endblock %}
