@@ -17,6 +17,8 @@ from typing import (
     Literal,
     NamedTuple,
     ClassVar,
+    overload,
+    Unpack,
 )
 
 from sqlalchemy import (
@@ -134,11 +136,21 @@ class BaseRepository(Generic[ModelT]):
             filters["id"] = ids[0]
         statement = self._prepare_statement(filters=filters)
         result = await self.session.execute(statement)
-        row: Sequence[ModelT] | None = result.fetchone()
+        row = result.fetchone()
         if not row:
             return None
 
         return row[0]
+
+    async def first_for_update(self, **filters: FilterT) -> ModelT | None:
+        """Serialize state transitions while retaining the repository owner scope."""
+        statement = (
+            self._prepare_statement(filters=filters)
+            .with_only_columns(self.model.id)
+            .with_for_update()
+        )
+        instance_id = await self.session.scalar(statement)
+        return await self.first(id=instance_id) if instance_id is not None else None
 
     async def get_or_create(self, index_fields: list[str], **instance_data: FilterT) -> ModelT:
         """Finds instance by provided search filters or create the new one"""
@@ -251,11 +263,24 @@ class BaseRepository(Generic[ModelT]):
         statement = self._prepare_statement(filters=filters, entities=[func.count(self.model.id)])
         return await self.session.scalar(statement) or 0
 
+    @overload
+    def _prepare_statement(
+        self, filters: dict[str, FilterT], entities: None = None
+    ) -> Select[ModelT]: ...
+
+    @overload
+    def _prepare_statement(
+        self,
+        filters: dict[str, FilterT],
+        entities: list[ColumnsClauseRole | SQLCoreOperations[Any]],
+    ) -> Select[Unpack[tuple[Any, ...]]]: ...
+
     def _prepare_statement(
         self,
         filters: dict[str, FilterT],
         entities: list[ColumnsClauseRole | SQLCoreOperations[Any]] | None = None,
-    ) -> Select[tuple[ModelT]]:
+    ) -> Select:
+
         scoped_filters = self._apply_scope_filters(filters)
         filters_stmts: list[BinaryExpression[bool]] = []
         if (ids := scoped_filters.pop("ids", None)) and isinstance(ids, list):
@@ -536,7 +561,7 @@ class EpisodeRepository(BaseRepository[Episode]):
         """Return episode totals for every status, including statuses with no rows."""
         statement = select(Episode.status, func.count(Episode.id)).group_by(Episode.status)
         statement = self._apply_scope_statement(statement)
-        result: Result[tuple[EpisodeStatus, int]] = await self.session.execute(statement)
+        result: Result[EpisodeStatus, int] = await self.session.execute(statement)
         counts = {status: 0 for status in EpisodeStatus}
         for status, count in result.tuples():
             counts[status] = count
@@ -577,8 +602,8 @@ class EpisodeRepository(BaseRepository[Episode]):
 
             await self.session.delete(file)
 
-    async def all(self, **filters: FilterT) -> list[Episode]:
-        """Get all episodes, but with extended filters' logic."""
+    def _filtered_statement(self, filters: dict[str, FilterT]) -> Select[Episode]:
+        """Apply the same episode filters to listing and pagination."""
         scoped_filters = self._apply_scope_filters(filters)
         logger.debug("[DB] Getting all episodes: %s", scoped_filters)
         statement = select(self.model).outerjoin(File, Episode.audio_id == File.id)
@@ -658,8 +683,27 @@ class EpisodeRepository(BaseRepository[Episode]):
                     else:
                         statement = statement.filter(getattr(Episode, field_name) == filter_value)
 
-        result = await self.session.execute(statement.order_by(Episode.created_at.desc()))
-        return [row[0] for row in result.fetchall()]
+        return statement
+
+    async def all(self, **filters: FilterT) -> list[Episode]:
+        statement = self._filtered_statement(filters).order_by(Episode.created_at.desc())
+        return list((await self.session.scalars(statement)).all())
+
+    async def all_paginated(
+        self,
+        offset: int = 0,
+        limit: int = 10,
+        order_by: BaseOrderT = "-created_at",
+        **filters: FilterT,
+    ) -> tuple[list[Episode], int]:
+        statement = self._filtered_statement(filters)
+        total = (
+            await self.session.scalar(select(func.count()).select_from(statement.subquery())) or 0
+        )
+        episodes = await self.session.scalars(
+            statement.order_by(self._sort_criteria(order_by)).offset(offset).limit(limit)
+        )
+        return list(episodes.all()), total
 
     async def update_by_filters(self, filters: dict[str, FilterT], value: dict[str, Any]) -> None:
         """Update the instances by some filters"""
@@ -761,7 +805,7 @@ class EpisodeRepository(BaseRepository[Episode]):
             order_by.desc()
         )
         result = await self.session.execute(statement)
-        row: Sequence[Episode] | None = result.fetchone()
+        row = result.fetchone()
         return row[0] if row else None
 
     async def get_aggregated(self, podcast_id: int | None = None) -> EpisodesStatData:
@@ -858,7 +902,7 @@ class FileRepository(BaseRepository[File]):
         if excluded_ids:
             statement = statement.where(File.id.not_in(excluded_ids))
 
-        result: Result[tuple[int, str]] = await self.session.execute(
+        result: Result[int, str] = await self.session.execute(
             statement.order_by(File.path, File.id)
         )
         references: dict[str, list[int]] = {}

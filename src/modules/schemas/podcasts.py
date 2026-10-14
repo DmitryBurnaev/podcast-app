@@ -1,6 +1,7 @@
 from datetime import datetime
+from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from src.modules.schemas.statistics import PodcastStatistics
 
@@ -27,6 +28,13 @@ class PodcastCreateRequest(BaseModel):
     description: str = ""
     download_automatically: bool = False
 
+    @field_validator("name")
+    @classmethod
+    def nonblank_name(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError("Name is required")
+        return value.strip()
+
 
 class PodcastUpdateRequest(BaseModel):
     """Request payload for updating podcast fields."""
@@ -35,11 +43,31 @@ class PodcastUpdateRequest(BaseModel):
     description: str | None = None
     download_automatically: bool | None = None
 
+    @field_validator("name")
+    @classmethod
+    def nonblank_name(cls, value: str | None) -> str:
+        if value is None or not value.strip():
+            raise ValueError("Name is required")
+        return value.strip()
+
+    @field_validator("download_automatically")
+    @classmethod
+    def nonnull_autodownload(cls, value: bool | None) -> bool:
+        if value is None:
+            raise ValueError("Auto download must be a boolean")
+        return value
+
 
 class PodcastTaskResponse(BaseModel):
     """API response for a podcast background task."""
 
     job_id: str
+
+
+class PodcastTaskStatusResponse(BaseModel):
+    job_id: str
+    status: Literal["queued", "running", "success", "error", "unknown"]
+    error: str | None = None
 
 
 class Podcast(BaseModel):

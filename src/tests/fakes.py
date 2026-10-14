@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, ClassVar
@@ -135,6 +135,7 @@ class FakeRedis(BaseMock):
         "set",
         "publish",
         "async_get",
+        "async_get_many",
         "async_set",
         "async_publish",
     )
@@ -167,6 +168,11 @@ class FakeRedis(BaseMock):
 
     async def async_get(self, key: str) -> Any:
         return self.get(key)
+
+    async def async_get_many(self, keys: Iterable[str], pkey: str) -> dict[str, Any]:
+        self._raise_if_configured()
+        items = (self.content.get(key) for key in keys)
+        return {item[pkey]: item for item in items if isinstance(item, dict) and pkey in item}
 
     async def async_set(self, key: str, value: Any, ttl: int = 120) -> None:
         self.set(key, value, ttl)

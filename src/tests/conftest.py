@@ -1,25 +1,28 @@
-from collections.abc import Generator
+import os
 import re
+from collections.abc import Generator
 from dataclasses import dataclass
-from typing import AsyncGenerator, Any, Iterator
+from typing import Any, AsyncGenerator, Iterator
 
+import pytest
+import pytest_asyncio
 from litestar.middleware import AuthenticationResult
 from litestar.testing import TestClient
 from pydantic import SecretStr
-import pytest
-import pytest_asyncio
-import sqlalchemy
+from sqlalchemy import text
 from sqlalchemy.engine import URL, make_url
-from sqlalchemy.exc import ProgrammingError, OperationalError
-from sqlalchemy.util import concurrency
+from sqlalchemy.ext.asyncio import create_async_engine
+from sqlalchemy.pool import NullPool
 
 from src import main as app_main
 from src.main import DbStartMode, PodcastApp, make_app
 from src.modules import tasks
+from src.modules.db.models import BaseModel, User
 from src.modules.services import email as email_service
 from src.modules.utils import common as common_utils
 from src.modules.utils import ffmpeg
 from src.settings.app import AppSettings, FlagsSettings
+from src.settings.db import DBSettings
 from src.settings.log import LogSettings
 from src.tests.factories import make_user
 from src.tests.fakes import (
@@ -31,10 +34,8 @@ from src.tests.fakes import (
     FakeStorage,
     FakeTaskQueue,
 )
-from src.tests.mocks import mock_target_class
-from src.modules.db.models import BaseModel, User
-from src.settings.db import DBSettings
 from src.tests.helpers import make_db_session
+from src.tests.mocks import mock_target_class
 
 _DATABASE_NAME_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 
@@ -189,67 +190,37 @@ class TestDatabase:
     name: str
 
 
-def db_prep(database_name: str) -> str:
+@pytest_asyncio.fixture(scope="session")
+async def test_database(pytestconfig: pytest.Config) -> AsyncGenerator[TestDatabase, None]:
+    """Provision only an explicitly named, isolated functional database."""
     settings = DBSettings()
-    db_dsn_master = make_url(settings.database_dsn).set(database="postgres")
-    engine_master = sqlalchemy.create_engine(db_dsn_master)
-    user: str = settings.user
-    password: str = settings.password_secret
-    conn = engine_master.connect()
-
-    def exec_sql(query: str):
-        return conn.execute(sqlalchemy.text(query))
-
-    db_exists = exec_sql(f"SELECT 1 FROM pg_database WHERE datname = '{database_name}'").scalar()
-    try:
-        conn = conn.execution_options(autocommit=False)
-        exec_sql("ROLLBACK")
-    except ProgrammingError:
-        print("Could not drop the database, probably does not exist.")
-        exec_sql("ROLLBACK")
-    except OperationalError:
-        print("Could not drop database because it’s being accessed by other users")
-        exec_sql("ROLLBACK")
-
-    if not db_exists:
-        print(f"Test db is about to create {database_name}")
-        exec_sql(f"CREATE DATABASE {database_name}")
-
-    try:
-        exec_sql(f"CREATE USER {user} WITH ENCRYPTED PASSWORD '{password}'")
-    except Exception as e:
-        print(f"User already exists. ({e})")
-        exec_sql(f"GRANT ALL PRIVILEGES ON DATABASE {database_name} TO {user}")
-
-    conn.close()
-    return database_name
-
-
-@pytest_asyncio.fixture(autouse=True, scope="session")
-async def test_database(pytestconfig) -> AsyncGenerator[TestDatabase, Any]:
-    settings = DBSettings()
-    base_name = settings.name_test
-    if base_name == settings.name:
-        raise RuntimeError("TEST_DB_NAME must differ from DB_NAME.")
-
+    base_name = os.environ.get("TEST_DB_NAME")
+    if not base_name:
+        raise RuntimeError("TEST_DB_NAME is required for functional tests.")
+    if base_name in {settings.name, "postgres", "template0", "template1"}:
+        raise RuntimeError("TEST_DB_NAME must identify a separate test database.")
     worker_id = getattr(pytestconfig, "workerinput", {}).get("workerid", "master")
-    name_suffix: str = ""
-    if worker_id in {"master", ""}:
-        name_suffix = f"_{worker_id}"
-
-    database_name = f"{base_name}{name_suffix}"
+    database_name = base_name if worker_id == "master" else f"{base_name}_{worker_id}"
     if not _DATABASE_NAME_RE.fullmatch(database_name):
         raise RuntimeError("TEST_DB_NAME may contain only letters, digits, and underscores.")
-
     url = make_url(settings.database_dsn).set(database=database_name)
     database = TestDatabase(url=url, name=database_name)
-
-    def create_tables():
-        db_prep(database.name)
-        print(f"Creating tables in DB '{settings.name_test}' ... ")
-        engine = sqlalchemy.create_engine(database.url)
-        BaseModel.metadata.create_all(engine)
-
-    await concurrency.greenlet_spawn(create_tables)
-    print("DB and tables were successful created.")
+    admin_engine = create_async_engine(
+        url.set(database="postgres"), isolation_level="AUTOCOMMIT", poolclass=NullPool
+    )
+    try:
+        async with admin_engine.connect() as connection:
+            exists = await connection.scalar(
+                text("SELECT 1 FROM pg_database WHERE datname = :name"), {"name": database.name}
+            )
+            if not exists:
+                await connection.execute(text(f'CREATE DATABASE "{database.name}"'))
+    finally:
+        await admin_engine.dispose()
+    engine = create_async_engine(url, poolclass=NullPool)
+    try:
+        async with engine.begin() as schema_connection:
+            await schema_connection.run_sync(BaseModel.metadata.create_all)
+    finally:
+        await engine.dispose()
     yield database

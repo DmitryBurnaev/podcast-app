@@ -99,21 +99,33 @@ async def check_state(episodes: Iterable["Episode"]) -> list[dict]:
         filename = episode.audio_filename
         event_key = redis_client.get_key_by_filename(filename)
         current_state = current_states.get(event_key)
-        if episode.status == EpisodeStatus.ERROR:
+        if episode.status not in Episode.PROGRESS_STATUSES:
             current_file_size = 0
             total_file_size = 0
-            completed = 0
-            status = EpisodeStatus.ERROR
+            completed = 100 if episode.status == EpisodeStatus.PUBLISHED else 0
+            status = str(episode.status)
         elif current_state:
-            current_file_size = current_state["processed_bytes"]
-            total_file_size = current_state["total_bytes"]
-            completed = round((current_file_size / total_file_size) * 100, 2)
-            status = current_state["status"]
+            current_file_size = max(0, current_state["processed_bytes"])
+            total_file_size = max(0, current_state["total_bytes"])
+            completed = (
+                min(100, round(current_file_size / total_file_size * 100, 2))
+                if total_file_size
+                else 0
+            )
+            status = (
+                str(EpisodeStatus.CANCELING)
+                if episode.status == EpisodeStatus.CANCELING
+                else str(current_state["status"])
+            )
         else:
             current_file_size = 0
             total_file_size = 0
             completed = 0
-            status = EpisodeStatus.DL_PENDING
+            status = str(
+                EpisodeStatus.CANCELING
+                if episode.status == EpisodeStatus.CANCELING
+                else EpisodeStatus.DL_PENDING
+            )
 
         result.append(
             {

@@ -8,26 +8,23 @@ from litestar import get
 from litestar.di import NamedDependency
 from litestar.params import FromQuery
 
-from src.modules.common.constants import AuthSkip
 from src.modules.api.base import BaseApiController
+from src.modules.common.constants import AuthSkip
 from src.modules.common.exceptions import InvalidParametersAPIError
-from src.modules.db import User
-from src.modules.db.repositories import EpisodeRepository, PodcastRepository
 from src.modules.common.types import OwnerScope
+from src.modules.db import User
 from src.modules.db.services import SASessionUOW
 from src.modules.db.utils import cookie_file_ctx
-from src.modules.utils import common as common_utils
-from src.modules.utils.processing import check_state
 from src.modules.schemas.playlist import PlaylistEntryResponse, PlaylistResponse
 from src.modules.schemas.progress import (
-    ProgressEpisodeResponse,
     ProgressItemResponse,
-    ProgressPodcastResponse,
 )
 from src.modules.schemas.system import HealthCheck, SystemInfo
+from src.modules.services.progress import ProgressOperations
 from src.modules.services.redis import check_redis_connection
+from src.modules.utils import common as common_utils
+from src.modules.utils.common import cut_string, utcnow
 from src.settings.app import AppSettings
-from src.modules.utils.common import utcnow, cut_string
 
 logger = logging.getLogger(__name__)
 
@@ -110,40 +107,7 @@ class ProgressAPIController(BaseApiController):
         user_scope: NamedDependency[OwnerScope],
         episode_id: FromQuery[int | None] = None,
     ) -> dict[str, list[ProgressItemResponse]]:
-        """Return active processing progress for the current user."""
-        async with SASessionUOW() as uow:
-            episode_repository = EpisodeRepository(uow.session, scope=user_scope)
-            podcast_repository = PodcastRepository(uow.session, scope=user_scope)
-            podcasts = {podcast.id: podcast for podcast in await podcast_repository.all()}
-            if episode_id:
-                episode = await episode_repository.first(id=episode_id)
-                episodes = [episode] if episode else []
-            else:
-                episodes = await episode_repository.all_in_progress()
-
-            states = await check_state(episodes)
-
-        progress_items: list[ProgressItemResponse] = []
-        episodes_by_id = {episode.id: episode for episode in episodes}
-        for state in states:
-            episode = episodes_by_id[state["episode_id"]]
-            podcast = podcasts.get(state["podcast_id"])
-            progress_items.append(
-                ProgressItemResponse(
-                    status=str(state["status"]),
-                    completed=state["completed"],
-                    current_file_size=state["current_file_size"],
-                    total_file_size=state["total_file_size"],
-                    episode=ProgressEpisodeResponse.model_validate(episode, from_attributes=True),
-                    podcast=(
-                        ProgressPodcastResponse.model_validate(podcast, from_attributes=True)
-                        if podcast
-                        else None
-                    ),
-                )
-            )
-
-        return {"progressItems": progress_items}
+        return await ProgressOperations().get_progress(user_scope, episode_id)
 
 
 def _prepare_description(data: dict) -> str:

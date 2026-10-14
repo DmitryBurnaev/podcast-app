@@ -1,4 +1,4 @@
-{% extends "base.html" %}
+{% extends page_shell|default("base.html") %}
 
 {% block breadcrumbs %}
     <!-- Breadcrumbs -->
@@ -16,6 +16,9 @@
 {% endblock %}
 
 {% block content %}
+{% block refresh_episode_state %}<div data-refresh-region="episode-state" data-episode-id="{{ episode.id }}" data-status="{{ episode.status }}" data-audio-url="{{ audio_url or '' }}">
+<span class="text-slate-300">{{ get_episode_status_label(episode.status) }}</span>
+</div>{% endblock %}
     <!-- Two Column Layout: Left - Episode Info (1/4), Right - Edit Form (3/4) -->
     <div class="grid grid-cols-1 lg:grid-cols-4 gap-6">
         <!-- Left Column: Episode Overview Card (1/4 width) -->
@@ -43,7 +46,9 @@
 
                 <!-- Episode Title -->
                 <div class="text-center mb-4">
+{% block refresh_episode_title %}<div data-refresh-region="episode-title">
                     <h1 class="text-xl font-bold text-white mb-2 line-clamp-3">{{ episode.title }}</h1>
+</div>{% endblock %}
                 </div>
 
                 <!-- Audio Player -->
@@ -99,6 +104,7 @@
                     </div>
                 {% endif %}
 
+{% block refresh_episode_metadata %}<div data-refresh-region="episode-metadata">
                 <div class="space-y-3 mt-4 pt-4 border-t border-slate-700">
                     <!-- Created Date -->
                     <div class="flex items-center gap-2 text-sm">
@@ -161,6 +167,7 @@
                         </div>
                     {% endif %}
                 </div>
+</div>{% endblock %}
             </div>
         </div>
 

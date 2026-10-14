@@ -1,4 +1,4 @@
-{% extends "base.html" %}
+{% extends page_shell|default("base.html") %}
 
 {% block search %}
     <div id="search-block" class="flex-1 max-w mb-4 hidden">
@@ -26,6 +26,7 @@
 
 {% block content %}
 
+{% block refresh_podcasts %}<div data-refresh-region="podcasts">
     <!-- Podcasts List -->
     <div class="space-y-4">
         {% for podcast in podcasts %}
@@ -124,6 +125,7 @@
         </div>
     </div>
 
+</div>{% endblock %}
     <script>
         function handleDelete(podcastId) {
             // TODO: Implement delete functionality

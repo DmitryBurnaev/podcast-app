@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict, Field, PositiveInt
+from pydantic import BaseModel, ConfigDict, Field, PositiveInt, field_validator
 
 
 class EpisodeCreateSchema(BaseModel):
@@ -45,6 +45,14 @@ class EpisodeCreateNestedSchema(BaseModel):
         max_length=2048,
     )
 
+    @field_validator("source_url")
+    @classmethod
+    def nonblank_source(cls, value: str) -> str:
+        value = value.strip()
+        if not value:
+            raise ValueError("Source URL is required")
+        return value
+
     @property
     def normalized_source_url(self) -> str:
         """Return the source URL stripped for consistent downstream usage."""
@@ -58,6 +66,13 @@ class EpisodePatchSchema(BaseModel):
     description: str | None = None
     author: str | None = Field(default=None, max_length=256)
     chapters: list[dict] | None = None
+
+    @field_validator("title")
+    @classmethod
+    def nonblank_title(cls, value: str | None) -> str:
+        if value is None or not value.strip():
+            raise ValueError("Title is required")
+        return value.strip()
 
     @property
     def update_data(self) -> dict:

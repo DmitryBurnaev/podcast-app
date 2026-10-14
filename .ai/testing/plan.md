@@ -66,8 +66,18 @@
   SMTP/media подменяются function-scoped BaseMock/monkeypatch fixtures.
   Проверки: 343 passed, coverage 82%; повторный изолированный и xdist-прогоны —
   по 322 passed; `ruff`, `mypy`, `git diff --check` зелёные.
-- [ ] **P6. Полностью покрыть HTML views.** Template/context, auth, ownership,
+- [~] **P6. Полностью покрыть HTML views.** Template/context, auth, ownership,
   errors и episodes views без HTML snapshots.
+  - [x] **P6a — AJAX backend, 2026-10-14.** Контекст списка и деталей эпизода,
+    ошибки фильтров, преобразование MB в байты, выбор fragment templates для
+    пяти страниц и компиляция Jinja без рендера HTML. Cookie-auth и ownership
+    браузерных JSON-операций проверены функционально через PostgreSQL.
+    Расширенный набор API/views/services/tasks/utils: 393 passed; views без
+    PostgreSQL: 50 passed. `ruff`, `mypy` приложения и новых тестовых модулей,
+    `git diff --check` зелёные. Отчёт: `../plans/ajax-mechanics-stage1-report.md`.
+  - [ ] **P6b — оставшиеся HTML views.** Полное покрытие auth/ownership/errors
+    всех HTML-контроллеров, включая episode cover. Завершение P6 не заявляется
+    на основании готовности JSON API и fragment context.
 - [ ] **P7. Расширить SQLAdmin coverage.** Dashboard, роли и custom workflows.
 - [ ] **P8. Закрыть services, tasks, repositories и lifecycle.**
 - [ ] **P9. Включить типизацию, coverage >= 90% и CI gates.**

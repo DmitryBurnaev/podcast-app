@@ -12,6 +12,7 @@ from src.main import PodcastApp
 from src.modules.api import API_CONTROLLERS
 from src.modules.api.base import BaseApiController
 from src.modules.api import misc as misc_api
+from src.modules.services import progress as progress_service
 from src.modules.api.misc import _prepare_description
 from src.modules.db.models import User
 from src.tests.factories import make_episode, make_podcast
@@ -32,13 +33,14 @@ def misc_repositories(monkeypatch: pytest.MonkeyPatch) -> Iterator[SimpleNamespa
     podcast_repository = SimpleNamespace(all=AsyncMock())
     with monkeypatch.context() as patch:
         patch.setattr(misc_api, "SASessionUOW", lambda: MockUOW())
+        patch.setattr(progress_service, "SASessionUOW", lambda: MockUOW())
         patch.setattr(
-            misc_api,
+            progress_service,
             "EpisodeRepository",
             lambda session, **_: episode_repository,
         )
         patch.setattr(
-            misc_api,
+            progress_service,
             "PodcastRepository",
             lambda session, **_: podcast_repository,
         )
@@ -104,7 +106,7 @@ def mock_progress_state(
 
         def configure(result: object) -> AsyncMock:
             check_state = AsyncMock(return_value=result)
-            patch.setattr(misc_api, "check_state", check_state)
+            patch.setattr(progress_service, "check_state", check_state)
             return check_state
 
         yield configure

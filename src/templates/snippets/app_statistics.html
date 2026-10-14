@@ -1,0 +1,14 @@
+<div data-refresh-region="app-statistics" class="flex items-center gap-2">
+{% if stats %}
+                        <div class="flex items-center gap-1 p-2 text-slate-400">
+                            {{ icon_database() }}
+                            <span>{{ format_file_size(stats.total_size) }}</span>
+                        </div>
+                        <!-- Separator -->
+                        <div class="flex items-center gap-1 p-2 text-slate-400">
+                            {{ icon_melody("h-4 w-4") }}
+                            <span>{{ stats.total_episodes }}</span>
+                        </div>
+                        <div class="h-6 mr-2 ml-2 w-px bg-slate-600"></div>
+                    {% endif %}
+</div>
