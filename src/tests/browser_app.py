@@ -1,6 +1,7 @@
 """Local browser validation app: real PostgreSQL/auth, fake external services.
 
 Run with uvicorn src.tests.browser_app:make_browser_app --factory on port 8019.
+Set BROWSER_PORT to match another uvicorn port for a separate validation run.
 Requires TEST_DB_NAME starting with podcast_ajax_browser_ and normal DB settings.
 The seeded account browser@podcast.example / browser-check is test data only.
 """
@@ -75,8 +76,13 @@ class BrowserSource(FakeMediaSource):
 
 
 class BrowserStorage(FakeStorage):
+    def __init__(self, service_url: str) -> None:
+        super().__init__()
+        self.service_url = service_url
+
     async def get_presigned_url(self, remote_path: str) -> str:
-        return "http://127.0.0.1:8019/__browser__/feed.xml" if remote_path.endswith(".xml") else "http://127.0.0.1:8019/__browser__/audio.wav"
+        filename = "feed.xml" if remote_path.endswith(".xml") else "audio.wav"
+        return f"{self.service_url}__browser__/{filename}"
 
 
 class BrowserQueue(FakeTaskQueue):
@@ -147,9 +153,13 @@ def make_browser_app() -> main.PodcastApp:
     engine = create_async_engine(url, poolclass=NullPool)
     factory = async_sessionmaker(engine, expire_on_commit=False)
     patch = pytest.MonkeyPatch()
-    settings = AppSettings(service_url="http://127.0.0.1:8019/", app_version="browser-check", app_secret_key=SecretStr("browser-fixture-key-" * 8), flags=FlagsSettings(debug_mode=True, api_debug_mode=False), media_cache_dir=Path("/private/tmp/podcast-browser-cache"))
+    port = int(os.environ.get("BROWSER_PORT", "8019"))
+    if not 1024 <= port <= 65535:
+        raise RuntimeError("BROWSER_PORT must be a non-privileged TCP port.")
+    service_url = f"http://127.0.0.1:{port}/"
+    settings = AppSettings(service_url=service_url, app_version="browser-check", app_secret_key=SecretStr("browser-fixture-key-" * 8), flags=FlagsSettings(debug_mode=True, api_debug_mode=False), media_cache_dir=Path("/private/tmp/podcast-browser-cache"))
     redis = FakeRedis()
-    storage = BrowserStorage()
+    storage = BrowserStorage(service_url)
     queue = BrowserQueue(factory, redis)
     source = BrowserSource()
     # Keep the patch installers alive for the lifetime of this separate process.

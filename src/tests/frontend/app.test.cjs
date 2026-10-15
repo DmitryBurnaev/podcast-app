@@ -69,7 +69,7 @@ function editingPage(request, polling = false) {
     const context = {
         window: {PodcastHTTP: {request, RequestError}, location: {href: 'http://localhost/episodes/42/'}, addEventListener() {}},
         document, URL,
-        setTimeout: callback => { timers.set(++timerId, callback); return timerId; },
+        setTimeout: (callback, delay) => { timers.set(++timerId, {callback, delay}); return timerId; },
         clearTimeout: id => timers.delete(id),
         DOMParser: class { parseFromString() { return {querySelectorAll: () => [new Element({refreshRegion: 'episode-title'})]}; } },
         FormData: class {
@@ -81,13 +81,17 @@ function editingPage(request, polling = false) {
     listeners.get('DOMContentLoaded')();
     return {
         form, fields, submit, remove, feedback,
+        document, location: context.window.location,
+        get nextPollDelay() { return [...timers.values()].at(-1)?.delay; },
         get replacements() { return replacements; },
         send: () => listeners.get('submit')({target: form, preventDefault() {}}),
         poll: () => {
-            const [id, callback] = [...timers.entries()].at(-1);
+            const [id, entry] = [...timers.entries()].at(-1);
             timers.delete(id);
-            return callback();
+            return entry.callback();
         },
+        visibility: hidden => { document.hidden = hidden; listeners.get('visibilitychange')(); },
+        get timers() { return timers.size; },
     };
 }
 
@@ -180,4 +184,60 @@ test('a terminal download refresh deferred by editing is retried on the next pol
     assert.equal(fragments, 2);
     assert.equal(page.replacements, 1);
     assert.equal(page.fields[0].value, 'Unsaved "title"');
+});
+
+test('polling pauses while hidden and backs off after network failures', async () => {
+    let attempts = 0;
+    const page = editingPage(() => {
+        attempts++;
+        return attempts <= 2 ? Promise.reject(new RequestError('Network unavailable.')) : Promise.resolve({progressItems: []});
+    }, true);
+    page.visibility(true);
+    assert.equal(page.timers, 0);
+    assert.equal(attempts, 0);
+    page.visibility(false);
+    assert.equal(page.nextPollDelay, 0);
+    await page.poll();
+    assert.equal(page.nextPollDelay, 4000);
+    await page.poll();
+    assert.equal(page.nextPollDelay, 8000);
+    await page.poll();
+    assert.equal(page.nextPollDelay, 2000);
+    assert.equal(attempts, 3);
+});
+
+test('polling never starts an overlapping progress request', async () => {
+    const progress = deferred();
+    let attempts = 0;
+    const page = editingPage(() => { attempts++; return progress.promise; }, true);
+    const running = page.poll();
+    page.visibility(true);
+    page.visibility(false);
+    assert.equal(page.timers, 0);
+    assert.equal(attempts, 1);
+    progress.resolve({progressItems: []});
+    await running;
+    assert.equal(page.timers, 1);
+    assert.equal(page.nextPollDelay, 0);
+});
+
+test('old fragments cannot overwrite the page after its filter URL changes', async () => {
+    const fragment = deferred();
+    let polls = 0, fragments = 0;
+    const page = editingPage((url, options = {}) => {
+        if (options.html) return ++fragments === 1 ? fragment.promise : Promise.resolve('<div data-refresh-region="episode-title"></div>');
+        if (url === '/web-api/progress/') {
+            return Promise.resolve({progressItems: polls++ === 0 ? [{episode: {id: 42, status: 'DOWNLOADING'}}] : []});
+        }
+        return Promise.resolve({id: 42, status: 'PUBLISHED'});
+    }, true);
+    await page.poll();
+    const running = page.poll();
+    await tick();
+    page.location.href = 'http://localhost/episodes/42/?search=changed';
+    fragment.resolve('<div data-refresh-region="episode-title"></div>');
+    await running;
+    assert.equal(page.replacements, 0);
+    await page.poll();
+    assert.equal(page.replacements, 1);
 });
