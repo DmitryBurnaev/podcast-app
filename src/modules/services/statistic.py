@@ -21,6 +21,7 @@ class StatisticService:
         episode_repo = EpisodeRepository(session=self._uow.session, scope=self.scope)
         podcasts = await podcast_repo.all()
         episodes_agg = await episode_repo.get_aggregated()
+        downloading = await episode_repo.all_in_progress()
 
         last_pub = episodes_agg.last_published_at
         recent_text = (
@@ -35,7 +36,7 @@ class StatisticService:
             total_podcasts=len(podcasts),
             total_duration=episodes_agg.total_duration or 0,
             total_size=episodes_agg.total_file_size or 0,
-            downloading_count=125,  # placeholder until real downloading count is available
+            downloading_count=len(downloading),
             last_published_at=episodes_agg.last_published_at,
             last_created_at=episodes_agg.last_created_at,
             recent_activity=RecentActivity(text=recent_text, time=recent_time),

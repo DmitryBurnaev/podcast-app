@@ -1,0 +1,15 @@
+{
+  "kind": "live-http-only",
+  "browserExecuted": false,
+  "base": "http://127.0.0.1:8037",
+  "checks": [
+    "real login and session cookie",
+    "main HTML pages render",
+    "podcast validation, creation, quoted name escaping and editing",
+    "delayed episode creation, autodownload, cancellation, conflict, duplicate and editing",
+    "terminal download state, token redirect and available WAV payload",
+    "RSS task completion, feed availability and episode count",
+    "episode and podcast deletion, empty list and zero count",
+    "missing session returns JSON without redirect"
+  ]
+}

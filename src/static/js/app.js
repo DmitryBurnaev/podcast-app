@@ -189,6 +189,11 @@
             const incoming = [...parsed.querySelectorAll('[data-refresh-region]')];
             if (!incoming.length) throw new RequestError('The server returned an unexpected page response.');
             if (operations.size && !(allowFilters && operations.size === 1 && operations.has('filters'))) return false;
+            const current = new URL(window.location.href);
+            current.searchParams.delete('fragment');
+            const requested = new URL(location);
+            requested.searchParams.delete('fragment');
+            if (!allowFilters && requested.pathname + requested.search !== current.pathname + current.search) return false;
             const scroll = document.querySelector('main')?.scrollTop;
             const focused = document.activeElement;
             const focusKey = focused?.dataset?.action;

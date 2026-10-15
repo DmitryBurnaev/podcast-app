@@ -286,8 +286,16 @@ class BaseRepository(Generic[ModelT]):
         if (ids := scoped_filters.pop("ids", None)) and isinstance(ids, list):
             filters_stmts.append(self.model.id.in_(ids))
 
-        statement = select(*entities) if entities is not None else select(self.model)
-        statement = statement.filter_by(**scoped_filters)
+        statement = (
+            select(*entities).select_from(self.model)
+            if entities is not None
+            else select(self.model)
+        )
+        # Aggregate entities can expose the same column name on multiple tables.
+        filters_stmts.extend(
+            getattr(self.model, field_name) == value
+            for field_name, value in scoped_filters.items()
+        )
         if filters_stmts:
             statement = statement.filter(*filters_stmts)
 
@@ -820,10 +828,10 @@ class EpisodeRepository(BaseRepository[Episode]):
                 func.max(Episode.created_at).label("last_created_at"),
                 func.max(Episode.published_at).label("last_published_at"),
                 func.count(Episode.id).label("total_count"),
-                func.sum(Episode.length).label("total_duration"),
-                func.sum(File.size).label("total_size"),
+                func.coalesce(func.sum(Episode.length), 0).label("total_duration"),
+                func.coalesce(func.sum(File.size), 0).label("total_size"),
             ],
-        ).join(File, Episode.audio_id == File.id)
+        ).outerjoin(File, Episode.audio_id == File.id)
 
         result = await self.session.execute(statement)
         row_data: Row | None = result.fetchone()

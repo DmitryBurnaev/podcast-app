@@ -1,0 +1,17 @@
+Stage 3 browser validation, 2026-10-14
+
+Built-in browser:
+  cua.getState() failed before initialization.
+  Node OpenSSL configuration error: Operation not permitted opening
+  /System/Library/OpenSSL//openssl.cnf
+  Reported kernel PID: 36152, exit code 1.
+
+Playwright CLI:
+  Session podcast-stage3 could not open the login page.
+  Installed Chrome terminated with SIGABRT during launch.
+  Both normal execution and the requested elevated retry failed.
+  Elevated retry reported daemon PID 36326 and Chrome PID 36330.
+
+Real browser scenarios, screenshots and successful traces remain unavailable.
+The separate live HTTP validation passed on the isolated app at port 8037;
+see stage3-live-http.json. It does not execute frontend JS in a browser.
