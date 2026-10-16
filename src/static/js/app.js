@@ -26,12 +26,39 @@
     const activeStatus = status => ['DOWNLOADING', 'CANCELING'].includes(String(status).toUpperCase());
     const actionButtons = () => document.querySelectorAll('[data-action]');
 
+    async function copyText(input) {
+        if (navigator.clipboard?.writeText) {
+            try {
+                await navigator.clipboard.writeText(input.value);
+                return;
+            } catch {
+                // Try selection-based copying if clipboard access is denied.
+            }
+        }
+        const previousFocus = document.activeElement;
+        input.focus({preventScroll: true});
+        input.select();
+        // Legacy fallback for browsers without the Clipboard API (e.g. over HTTP).
+        // noinspection JSDeprecatedSymbols
+        if (!document.execCommand('copy')) throw new Error('Copy failed');
+        previousFocus?.focus({preventScroll: true});
+    }
+
     function statusLabel(status) {
-        return ({NEW: 'Pending', ERROR: 'Error', PUBLISHED: 'Published', ARCHIVED: 'Archived',
-            DOWNLOADING: 'Downloading', CANCELING: 'Canceling', DL_PENDING: 'Waiting for download',
-            DL_EPISODE_DOWNLOADING: 'Downloading audio', DL_EPISODE_POSTPROCESSING: 'Processing audio',
-            DL_EPISODE_UPLOADING: 'Uploading audio', DL_COVER_DOWNLOADING: 'Downloading cover',
-            DL_COVER_UPLOADING: 'Uploading cover'})[status] || 'Processing';
+        return ({
+            NEW: 'Pending',
+            ERROR: 'Error',
+            PUBLISHED: 'Published',
+            ARCHIVED: 'Archived',
+            DOWNLOADING: 'Downloading',
+            CANCELING: 'Canceling',
+            DL_PENDING: 'Waiting for download',
+            DL_EPISODE_DOWNLOADING: 'Downloading audio',
+            DL_EPISODE_POSTPROCESSING: 'Processing audio',
+            DL_EPISODE_UPLOADING: 'Uploading audio',
+            DL_COVER_DOWNLOADING: 'Downloading cover',
+            DL_COVER_UPLOADING: 'Uploading cover'
+        })[status] || 'Processing';
     }
 
     function feedback(scope, text, kind = 'success', error = null, source = 'operation') {
@@ -119,7 +146,9 @@
         });
         document.querySelectorAll('[data-form]').forEach(form => {
             if (form.closest('[data-busy="true"]')) return;
-            form.querySelectorAll('button[type="submit"]').forEach(button => { button.disabled = authExpired || requestBusy; });
+            form.querySelectorAll('button[type="submit"]').forEach(button => {
+                button.disabled = authExpired || requestBusy;
+            });
         });
     }
 
@@ -216,7 +245,8 @@
             syncButtons();
             return true;
         };
-        refreshChain = refreshChain.catch(() => {}).then(perform);
+        refreshChain = refreshChain.catch(() => {
+        }).then(perform);
         return refreshChain;
     }
 
@@ -240,12 +270,19 @@
         feedback(scope, label, 'pending');
         let data;
         let failure;
-        try { data = await send(); } catch (error) { failure = error; }
+        try {
+            data = await send();
+        } catch (error) {
+            failure = error;
+        }
         operations.delete(key);
         if (failure) {
             setBusy(scope, false);
             if (scope.matches('form, [data-modal]')) feedback(scope, failure.message, 'error', failure);
-            else { feedback(scope, ''); showError(failure); }
+            else {
+                feedback(scope, '');
+                showError(failure);
+            }
             if (failure.details?.episode_id) {
                 const box = scope.querySelector('[data-feedback]');
                 const link = document.createElement('a');
@@ -288,12 +325,25 @@
         switch (form.dataset.form) {
             case 'create-podcast':
                 await mutate('create-podcast', scope, 'Creating podcast…',
-                    () => request('/web-api/podcasts/', {method: 'POST', data: {name: String(data.get('name')).trim(), description: data.get('description'), download_automatically: data.has('download_automatically')}}),
-                    async () => { closeModal(true); await refreshAfterSuccess(); });
+                    () => request('/web-api/podcasts/', {
+                        method: 'POST',
+                        data: {
+                            name: String(data.get('name')).trim(),
+                            description: data.get('description'),
+                            download_automatically: data.has('download_automatically')
+                        }
+                    }),
+                    async () => {
+                        closeModal(true);
+                        await refreshAfterSuccess();
+                    });
                 break;
             case 'create-episode':
                 await mutate(`podcast:${id}`, scope, 'Getting episode information…',
-                    () => request(`/web-api/podcasts/${id}/episodes/`, {method: 'POST', data: {sourceURL: String(data.get('sourceURL')).trim()}}),
+                    () => request(`/web-api/podcasts/${id}/episodes/`, {
+                        method: 'POST',
+                        data: {sourceURL: String(data.get('sourceURL')).trim()}
+                    }),
                     async episode => {
                         if (activeStatus(episode.status)) trackedEpisodes.set(episode.id, episode);
                         closeModal(true);
@@ -302,13 +352,33 @@
                 break;
             case 'edit-podcast':
                 await mutate(`podcast:${id}`, form, 'Saving podcast…',
-                    () => request(`/web-api/podcasts/${id}/`, {method: 'PATCH', data: {name: String(data.get('name')).trim(), description: data.get('description'), download_automatically: data.has('download_automatically')}}),
-                    async podcast => { savedForm(form, podcast); await refreshAfterSuccess(); });
+                    () => request(`/web-api/podcasts/${id}/`, {
+                        method: 'PATCH',
+                        data: {
+                            name: String(data.get('name')).trim(),
+                            description: data.get('description'),
+                            download_automatically: data.has('download_automatically')
+                        }
+                    }),
+                    async podcast => {
+                        savedForm(form, podcast);
+                        await refreshAfterSuccess();
+                    });
                 break;
             case 'edit-episode':
                 await mutate(`episode:${id}`, form, 'Saving episode…',
-                    () => request(`/web-api/episodes/${id}/`, {method: 'PATCH', data: {title: String(data.get('title')).trim(), author: data.get('author'), description: data.get('description')}}),
-                    async episode => { savedForm(form, episode); await refreshAfterSuccess(); });
+                    () => request(`/web-api/episodes/${id}/`, {
+                        method: 'PATCH',
+                        data: {
+                            title: String(data.get('title')).trim(),
+                            author: data.get('author'),
+                            description: data.get('description')
+                        }
+                    }),
+                    async episode => {
+                        savedForm(form, episode);
+                        await refreshAfterSuccess();
+                    });
                 break;
             case 'filters': {
                 const url = new URL(window.location.href);
@@ -337,8 +407,12 @@
             if (search) search.value = url.searchParams.get('search') || '';
             feedback(scope, '');
             if (activeModal === scope) closeModal(true);
-        } catch (error) { feedback(scope, error.message, 'error', error); }
-        finally { operations.delete('filters'); setBusy(scope, false); }
+        } catch (error) {
+            feedback(scope, error.message, 'error', error);
+        } finally {
+            operations.delete('filters');
+            setBusy(scope, false);
+        }
     }
 
     function syncFilterForm() {
@@ -358,17 +432,30 @@
         const id = Number(button.dataset.id);
         const scope = button.closest('[data-episode-card]') || episodeForm() || podcastForm() || byId('page-feedback');
         switch (button.dataset.action) {
-            case 'edit-episode': window.location.assign(`/episodes/${id}/`); break;
-            case 'add-podcast': openModal('addPodcastModal', button); break;
+            case 'edit-episode':
+                window.location.assign(`/episodes/${id}/`);
+                break;
+            case 'add-podcast':
+                openModal('addPodcastModal', button);
+                break;
             case 'add-episode':
                 byId('add-episode-form').dataset.id = String(id);
                 byId('episodePodcastTitle').textContent = button.dataset.name;
                 openModal('addEpisodeModal', button);
                 break;
-            case 'close-modal': closeModal(); break;
-            case 'open-filters': syncFilterForm(); openModal('filtersModal', button); break;
-            case 'delete-podcast': confirmDelete('podcast', id, button); break;
-            case 'delete-episode': confirmDelete('episode', id, button); break;
+            case 'close-modal':
+                closeModal();
+                break;
+            case 'open-filters':
+                syncFilterForm();
+                openModal('filtersModal', button);
+                break;
+            case 'delete-podcast':
+                confirmDelete('podcast', id, button);
+                break;
+            case 'delete-episode':
+                confirmDelete('episode', id, button);
+                break;
             case 'confirm-delete': {
                 const {kind, id: confirmedId} = confirmation || {};
                 if (!kind) return;
@@ -402,11 +489,21 @@
             case 'generate-rss':
                 await mutate(`podcast:${id}`, scope, 'Starting RSS generation…',
                     () => request(`/web-api/podcasts/${id}/generate-rss/`, {method: 'PUT'}),
-                    async task => { rssTasks.set(id, task.job_id); feedback(scope, 'RSS generation started.'); feedback(byId('rss-feedback'), 'Generating RSS…', 'pending'); syncButtons(); wakePoll(); });
+                    async task => {
+                        rssTasks.set(id, task.job_id);
+                        feedback(scope, 'RSS generation started.');
+                        feedback(byId('rss-feedback'), 'Generating RSS…', 'pending');
+                        syncButtons();
+                        wakePoll();
+                    });
                 break;
             case 'copy-rss':
-                try { await navigator.clipboard.writeText(byId('podcast-rss-link').value); feedback(byId('rss-feedback'), 'RSS link copied.'); }
-                catch { feedback(byId('rss-feedback'), 'Could not copy the link. Select and copy it manually.', 'error'); }
+                try {
+                    await copyText(byId('podcast-rss-link'));
+                    feedback(byId('rss-feedback'), 'RSS link copied.');
+                } catch {
+                    feedback(byId('rss-feedback'), 'Could not copy the link. Select and copy it manually.', 'error');
+                }
                 break;
             case 'toggle-search': {
                 const search = byId('search-block');
@@ -415,7 +512,9 @@
                 if (!search.classList.contains('hidden')) byId('search-input')?.focus();
                 break;
             }
-            case 'toggle-user-menu': byId('user-dropdown-menu')?.classList.toggle('hidden'); break;
+            case 'toggle-user-menu':
+                byId('user-dropdown-menu')?.classList.toggle('hidden');
+                break;
             case 'remove-filter':
             case 'clear-filters': {
                 const url = new URL(window.location.href);
@@ -552,10 +651,18 @@
             try {
                 if (audio.paused) await audio.play(); else audio.pause();
                 feedback(byId('player-feedback'), '');
-            } catch { feedback(byId('player-feedback'), 'Audio could not be played. Please try again.', 'error'); }
+            } catch {
+                feedback(byId('player-feedback'), 'Audio could not be played. Please try again.', 'error');
+            }
         });
-        slider.addEventListener('pointerdown', event => { dragging = true; slider.setPointerCapture(event.pointerId); });
-        for (const name of ['pointerup', 'pointercancel']) slider.addEventListener(name, () => { dragging = false; update(); });
+        slider.addEventListener('pointerdown', event => {
+            dragging = true;
+            slider.setPointerCapture(event.pointerId);
+        });
+        for (const name of ['pointerup', 'pointercancel']) slider.addEventListener(name, () => {
+            dragging = false;
+            update();
+        });
         slider.addEventListener('input', () => {
             if (Number.isFinite(audio.duration)) audio.currentTime = Number(slider.value);
         });
@@ -566,7 +673,10 @@
 
     function init() {
         document.addEventListener('click', event => {
-            if (event.target === activeModal) { closeModal(); return; }
+            if (event.target === activeModal) {
+                closeModal();
+                return;
+            }
             const button = event.target.closest('[data-action]');
             if (button) {
                 event.preventDefault();
@@ -585,19 +695,32 @@
         });
         document.addEventListener('keydown', event => {
             if (activeModal) {
-                if (event.key === 'Escape') { event.preventDefault(); closeModal(); }
+                if (event.key === 'Escape') {
+                    event.preventDefault();
+                    closeModal();
+                }
                 if (event.key === 'Tab') {
                     const elements = [...activeModal.querySelectorAll('button, a[href], input, textarea, select, [tabindex="0"]')].filter(element => !element.disabled && !element.hidden && element.getClientRects().length);
                     const first = elements[0], last = elements[elements.length - 1];
-                    if (!first) { event.preventDefault(); return; }
-                    if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
-                    else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+                    if (!first) {
+                        event.preventDefault();
+                        return;
+                    }
+                    if (event.shiftKey && document.activeElement === first) {
+                        event.preventDefault();
+                        last.focus();
+                    } else if (!event.shiftKey && document.activeElement === last) {
+                        event.preventDefault();
+                        first.focus();
+                    }
                 }
                 return;
             }
             if (event.key === 'Escape') byId('search-block')?.classList.add('hidden');
             if (event.key === '/' && !event.target.matches('input, textarea, select, [contenteditable="true"]')) {
-                event.preventDefault(); byId('search-block')?.classList.remove('hidden'); byId('search-input')?.focus();
+                event.preventDefault();
+                byId('search-block')?.classList.remove('hidden');
+                byId('search-input')?.focus();
             }
             if (event.key === 'Enter' && event.target.id === 'search-input') {
                 event.preventDefault();
@@ -610,13 +733,19 @@
                 }
             }
         });
-        document.addEventListener('visibilitychange', () => { if (document.hidden) clearTimeout(pollTimer); else wakePoll(); });
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden) clearTimeout(pollTimer); else wakePoll();
+        });
         window.addEventListener('popstate', () => refreshAfterSuccess());
         document.querySelectorAll('[data-episode-card], [data-refresh-region="episode-state"]').forEach(card => {
             if (activeStatus(card.dataset.status)) trackedEpisodes.set(Number(card.dataset.id || card.dataset.episodeId), {title: card.dataset.name});
         });
-        initPlayer(); syncFilterForm(); syncButtons(); wakePoll();
+        initPlayer();
+        syncFilterForm();
+        syncButtons();
+        wakePoll();
     }
+
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
     else init();
 })();

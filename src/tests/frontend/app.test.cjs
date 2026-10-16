@@ -68,7 +68,7 @@ function editingPage(request, polling = false) {
     };
     const context = {
         window: {PodcastHTTP: {request, RequestError}, location: {href: 'http://localhost/episodes/42/'}, addEventListener() {}},
-        document, URL,
+        document, URL, navigator: {},
         setTimeout: (callback, delay) => { timers.set(++timerId, {callback, delay}); return timerId; },
         clearTimeout: id => timers.delete(id),
         DOMParser: class { parseFromString() { return {querySelectorAll: () => [new Element({refreshRegion: 'episode-title'})]}; } },
@@ -81,7 +81,8 @@ function editingPage(request, polling = false) {
     listeners.get('DOMContentLoaded')();
     return {
         form, fields, submit, remove, feedback,
-        document, location: context.window.location,
+        document, navigator: context.navigator, location: context.window.location,
+        click: button => listeners.get('click')({target: {closest: () => button}, preventDefault() {}, stopPropagation() {}}),
         get nextPollDelay() { return [...timers.values()].at(-1)?.delay; },
         get replacements() { return replacements; },
         send: () => listeners.get('submit')({target: form, preventDefault() {}}),
@@ -93,6 +94,75 @@ function editingPage(request, polling = false) {
         visibility: hidden => { document.hidden = hidden; listeners.get('visibilitychange')(); },
         get timers() { return timers.size; },
     };
+}
+
+function rssPage() {
+    const page = editingPage(() => assert.fail('Copying must not send a request'));
+    const input = new Element();
+    input.value = 'http://example.test/podcasts/42/rss.xml';
+    input.focus = () => { page.document.activeElement = input; };
+    input.select = () => { input.selectionStart = 0; input.selectionEnd = input.value.length; };
+    const feedback = new Element({feedback: ''});
+    const button = new Element({action: 'copy-rss'});
+    button.focus = () => { page.document.activeElement = button; };
+    page.document.activeElement = button;
+    const getElementById = page.document.getElementById;
+    page.document.getElementById = id => ({'podcast-rss-link': input, 'rss-feedback': feedback})[id] || getElementById(id);
+    return {page, input, feedback, button};
+}
+
+test('RSS copy reports success only after the Clipboard API resolves', async () => {
+    const {page, input, feedback, button} = rssPage();
+    const copying = deferred();
+    page.navigator.clipboard = {writeText: text => {
+        assert.equal(text, input.value);
+        return copying.promise;
+    }};
+    page.document.execCommand = () => assert.fail('The legacy fallback must not run');
+    page.click(button);
+    await tick();
+    assert.equal(feedback.children.length, 0);
+    copying.resolve();
+    await tick();
+    assert.equal(feedback.children[0].textContent, 'RSS link copied.');
+});
+
+for (const unavailable of ['missing', 'missing writeText', 'rejected']) {
+    test(`RSS copy falls back when the Clipboard API is ${unavailable}`, async () => {
+        const {page, input, feedback, button} = rssPage();
+        if (unavailable === 'missing writeText') page.navigator.clipboard = {};
+        if (unavailable === 'rejected') {
+            page.navigator.clipboard = {writeText: () => Promise.reject(new Error('Permission denied'))};
+        }
+        let copied;
+        page.document.execCommand = command => {
+            assert.equal(command, 'copy');
+            assert.equal(page.document.activeElement, input);
+            copied = input.value.slice(input.selectionStart, input.selectionEnd);
+            return true;
+        };
+        page.click(button);
+        await tick();
+        assert.equal(copied, input.value);
+        assert.equal(feedback.children[0].textContent, 'RSS link copied.');
+        assert.equal(page.document.activeElement, button);
+    });
+}
+
+for (const failure of ['false', 'throws', 'missing']) {
+    test(`RSS copy leaves the link selected for manual copying when fallback ${failure}`, async () => {
+        const {page, input, feedback, button} = rssPage();
+        if (failure !== 'missing') page.document.execCommand = () => {
+            if (failure === 'throws') throw new Error('Copy denied');
+            return false;
+        };
+        page.click(button);
+        await tick();
+        assert.equal(feedback.children[0].textContent, 'Could not copy the link. Select and copy it manually.');
+        assert.equal(feedback.className, 'ui-feedback ui-feedback-error');
+        assert.equal(page.document.activeElement, input);
+        assert.equal(input.value.slice(input.selectionStart, input.selectionEnd), input.value);
+    });
 }
 
 test('editing stays locked through fragment refresh and rejects repeated submission', async () => {
