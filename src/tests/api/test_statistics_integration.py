@@ -17,9 +17,7 @@ class TestOwnedStatistics:
     @pytest.mark.usefixtures("use_functional_session_factory")
     async def test_empty_statistics_return_zero_totals(self, db_user: User) -> None:
         async with SASessionUOW() as uow:
-            statistics = await StatisticService(
-                uow, OwnerScope(db_user.id)
-            ).get_app_statistics()
+            statistics = await StatisticService(uow, OwnerScope(db_user.id)).get_app_statistics()
         assert statistics.total_episodes == 0
         assert statistics.total_size == 0
         assert statistics.total_duration == 0
@@ -29,9 +27,7 @@ class TestOwnedStatistics:
     async def test_statistics_include_pending_audio_and_exclude_foreign_episodes(
         self, functional_session: AsyncSession, db_user: User, db_podcast: Podcast
     ) -> None:
-        other = User(
-            email="statistics-other@podcast.example", password="hash", is_active=True
-        )
+        other = User(email="statistics-other@podcast.example", password="hash", is_active=True)
         functional_session.add(other)
         await functional_session.flush()
         foreign = Podcast(
@@ -93,14 +89,10 @@ class TestOwnedStatistics:
         assert podcast_statistics.total_duration == 90
         assert podcast_statistics.total_size == 4096
 
-        await EpisodeRepository(functional_session, OwnerScope(db_user.id)).delete(
-            pending
-        )
+        await EpisodeRepository(functional_session, OwnerScope(db_user.id)).delete(pending)
         await functional_session.commit()
         async with SASessionUOW() as uow:
-            statistics = await StatisticService(
-                uow, OwnerScope(db_user.id)
-            ).get_app_statistics()
+            statistics = await StatisticService(uow, OwnerScope(db_user.id)).get_app_statistics()
         assert statistics.total_episodes == 1
         assert statistics.total_size == 4096
         assert statistics.downloading_count == 0

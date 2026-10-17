@@ -83,16 +83,18 @@
     walkthrough остаётся открытым: встроенный инструмент не запускает Node,
     Chrome через Playwright завершается с SIGABRT. Эти результаты не закрывают
     P6b. Отчёт: `../plans/ajax-mechanics-stage2-report.md`.
-  - [~] **AJAX validation — этап 3, 2026-10-14.** Исправлен HTTP 500 главной
+  - [~] **AJAX validation — этап 3, 2026-10-16.** Исправлен HTTP 500 главной
     страницы при scoped SQL-агрегации; статистика включает эпизоды без аудио
     и реальное число загрузок. Добавлены PostgreSQL-проверки статистики и JS
     проверки polling/устаревших fragment-ответов. Полный набор: 471 passed;
-    JS: 19 passed; live HTTP: 8 групп сценариев на отдельном стенде, включая
-    media/RSS и удаление. `ruff`, `mypy` (приложение и перечисленные новые
-    тестовые модули), JS syntax и diff check зелёные. Оба реальных browser
-    walkthrough не выполнены: ошибки запуска встроенного Node и Chrome.
-    Сценарии и диагностика сохранены в `output/playwright/`; P6b и этот
-    browser-критерий остаются открытыми. Отчёт:
+    JS: 27 passed; live HTTP: 8 групп сценариев на отдельном стенде, включая
+    media/RSS и удаление. Повторный полный `pytest`: 471 passed; `ruff` и
+    `mypy src` зелёные. Chrome/Playwright прошёл изолированный UI-сценарий:
+    login, создание/редактирование подкаста и эпизода, terminal download,
+    RSS и удаление. Встроенный браузер открывает login, но его полный
+    walkthrough ещё не пройден; также остаются отдельные UI-сценарии ошибок,
+    длительной отмены, focus и reduced motion. P6b и этот browser-критерий
+    остаются открытыми. Отчёт:
     `../plans/ajax-mechanics-stage3-report.md`.
   - [ ] **P6b — оставшиеся HTML views.** Полное покрытие auth/ownership/errors
     всех HTML-контроллеров, включая episode cover. Завершение P6 не заявляется

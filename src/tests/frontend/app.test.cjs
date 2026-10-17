@@ -23,15 +23,27 @@ class Element {
         this.isConnected = true;
         this.classList = {add() {}, remove() {}, toggle() {}};
     }
-    append(child) { this.children.push(child); }
+    append(child) { child.parentElement = this; this.children.push(child); }
     replaceChildren() { this.children = []; }
     setAttribute(name, value) { this[name] = value; }
     getAttribute(name) { return this[name] ?? null; }
     focus() {}
     matches(selector) { return selector === '[data-feedback]' && 'feedback' in this.dataset; }
-    closest(selector) { return selector === '[data-busy="true"]' && this.dataset.busy === 'true' ? this : null; }
+    closest(selector) {
+        if (selector === '[data-busy="true"]' && this.dataset.busy === 'true') return this;
+        if (selector === '[data-notification]') return this.dataset.notification ? this : this.parentElement?.closest(selector) || null;
+        return null;
+    }
     querySelector() { return null; }
     querySelectorAll() { return []; }
+    remove() {
+        this.parentElement?.children.splice(this.parentElement.children.indexOf(this), 1);
+        this.isConnected = false;
+    }
+}
+
+function notificationContent(page) {
+    return page.notifications.children.at(-1)?._content;
 }
 
 function editingPage(request, polling = false) {
@@ -39,6 +51,7 @@ function editingPage(request, polling = false) {
     const form = new Element({form: 'edit-episode', id: '42'});
     const feedback = new Element({feedback: ''});
     const pageFeedback = new Element({feedback: ''});
+    const notifications = new Element();
     const submit = new Element();
     const remove = new Element({action: 'delete-episode', id: '42'});
     const fields = ['title', 'author', 'description'].map(name => Object.assign(new Element(), {name, value: name === 'title' ? 'Unsaved "title"' : ''}));
@@ -58,7 +71,7 @@ function editingPage(request, polling = false) {
     const document = {
         readyState: 'loading', hidden: false, activeElement: null,
         body: {style: {}},
-        getElementById: id => ({'edit-episode-form': form, 'page-feedback': pageFeedback})[id] || null,
+        getElementById: id => ({'edit-episode-form': form, 'page-feedback': pageFeedback, 'notification-stack': notifications})[id] || null,
         querySelector: selector => selector === '[data-refresh-region="episode-state"]' ? {dataset: {status: 'NEW'}} :
             selector === '[data-refresh-region="episode-title"]' ? oldTitle :
                 polling && selector.startsWith('[data-refresh-region="overview"]') ? new Element() : null,
@@ -80,7 +93,7 @@ function editingPage(request, polling = false) {
     vm.runInNewContext(script, context);
     listeners.get('DOMContentLoaded')();
     return {
-        form, fields, submit, remove, feedback,
+        form, fields, submit, remove, feedback, notifications,
         document, navigator: context.navigator, location: context.window.location,
         click: button => listeners.get('click')({target: {closest: () => button}, preventDefault() {}, stopPropagation() {}}),
         get nextPollDelay() { return [...timers.values()].at(-1)?.delay; },
@@ -93,6 +106,13 @@ function editingPage(request, polling = false) {
         },
         visibility: hidden => { document.hidden = hidden; listeners.get('visibilitychange')(); },
         get timers() { return timers.size; },
+        expireNotifications: () => {
+            for (const [id, timer] of [...timers]) {
+                if (timer.delay !== 10000) continue;
+                timers.delete(id);
+                timer.callback();
+            }
+        },
     };
 }
 
@@ -121,10 +141,10 @@ test('RSS copy reports success only after the Clipboard API resolves', async () 
     page.document.execCommand = () => assert.fail('The legacy fallback must not run');
     page.click(button);
     await tick();
-    assert.equal(feedback.children.length, 0);
+    assert.equal(page.notifications.children.length, 0);
     copying.resolve();
     await tick();
-    assert.equal(feedback.children[0].textContent, 'RSS link copied.');
+    assert.equal(notificationContent(page).children[0].textContent, 'RSS link copied.');
 });
 
 for (const unavailable of ['missing', 'missing writeText', 'rejected']) {
@@ -144,7 +164,7 @@ for (const unavailable of ['missing', 'missing writeText', 'rejected']) {
         page.click(button);
         await tick();
         assert.equal(copied, input.value);
-        assert.equal(feedback.children[0].textContent, 'RSS link copied.');
+        assert.equal(notificationContent(page).children[0].textContent, 'RSS link copied.');
         assert.equal(page.document.activeElement, button);
     });
 }
@@ -158,8 +178,8 @@ for (const failure of ['false', 'throws', 'missing']) {
         };
         page.click(button);
         await tick();
-        assert.equal(feedback.children[0].textContent, 'Could not copy the link. Select and copy it manually.');
-        assert.equal(feedback.className, 'ui-feedback ui-feedback-error');
+        assert.equal(notificationContent(page).children[0].textContent, 'Could not copy the link. Select and copy it manually.');
+        assert.equal(page.notifications.children.at(-1).className, 'ui-notification ui-feedback-error');
         assert.equal(page.document.activeElement, input);
         assert.equal(input.value.slice(input.selectionStart, input.selectionEnd), input.value);
     });
@@ -201,7 +221,7 @@ test('failed editing keeps input and allows correction and retry', async () => {
     page.send();
     await tick();
     assert.equal(page.fields[0].value, 'Unsaved "title"');
-    assert.equal(page.feedback.children[0].textContent, 'Title is invalid.');
+    assert.equal(notificationContent(page).children[0].textContent, 'Title is invalid.');
     assert.equal(page.submit.disabled, false);
     assert.equal(page.remove.disabled, false);
     page.fields[0].value = 'Corrected title';
@@ -220,12 +240,28 @@ test('expired session preserves edits and disables further mutations with a logi
     page.send();
     await tick();
     assert.equal(page.fields[0].value, 'Unsaved "title"');
-    assert.equal(page.feedback.children[1].href, '/login');
+    assert.equal(notificationContent(page).children[1].href, '/login');
     assert.equal(page.submit.disabled, true);
     assert.equal(page.remove.disabled, true);
     page.send();
     await tick();
     assert.equal(attempts, 1);
+});
+
+test('notifications stack, can be dismissed, and expire after ten seconds', async () => {
+    const {page, button} = rssPage();
+    page.document.execCommand = () => true;
+    page.click(button);
+    await tick();
+    const notification = page.notifications.children[0];
+    assert.equal(page.notifications.children.length, 1);
+    const close = notification.children[1];
+    page.click(close);
+    assert.equal(page.notifications.children.length, 0);
+    page.click(button);
+    await tick();
+    page.expireNotifications();
+    assert.equal(page.notifications.children.length, 0);
 });
 
 test('a terminal download refresh deferred by editing is retried on the next poll', async () => {
