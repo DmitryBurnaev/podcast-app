@@ -293,8 +293,7 @@ class BaseRepository(Generic[ModelT]):
         )
         # Aggregate entities can expose the same column name on multiple tables.
         filters_stmts.extend(
-            getattr(self.model, field_name) == value
-            for field_name, value in scoped_filters.items()
+            getattr(self.model, field_name) == value for field_name, value in scoped_filters.items()
         )
         if filters_stmts:
             statement = statement.filter(*filters_stmts)

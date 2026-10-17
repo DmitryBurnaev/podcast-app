@@ -72,7 +72,16 @@ class BrowserJob(Job):
 class BrowserSource(FakeMediaSource):
     async def get_source_media_info(self, source_info: SourceInfo) -> tuple[str, SourceMediaInfo]:
         await asyncio.sleep(4)
-        return "", SourceMediaInfo(str(source_info.url), source_info.id, "Local browser fixture", "", "Browser episode", "Fixture author", 20, [])
+        return "", SourceMediaInfo(
+            str(source_info.url),
+            source_info.id,
+            "Local browser fixture",
+            "",
+            "Browser episode",
+            "Fixture author",
+            20,
+            [],
+        )
 
 
 class BrowserStorage(FakeStorage):
@@ -102,7 +111,9 @@ class BrowserQueue(FakeTaskQueue):
                 self.jobs[job.id] = job
                 asyncio.run_coroutine_threadsafe(self.finish_rss(job), self.loop)
             elif isinstance(task, DownloadEpisodeTask):
-                asyncio.run_coroutine_threadsafe(self.finish_download(int(str(kwargs["episode_id"]))), self.loop)
+                asyncio.run_coroutine_threadsafe(
+                    self.finish_download(int(str(kwargs["episode_id"]))), self.loop
+                )
         return entry
 
     async def finish_download(self, episode_id: int) -> None:
@@ -117,7 +128,12 @@ class BrowserQueue(FakeTaskQueue):
                     await session.commit()
                     return
                 key = episode.audio_filename.partition(".")[0]
-                self.redis.content[key] = {"event_key": key, "status": "DL_EPISODE_DOWNLOADING", "processed_bytes": step * 8000, "total_bytes": 40000}
+                self.redis.content[key] = {
+                    "event_key": key,
+                    "status": "DL_EPISODE_DOWNLOADING",
+                    "processed_bytes": step * 8000,
+                    "total_bytes": 40000,
+                }
                 if step == 4:
                     episode.audio.path = "fixtures/browser.wav"
                     episode.audio.available = True
@@ -135,7 +151,14 @@ class BrowserQueue(FakeTaskQueue):
                 job.outcome = TaskResultCode.ERROR
             else:
                 if podcast.rss_id is None:
-                    file = File(type=MediaType.RSS, owner_id=podcast.owner_id, path="fixtures/browser.xml", available=True, size=50, access_token=File.generate_token())
+                    file = File(
+                        type=MediaType.RSS,
+                        owner_id=podcast.owner_id,
+                        path="fixtures/browser.xml",
+                        available=True,
+                        size=50,
+                        access_token=File.generate_token(),
+                    )
                     session.add(file)
                     await session.flush()
                     podcast.rss_id = file.id
@@ -147,7 +170,11 @@ class BrowserQueue(FakeTaskQueue):
 def make_browser_app() -> main.PodcastApp:
     name = os.environ.get("TEST_DB_NAME", "")
     database_settings = DBSettings()
-    if not name.startswith("podcast_ajax_browser_") or not re.fullmatch(r"[a-zA-Z0-9_]+", name) or name == database_settings.name:
+    if (
+        not name.startswith("podcast_ajax_browser_")
+        or not re.fullmatch(r"[a-zA-Z0-9_]+", name)
+        or name == database_settings.name
+    ):
         raise RuntimeError("Use a separate TEST_DB_NAME starting with podcast_ajax_browser_.")
     url = make_url(database_settings.database_dsn).set(database=name)
     engine = create_async_engine(url, poolclass=NullPool)
@@ -157,7 +184,13 @@ def make_browser_app() -> main.PodcastApp:
     if not 1024 <= port <= 65535:
         raise RuntimeError("BROWSER_PORT must be a non-privileged TCP port.")
     service_url = f"http://127.0.0.1:{port}/"
-    settings = AppSettings(service_url=service_url, app_version="browser-check", app_secret_key=SecretStr("browser-fixture-key-" * 8), flags=FlagsSettings(debug_mode=True, api_debug_mode=False), media_cache_dir=Path("/private/tmp/podcast-browser-cache"))
+    settings = AppSettings(
+        service_url=service_url,
+        app_version="browser-check",
+        app_secret_key=SecretStr("browser-fixture-key-" * 8),
+        flags=FlagsSettings(debug_mode=True, api_debug_mode=False),
+        media_cache_dir=Path("/private/tmp/podcast-browser-cache"),
+    )
     redis = FakeRedis()
     storage = BrowserStorage(service_url)
     queue = BrowserQueue(factory, redis)
@@ -167,11 +200,28 @@ def make_browser_app() -> main.PodcastApp:
     for installer in installers:
         next(installer)
     patch.setattr("src.modules.db.session.get_session_factory", lambda: factory)
-    for module in ("src.main", "src.modules.auth.backends", "src.modules.db.models.media", "src.modules.db.models.podcasts", "src.modules.services.episodes", "src.modules.services.cover", "src.modules.tasks.base", "src.modules.utils.common"):
+    for module in (
+        "src.main",
+        "src.modules.auth.backends",
+        "src.modules.db.models.media",
+        "src.modules.db.models.podcasts",
+        "src.modules.services.episodes",
+        "src.modules.services.cover",
+        "src.modules.tasks.base",
+        "src.modules.utils.common",
+    ):
         patch.setattr(f"{module}.get_app_settings", lambda: settings)
     patch.setattr(common, "get_source_media_info", source.get_source_media_info)
-    patch.setattr(DownloadEpisodeTask, "cancel_task", classmethod(lambda cls, *args, **kwargs: queue.cancel_task(cls, *args, **kwargs)))
-    patch.setattr(DownloadEpisodeImageTask, "cancel_task", classmethod(lambda cls, *args, **kwargs: queue.cancel_task(cls, *args, **kwargs)))
+    patch.setattr(
+        DownloadEpisodeTask,
+        "cancel_task",
+        classmethod(lambda cls, *args, **kwargs: queue.cancel_task(cls, *args, **kwargs)),
+    )
+    patch.setattr(
+        DownloadEpisodeImageTask,
+        "cancel_task",
+        classmethod(lambda cls, *args, **kwargs: queue.cancel_task(cls, *args, **kwargs)),
+    )
 
     def fetch_job(job_id: str, connection: object = None, serializer: object = None) -> Job:
         if job_id not in queue.jobs:
@@ -182,10 +232,14 @@ def make_browser_app() -> main.PodcastApp:
 
     async def initialize() -> None:
         queue.loop = asyncio.get_running_loop()
-        admin = create_async_engine(url.set(database="postgres"), isolation_level="AUTOCOMMIT", poolclass=NullPool)
+        admin = create_async_engine(
+            url.set(database="postgres"), isolation_level="AUTOCOMMIT", poolclass=NullPool
+        )
         try:
             async with admin.connect() as connection:
-                if not await connection.scalar(text("SELECT 1 FROM pg_database WHERE datname = :name"), {"name": name}):
+                if not await connection.scalar(
+                    text("SELECT 1 FROM pg_database WHERE datname = :name"), {"name": name}
+                ):
                     await connection.execute(text(f'CREATE DATABASE "{name}"'))
         finally:
             await admin.dispose()
@@ -194,10 +248,21 @@ def make_browser_app() -> main.PodcastApp:
         async with factory() as session:
             user = await session.scalar(select(User).where(User.email == "browser@podcast.example"))
             if user is None:
-                user = User(email="browser@podcast.example", password=User.make_password("browser-check"), is_active=True, is_superuser=False)
+                user = User(
+                    email="browser@podcast.example",
+                    password=User.make_password("browser-check"),
+                    is_active=True,
+                    is_superuser=False,
+                )
                 session.add(user)
                 await session.flush()
-                podcast = Podcast(name="Browser podcast", description="Isolated browser validation", publish_id=Podcast.generate_publish_id(), owner_id=user.id, download_automatically=False)
+                podcast = Podcast(
+                    name="Browser podcast",
+                    description="Isolated browser validation",
+                    publish_id=Podcast.generate_publish_id(),
+                    owner_id=user.id,
+                    download_automatically=False,
+                )
                 session.add(podcast)
                 await session.commit()
 
@@ -225,7 +290,10 @@ def make_browser_app() -> main.PodcastApp:
 
     @get("/__browser__/feed.xml", opt={AuthSkip.SKIP_AUTH_API: True, AuthSkip.SKIP_AUTH_WEB: True})
     async def feed() -> Response[str]:
-        return Response('<rss version="2.0"><channel><title>Browser feed</title></channel></rss>', media_type="application/xml")
+        return Response(
+            '<rss version="2.0"><channel><title>Browser feed</title></channel></rss>',
+            media_type="application/xml",
+        )
 
     app.register(audio)
     app.register(feed)

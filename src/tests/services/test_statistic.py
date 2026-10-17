@@ -25,12 +25,8 @@ def statistic_service(
     podcasts.all.return_value = []
     episodes.get_aggregated.return_value = EpisodesStatData()
     episodes.all_in_progress.return_value = []
-    monkeypatch.setattr(
-        "src.modules.services.statistic.PodcastRepository", lambda **_: podcasts
-    )
-    monkeypatch.setattr(
-        "src.modules.services.statistic.EpisodeRepository", lambda **_: episodes
-    )
+    monkeypatch.setattr("src.modules.services.statistic.PodcastRepository", lambda **_: podcasts)
+    monkeypatch.setattr("src.modules.services.statistic.EpisodeRepository", lambda **_: episodes)
     return (
         StatisticService(SASessionUOW(session=session), OwnerScope(user_id=7)),
         podcasts,
@@ -76,9 +72,7 @@ class TestStatisticService:
         self, statistic_service: tuple[StatisticService, MagicMock, MagicMock]
     ) -> None:
         service, _, episodes = statistic_service
-        episodes.get_aggregated.return_value = EpisodesStatData(
-            total_count=4, total_duration=99
-        )
+        episodes.get_aggregated.return_value = EpisodesStatData(total_count=4, total_duration=99)
         result = await service.get_podcast_statistics(10)
         assert result.episodes_count == 4
         assert result.total_duration == 99

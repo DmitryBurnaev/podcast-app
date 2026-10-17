@@ -216,3 +216,5 @@ __marimo__/
 src/legacy-tests/
 docs
 AGENTS.md
+/.playwright-cli/
+/output/

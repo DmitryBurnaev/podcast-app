@@ -6,6 +6,8 @@
     const trackedEpisodes = new Map();
     const rssTasks = new Map();
     const busyControls = new WeakMap();
+    const notifications = new WeakMap();
+    const notificationTimers = new WeakMap();
     const regions = new Set(['overview', 'podcasts', 'episodes', 'podcast-summary', 'episode-title',
         'episode-state', 'episode-metadata', 'episode-player', 'app-statistics', 'breadcrumbs']);
     let activeModal = null;
@@ -61,47 +63,84 @@
         })[status] || 'Processing';
     }
 
+    function dismissNotification(notification) {
+        if (!notification) return;
+        clearTimeout(notificationTimers.get(notification));
+        notificationTimers.delete(notification);
+        notification.remove();
+    }
+
+    function notificationContent(notification) {
+        return notification?._content || null;
+    }
+
+    function appendNotificationControl(notification, control) {
+        notificationContent(notification)?.append(control);
+    }
+
     function feedback(scope, text, kind = 'success', error = null, source = 'operation') {
         if (!scope) return;
         const box = scope.matches('[data-feedback]') ? scope : scope.querySelector('[data-operation-feedback], [data-feedback]:not(#rss-feedback)');
         if (!box) return;
+        const existing = notifications.get(box);
+        dismissNotification(existing);
         box.replaceChildren();
-        box.hidden = !text;
-        box.className = `ui-feedback ui-feedback-${kind}`;
+        box.hidden = true;
         box.dataset.source = source;
-        box.setAttribute('role', kind === 'error' ? 'alert' : 'status');
-        if (!text) return;
+        if (!text) return null;
+        const stack = byId('notification-stack');
+        if (!stack) return null;
+        const notification = document.createElement('article');
+        notification.className = `ui-notification ui-feedback-${kind}`;
+        notification.dataset.notification = 'true';
+        notification.setAttribute('role', kind === 'error' ? 'alert' : 'status');
+        const content = document.createElement('div');
+        content.className = 'ui-notification-content';
+        notification._content = content;
+        notification.append(content);
         if (kind === 'pending') {
             const spinner = document.createElement('span');
             spinner.className = 'ui-spinner';
             spinner.setAttribute('aria-hidden', 'true');
-            box.append(spinner);
+            content.append(spinner);
         }
         const message = document.createElement('span');
+        message.className = 'ui-notification-message';
         message.textContent = text;
-        box.append(message);
+        content.append(message);
+        const close = document.createElement('button');
+        close.type = 'button';
+        close.dataset.action = 'dismiss-notification';
+        close.className = 'ui-notification-close';
+        close.setAttribute('aria-label', 'Dismiss notification');
+        close.textContent = '×';
+        notification.append(close);
+        stack.append(notification);
+        notifications.set(box, notification);
+        notificationTimers.set(notification, setTimeout(() => dismissNotification(notification), 10000));
         if (error?.status === 401) {
             authExpired = true;
             const login = document.createElement('a');
             login.href = '/login';
             login.textContent = 'Sign in';
             login.className = 'ui-feedback-link';
-            box.append(login);
+            appendNotificationControl(notification, login);
             syncButtons();
         }
+        return notification;
     }
 
     function pageMessage(text, error = null, source = 'operation', retry = false) {
         const box = byId('page-feedback');
         if (!box) return;
-        feedback(box, text, 'error', error, source);
+        const notification = feedback(box, text, 'error', error, source);
         if (retry && error?.status !== 401) {
             const button = document.createElement('button');
             button.type = 'button';
             button.dataset.action = 'refresh-page';
             button.textContent = 'Refresh data';
             button.className = 'ui-feedback-link';
-            box.append(button);
+            appendNotificationControl(notification, button);
         }
     }
 
@@ -187,14 +226,13 @@
     function showError(error) {
         const modal = byId('actionModal');
         if (activeModal) {
-            feedback(activeModal, error.message, 'error', error);
-            return;
+            return feedback(activeModal, error.message, 'error', error);
         }
         byId('action-modal-title').textContent = 'Unable to complete action';
         byId('action-modal-description').textContent = '';
         byId('action-modal-confirm').hidden = true;
         openModal('actionModal');
-        feedback(modal, error.message, 'error', error);
+        return feedback(modal, error.message, 'error', error);
     }
 
     function confirmDelete(kind, id, opener) {
@@ -278,18 +316,18 @@
         operations.delete(key);
         if (failure) {
             setBusy(scope, false);
-            if (scope.matches('form, [data-modal]')) feedback(scope, failure.message, 'error', failure);
+            let notification;
+            if (scope.matches('form, [data-modal]')) notification = feedback(scope, failure.message, 'error', failure);
             else {
                 feedback(scope, '');
-                showError(failure);
+                notification = showError(failure);
             }
             if (failure.details?.episode_id) {
-                const box = scope.querySelector('[data-feedback]');
                 const link = document.createElement('a');
                 link.href = `/episodes/${Number(failure.details.episode_id)}/`;
                 link.textContent = 'Open the created episode';
                 link.className = 'ui-feedback-link';
-                box?.append(link);
+                appendNotificationControl(notification, link);
                 await refreshAfterSuccess();
             }
             wakePoll();
@@ -432,6 +470,9 @@
         const id = Number(button.dataset.id);
         const scope = button.closest('[data-episode-card]') || episodeForm() || podcastForm() || byId('page-feedback');
         switch (button.dataset.action) {
+            case 'dismiss-notification':
+                dismissNotification(button.closest('[data-notification]'));
+                break;
             case 'edit-episode':
                 window.location.assign(`/episodes/${id}/`);
                 break;
