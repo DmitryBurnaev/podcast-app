@@ -52,6 +52,11 @@ test: .env ## Run tests with coverage report
 	uv run coverage report
 	rm .coverage
 
+.PHONY: test-frontend
+test-frontend: ## Run frontend JavaScript tests
+	@echo Test frontend JavaScript...
+	node --test src/tests/frontend/app.test.cjs src/tests/frontend/http.test.cjs
+
 .PHONY: run
 test-in-docker: .env  ## Run tests inside docker container
 	@echo Run project in container...

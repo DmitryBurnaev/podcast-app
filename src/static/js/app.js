@@ -3,7 +3,6 @@
     const {request, RequestError} = window.PodcastHTTP;
     const operations = new Set();
     const finishingOperations = new Set();
-    const trackedEpisodes = new Map();
     const rssTasks = new Map();
     const busyControls = new WeakMap();
     const notifications = new WeakMap();
@@ -27,6 +26,17 @@
     const podcastForm = () => byId('edit-podcast-form');
     const activeStatus = status => ['DOWNLOADING', 'CANCELING'].includes(String(status).toUpperCase());
     const actionButtons = () => document.querySelectorAll('[data-action]');
+
+    function downloadingEpisodeId() {
+        const detail = document.querySelector('[data-refresh-region="episode-state"]');
+        const id = Number(detail?.dataset.episodeId);
+        return detail?.dataset.status === 'DOWNLOADING' && Number.isSafeInteger(id) && id > 0 ? id : null;
+    }
+
+    function shouldPoll() {
+        return downloadingEpisodeId() !== null || rssTasks.size > 0 ||
+            (Boolean(podcastForm()?.dataset.id) && !rssDiscovered);
+    }
 
     async function copyText(input) {
         if (navigator.clipboard?.writeText) {
@@ -383,7 +393,6 @@
                         data: {sourceURL: String(data.get('sourceURL')).trim()}
                     }),
                     async episode => {
-                        if (activeStatus(episode.status)) trackedEpisodes.set(episode.id, episode);
                         closeModal(true);
                         await refreshAfterSuccess();
                     });
@@ -503,7 +512,6 @@
                 await mutate(`${kind}:${confirmedId}`, activeModal, `Deleting ${kind}…`,
                     () => request(`/web-api/${kind === 'podcast' ? 'podcasts' : 'episodes'}/${confirmedId}/`, {method: 'DELETE'}),
                     async () => {
-                        if (kind === 'episode') trackedEpisodes.delete(confirmedId);
                         if (kind === 'podcast') rssTasks.delete(confirmedId);
                         closeModal(true);
                         const detailForm = kind === 'podcast' ? podcastForm() : episodeForm();
@@ -519,7 +527,6 @@
                 await mutate(`episode:${id}`, scope, cancel ? 'Requesting cancellation…' : 'Starting download…',
                     () => request(`/web-api/episodes/${id}/${cancel ? 'cancel-downloading' : 'download'}/`, {method: 'PUT'}),
                     async episode => {
-                        trackedEpisodes.set(id, episode);
                         feedback(scope, cancel ? 'Cancellation requested.' : 'Download started.');
                         const card = button.closest('[data-episode-card]');
                         if (card) card.dataset.status = episode.status;
@@ -590,31 +597,30 @@
     }
 
     async function poll() {
-        if (pollRunning || document.hidden || authExpired) return;
+        if (pollRunning || document.hidden || authExpired || !shouldPoll()) return;
         pollRunning = true;
         try {
             if (operations.size) return;
-            const data = await request('/web-api/progress/');
-            if (!Array.isArray(data.progressItems)) throw new RequestError('Live updates returned an unexpected response.');
-            if (operations.size) return;
-            const active = new Set();
-            for (const item of data.progressItems) {
-                active.add(item.episode.id);
-                trackedEpisodes.set(item.episode.id, item.episode);
-                paintProgress(item);
-            }
             let refresh = refreshPending;
-            for (const [id, previous] of trackedEpisodes) {
-                if (active.has(id)) continue;
-                const episode = await request(`/web-api/episodes/${id}/`).catch(error => {
-                    if (error.status === 404) return null;
-                    throw error;
-                });
-                if (episode && activeStatus(episode.status)) continue;
-                trackedEpisodes.delete(id);
-                refresh = true;
-                if (episode?.status === 'ERROR' && document.querySelector(`[data-episode-card][data-id="${id}"], [data-episode-id="${id}"]`)) {
-                    pageMessage(`Download failed for “${episode.title || previous.title}”. You can try downloading it again.`);
+            const episodeId = downloadingEpisodeId();
+            if (episodeId !== null) {
+                const data = await request('/web-api/progress/');
+                if (!Array.isArray(data.progressItems)) throw new RequestError('Live updates returned an unexpected response.');
+                if (operations.size) return;
+                const item = data.progressItems.find(progress => progress.episode.id === episodeId);
+                if (item) {
+                    paintProgress(item);
+                } else {
+                    const episode = await request(`/web-api/episodes/${episodeId}/`).catch(error => {
+                        if (error.status === 404) return null;
+                        throw error;
+                    });
+                    if (!episode || !activeStatus(episode.status)) {
+                        refresh = true;
+                        if (episode?.status === 'ERROR' && document.querySelector(`[data-episode-id="${episodeId}"]`)) {
+                            pageMessage(`Download failed for “${episode.title}”. You can try downloading it again.`);
+                        }
+                    }
                 }
             }
             const podId = Number(podcastForm()?.dataset.id);
@@ -650,7 +656,7 @@
             pollDelay = Math.min(30000, pollDelay * 2);
         } finally {
             pollRunning = false;
-            if (!document.hidden && !authExpired) {
+            if (!document.hidden && !authExpired && shouldPoll()) {
                 pollTimer = setTimeout(poll, pollAgain ? 0 : pollDelay);
                 pollAgain = false;
             }
@@ -658,7 +664,11 @@
     }
 
     function wakePoll() {
-        if (!document.querySelector('[data-refresh-region="overview"], [data-refresh-region="episodes"], [data-refresh-region="podcasts"], [data-refresh-region="episode-state"]')) return;
+        if (!shouldPoll()) {
+            clearTimeout(pollTimer);
+            pollAgain = false;
+            return;
+        }
         clearTimeout(pollTimer);
         if (pollRunning) pollAgain = true;
         else if (!document.hidden && !authExpired) pollTimer = setTimeout(poll, 0);
@@ -778,9 +788,6 @@
             if (document.hidden) clearTimeout(pollTimer); else wakePoll();
         });
         window.addEventListener('popstate', () => refreshAfterSuccess());
-        document.querySelectorAll('[data-episode-card], [data-refresh-region="episode-state"]').forEach(card => {
-            if (activeStatus(card.dataset.status)) trackedEpisodes.set(Number(card.dataset.id || card.dataset.episodeId), {title: card.dataset.name});
-        });
         initPlayer();
         syncFilterForm();
         syncButtons();
