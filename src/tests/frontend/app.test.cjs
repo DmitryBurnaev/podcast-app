@@ -64,6 +64,7 @@ function editingPage(request, polling = false) {
     form.querySelector = () => feedback;
     form.querySelectorAll = selector => selector === 'button[type="submit"]' ? [submit] : [...fields, submit];
     const oldTitle = new Element();
+    const episodeState = new Element({status: polling ? 'DOWNLOADING' : 'NEW', episodeId: '42'});
     let replacements = 0;
     const timers = new Map();
     let timerId = 0;
@@ -72,7 +73,7 @@ function editingPage(request, polling = false) {
         readyState: 'loading', hidden: false, activeElement: null,
         body: {style: {}},
         getElementById: id => ({'edit-episode-form': form, 'page-feedback': pageFeedback, 'notification-stack': notifications})[id] || null,
-        querySelector: selector => selector === '[data-refresh-region="episode-state"]' ? {dataset: {status: 'NEW'}} :
+        querySelector: selector => selector === '[data-refresh-region="episode-state"]' ? episodeState :
             selector === '[data-refresh-region="episode-title"]' ? oldTitle :
                 polling && selector.startsWith('[data-refresh-region="overview"]') ? new Element() : null,
         querySelectorAll: selector => selector === '[data-action]' ? [remove] : selector === '[data-form]' ? [form] : [],
@@ -292,9 +293,21 @@ test('a terminal download refresh deferred by editing is retried on the next pol
     assert.equal(page.fields[0].value, 'Unsaved "title"');
 });
 
+test('progress is not requested from lists or idle episode pages', async () => {
+    let progressRequests = 0;
+    const page = editingPage(url => {
+        if (url === '/web-api/progress/') progressRequests++;
+        return Promise.resolve({progressItems: []});
+    });
+    await tick();
+    assert.equal(progressRequests, 0);
+    assert.equal(page.timers, 0);
+});
+
 test('polling pauses while hidden and backs off after network failures', async () => {
     let attempts = 0;
-    const page = editingPage(() => {
+    const page = editingPage(url => {
+        if (url !== '/web-api/progress/') return Promise.resolve({id: 42, status: 'PUBLISHED'});
         attempts++;
         return attempts <= 2 ? Promise.reject(new RequestError('Network unavailable.')) : Promise.resolve({progressItems: []});
     }, true);

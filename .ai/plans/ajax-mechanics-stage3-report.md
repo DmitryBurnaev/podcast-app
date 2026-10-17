@@ -36,7 +36,7 @@
 | Первый полный `pytest -q` | 469 passed; HTTP smoke затем обнаружил непокрытый SQL-сценарий |
 | Целевой набор статистики после исправления | 5 passed |
 | Повтор полного `pytest -q` после исправлений | **471 passed**, 39.38 s |
-| `node --test src/tests/frontend/app.test.cjs src/tests/frontend/http.test.cjs` | **27 passed** |
+| `node --test src/tests/frontend/app.test.cjs src/tests/frontend/http.test.cjs` | **28 passed** |
 | `ruff check src` | passed |
 | `mypy src` | passed, 107 source files |
 | JS syntax: `app.js`, `http.js` | passed |

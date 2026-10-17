@@ -280,7 +280,11 @@ def exception_logging_handler(logger: Logger, scope: Scope, tb: list[str]) -> No
     api_error_names = [error.__name__ for error in APIError.get_subclasses()]
     is_api_error = any(error_name in last_record_in_tb for error_name in api_error_names)
 
-    log_method = logger.warning if (is_auth_error or is_api_error) else logger.exception
+    warning_names = ("NotFoundException",)
+    is_warning_error = any(warning_name in last_record_in_tb for warning_name in warning_names)
+
+    log_is_warning = is_auth_error or is_api_error or is_warning_error
+    log_method = logger.warning if log_is_warning else logger.exception
     log_method(
         "Root level's application error occurred | %s: %r | err: '%s'",
         scope["type"],
