@@ -201,6 +201,9 @@ class TestBrowserPodcasts:
         data = created.json()
         assert data["download_automatically"] is False
         podcast_id = data["id"]
+        podcast = await functional_session.get(Podcast, podcast_id)
+        assert podcast is not None
+        assert podcast.updated_at is not None
         response = client.patch(
             f"/web-api/podcasts/{podcast_id}/",
             json={"name": "Renamed", "description": "Changed", "download_automatically": True},
@@ -208,6 +211,7 @@ class TestBrowserPodcasts:
         assert response.status_code == 200, response.text
         podcast = await functional_session.get(Podcast, podcast_id)
         assert podcast is not None
+        await functional_session.refresh(podcast)
         assert (
             podcast.name,
             podcast.description,

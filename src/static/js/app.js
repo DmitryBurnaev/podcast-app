@@ -127,7 +127,7 @@
         notification.append(close);
         stack.append(notification);
         notifications.set(box, notification);
-        notificationTimers.set(notification, setTimeout(() => dismissNotification(notification), 10000));
+        notificationTimers.set(notification, setTimeout(() => dismissNotification(notification), 5000));
         if (error?.status === 401) {
             authExpired = true;
             const login = document.createElement('a');

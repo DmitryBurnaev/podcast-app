@@ -75,7 +75,9 @@ class Podcast(BaseModel):
     created_at: Mapped[datetime] = mapped_column(
         sa.DateTime(timezone=True), default=utcnow, nullable=False
     )
-    updated_at: Mapped[datetime] = mapped_column(sa.DateTime(timezone=True), nullable=True)
+    updated_at: Mapped[datetime] = mapped_column(
+        sa.DateTime(timezone=True), default=utcnow, onupdate=utcnow, nullable=False
+    )
     download_automatically: Mapped[bool] = mapped_column(sa.Boolean, default=True)
 
     rss_id: Mapped[int | None] = mapped_column(
