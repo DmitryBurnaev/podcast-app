@@ -280,7 +280,7 @@ def exception_logging_handler(logger: Logger, scope: Scope, tb: list[str]) -> No
     api_error_names = [error.__name__ for error in APIError.get_subclasses()]
     is_api_error = any(error_name in last_record_in_tb for error_name in api_error_names)
 
-    warning_names = ("NotFoundException",)
+    warning_names = ("NotFoundException", "NotFoundError")
     is_warning_error = any(warning_name in last_record_in_tb for warning_name in warning_names)
 
     log_is_warning = is_auth_error or is_api_error or is_warning_error
