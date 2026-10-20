@@ -3,15 +3,22 @@
 [Unit]
 Description=PodcastApp Service
 Requires=docker.service
-After=docker.service
+PartOf=docker.service
+Wants=network-online.target
+After=docker.service network-online.target
 
 [Service]
+Type=oneshot
+RemainAfterExit=yes
 User=podcast-app-srv
 Group=podcast-app-srv
+SupplementaryGroups=docker
+WorkingDirectory=/opt/podcast-app
 ExecStart=/opt/podcast-app/bin/start
 ExecStop=/opt/podcast-app/bin/stop
 Restart=on-failure
 RestartSec=20
+TimeoutStartSec=360
 TimeoutStopSec=180
 
 [Install]

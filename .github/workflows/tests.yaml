@@ -1,31 +1,20 @@
 name: Test
+
 on:
   pull_request:
-    branches:
-      - "main"
+    branches: [main]
   push:
-    branches:
-      - "main"
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: test-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
-  test:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Prepare .env file
-        run: |
-          cp .env.template .env
-          echo "DB_PASSWORD=postgres" >> .env
-          echo "APP_SECRET_KEY=test" >> .env
-          env >> .env
-
-      - name: Build images
-        run: |
-          docker compose build test
-
-      - name: Run linters
-        run: docker compose up --exit-code-from lint lint
-
-#      - name: Run tests
-#        run: docker compose up --exit-code-from test test
+  checks:
+    uses: ./.github/workflows/checks.yaml
+    with:
+      architectures: ${{ github.event_name == 'pull_request' && '["amd64"]' || '["amd64","arm64"]' }}

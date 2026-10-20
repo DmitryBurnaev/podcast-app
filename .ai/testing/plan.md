@@ -1,6 +1,6 @@
 # План миграции тестов
 
-Статус актуален на 2026-10-14. Этот документ является живым: после завершения
+Статус актуален на 2026-10-20. Этот документ является живым: после завершения
 этапа меняется его отметка, фиксируются проверки и commit. Полный baseline и
 рабочий журнал этапов находятся в `../plans`.
 
@@ -101,7 +101,19 @@
     на основании готовности JSON API и fragment context.
 - [ ] **P7. Расширить SQLAdmin coverage.** Dashboard, роли и custom workflows.
 - [ ] **P8. Закрыть services, tasks, repositories и lifecycle.**
-- [ ] **P9. Включить типизацию, coverage >= 90% и CI gates.**
+- [~] **P9. Включить типизацию, coverage >= 90% и CI gates.**
+  - [x] **P9a — подготовить CI gates и multi-platform сборку, issue #16.**
+    Workflow для PR выполняет Black/Ruff/mypy, backend и frontend tests;
+    `main` и release tags собирают service/test images и запускают backend
+    suite на AMD64 и ARM64. Добавлены startup/media smoke и deployment script
+    checks, изолированный `TEST_DB_NAME`, проверка платформ опубликованного
+    manifest. Локально собраны обе архитектуры, полные контейнерные прогоны
+    проходят; hosted Actions и реальная публикация требуют последующего
+    PR/tag run. Подробные результаты — в
+    `../plans/server-ready-release-report.md`.
+  - [ ] **P9b — завершить типизацию тестов и coverage >= 90%.** Текущие gates
+    не вводят недостигнутый coverage threshold и не закрывают оставшиеся
+    этапы P6–P8.
 
 ## Порядок выполнения
 

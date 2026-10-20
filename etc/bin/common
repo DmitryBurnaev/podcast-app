@@ -1,0 +1,40 @@
+#!/bin/bash
+# Shared by the installed bin/* scripts. Configuration is parsed by Compose,
+# never sourced or expanded as shell code.
+set -Eeuo pipefail
+
+APP_ROOT=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
+SERVICE_NAME=podcast-app.service
+READY_TIMEOUT=${READY_TIMEOUT:-240}
+
+compose() {
+    env -u DOCKER_IMAGE -u DOCKER_IMAGE_TAG docker compose \
+        --project-name podcast-app --project-directory "$APP_ROOT" \
+        --env-file "$APP_ROOT/.env" --env-file "$APP_ROOT/.version" \
+        -f "$APP_ROOT/docker-compose.yml" "$@"
+}
+
+diagnostics() {
+    compose ps --all >&2 || true
+    compose logs --no-color --tail 80 >&2 || true
+}
+
+check_configuration() {
+    [[ -f "$APP_ROOT/.env" ]] || { echo "Missing $APP_ROOT/.env" >&2; return 1; }
+    [[ -f "$APP_ROOT/.version" ]] || { echo "Missing $APP_ROOT/.version" >&2; return 1; }
+    compose config --quiet
+    docker network inspect storage >/dev/null
+}
+
+check_health() {
+    compose exec -T web python -m src.healthcheck web
+    compose exec -T background python -m src.healthcheck background
+}
+
+systemctl_app() {
+    if [[ $EUID -eq 0 ]]; then
+        systemctl "$@" "$SERVICE_NAME"
+    else
+        sudo -n systemctl "$@" "$SERVICE_NAME"
+    fi
+}

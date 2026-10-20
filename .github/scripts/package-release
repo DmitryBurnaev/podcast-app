@@ -1,0 +1,12 @@
+#!/bin/bash
+set -euo pipefail
+image=${1:?Usage: package-release IMAGE VERSION OUTPUT.tar.gz}
+version=${2:?Version is required}
+output=${3:?Output archive is required}
+staging=$(mktemp -d)
+trap 'rm -rf "$staging"' EXIT
+cp etc/docker-compose.yml etc/.env.template etc/nginx.conf etc/podcast-app.service DEPLOYMENT.md "$staging/"
+cp -R etc/bin "$staging/bin"
+chmod +x "$staging/bin/"{start,stop,deploy,service}
+printf 'DOCKER_IMAGE=%s\nDOCKER_IMAGE_TAG=%s\n' "$image" "$version" > "$staging/.version"
+tar -czf "$output" -C "$staging" .
