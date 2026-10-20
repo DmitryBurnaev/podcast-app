@@ -27,6 +27,8 @@
 
 [hidden] { display: none !important; }
 button:disabled { cursor: wait; opacity: .55; }
+[data-refresh-region="episode-player"] button:disabled,
+[data-refresh-region="episode-player"] input:disabled { cursor: not-allowed; opacity: .55; }
 .ui-modal-panel { max-height: calc(100dvh - 3rem); overflow-y: auto; }
 .ui-notification-stack {
     position: fixed; right: 1.3rem; bottom: 2rem; z-index: 80;
@@ -53,8 +55,16 @@ button:disabled { cursor: wait; opacity: .55; }
     border: 2px solid currentColor; border-right-color: transparent;
     border-radius: 50%; animation: ui-spin .8s linear infinite;
 }
-.ui-progress { display: flex; align-items: center; gap: .5rem; font-size: .75rem; color: #93c5fd; }
-.ui-progress-track { width: 6rem; height: .25rem; border-radius: .25rem; background: #334155; overflow: hidden; }
+.episode-player-slider { --player-progress: 0%; --player-color: #16a34a; appearance: none; height: .5rem; background: transparent; cursor: pointer; accent-color: var(--player-color); }
+.episode-player-slider--downloading { --player-color: #60a5fa; }
+.episode-player-slider::-webkit-slider-runnable-track { height: .375rem; border-radius: .25rem; background: linear-gradient(to right, var(--player-color) var(--player-progress), #475569 var(--player-progress)); }
+.episode-player-slider::-moz-range-track { height: .375rem; border-radius: .25rem; background: linear-gradient(to right, var(--player-color) var(--player-progress), #475569 var(--player-progress)); }
+.episode-player-slider::-webkit-slider-thumb { appearance: none; margin-top: -.25rem; width: .875rem; height: .875rem; border-radius: 50%; background: var(--player-color); }
+.episode-player-slider::-moz-range-thumb { width: .875rem; height: .875rem; border: 0; border-radius: 50%; background: var(--player-color); }
+[data-refresh-region="episode-player"] .episode-player-slider:disabled { opacity: 1; }
+.ui-progress { display: flex; align-items: center; flex-wrap: wrap; gap: .5rem; min-width: 0; font-size: .75rem; color: #93c5fd; }
+.ui-progress [data-progress-label] { min-width: 0; overflow-wrap: anywhere; }
+.ui-progress-track { flex: 1 1 6rem; min-width: 4rem; height: .25rem; border-radius: .25rem; background: #334155; overflow: hidden; }
 .ui-progress-bar { height: 100%; background: #60a5fa; transition: width .3s ease; }
 @keyframes ui-spin { to { transform: rotate(360deg); } }
 @keyframes ui-notification-enter { from { opacity: 0; transform: translateY(1rem); } }

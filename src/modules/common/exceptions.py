@@ -289,5 +289,5 @@ def exception_logging_handler(logger: Logger, scope: Scope, tb: list[str]) -> No
         "Root level's application error occurred | %s: %r | err: '%s'",
         scope["type"],
         scope["path"],
-        last_record_in_tb,
+        last_record_in_tb.rstrip(),
     )
