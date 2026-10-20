@@ -16,14 +16,10 @@
 </div>{% endblock %}
 
 {% block content %}
-{% block refresh_episode_state %}<div data-refresh-region="episode-state" data-episode-id="{{ episode.id }}" data-status="{{ episode.status }}" data-audio-url="{{ audio_url or '' }}">
-<span data-status-label class="text-slate-300">{{ get_episode_status_label(episode.status) }}</span>
-<div data-progress hidden class="ui-progress"><span class="ui-spinner" aria-hidden="true"></span><span data-progress-label></span><div class="ui-progress-track"><div data-progress-bar class="ui-progress-bar"></div></div></div>
-</div>{% endblock %}
     <!-- Two Column Layout: Left - Episode Info (1/4), Right - Edit Form (3/4) -->
     <div class="grid grid-cols-1 lg:grid-cols-4 gap-6">
         <!-- Left Column: Episode Overview Card (1/4 width) -->
-        <div class="lg:col-span-1 bg-slate-800 rounded-lg border border-slate-700 overflow-hidden relative flex flex-col h-full">
+        <div class="episode-summary-card lg:col-span-1 bg-slate-800 rounded-lg border border-slate-700 overflow-hidden relative flex flex-col h-full">
             <!-- Background Image with Blur -->
             <div class="absolute inset-0 overflow-hidden">
                 {% if episode.image_id %}
@@ -52,14 +48,21 @@
 </div>{% endblock %}
                 </div>
 
-{% block refresh_episode_player %}<div data-refresh-region="episode-player" data-source-url="{{ audio_url or '' }}">
+{% block refresh_episode_state %}<div data-refresh-region="episode-state" data-episode-id="{{ episode.id }}" data-status="{{ episode.status }}" data-audio-url="{{ audio_url or '' }}" hidden></div>{% endblock %}
+
+{% block refresh_episode_player %}
+{% set is_downloading = episode.status == 'DOWNLOADING' %}
+{% set download_active = episode.status in ['DOWNLOADING', 'CANCELING'] %}
+{% set show_player_status = is_downloading or episode.status == 'ERROR' %}
+{% set player_ready = audio_url and not download_active %}
+<div data-refresh-region="episode-player" data-source-url="{{ audio_url or '' }}" data-status="{{ episode.status }}">
                 <!-- Audio Player -->
-                {% if audio_url %}
                     <div class="mb-6">
                         <!-- Player Controls -->
                         <div class="flex flex-col items-center">
                             <!-- Play/Pause Button (centered) -->
                             <button type="button" id="play-button"
+                                    aria-label="Play audio"{% if not player_ready %} disabled{% endif %}{% if show_player_status %} aria-describedby="player-status"{% endif %}
                                     class="w-16 h-16 bg-green-600 hover:bg-green-700 rounded-full flex items-center justify-center transition shadow-lg hover:shadow-green-600/50 mb-4">
                                 {{ icon_play("w-8 h-8 text-white ml-1", id="play-icon") }}
                                 {{ icon_pause("w-8 h-8 text-white hidden", id="pause-icon") }}
@@ -71,20 +74,10 @@
                             </div>
 
                             <!-- Seek slider (native range for drag + keyboard) -->
-                            <input type="range" id="progress-slider" min="0" max="0" step="any" value="0"
-                                   aria-label="Playback position"
-                                   class="w-full h-2 mb-6 cursor-pointer rounded-full appearance-none bg-slate-600
-                                          accent-green-600
-                                          [&::-webkit-slider-runnable-track]:h-1.5 [&::-webkit-slider-runnable-track]:rounded-full
-                                          [&::-webkit-slider-runnable-track]:bg-slate-600
-                                          [&::-webkit-slider-thumb]:-mt-0.5 [&::-webkit-slider-thumb]:h-3.5
-                                          [&::-webkit-slider-thumb]:w-3.5 [&::-webkit-slider-thumb]:appearance-none
-                                          [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-green-600
-                                          [&::-moz-range-track]:h-1.5 [&::-moz-range-track]:rounded-full
-                                          [&::-moz-range-track]:bg-slate-600
-                                          [&::-moz-range-thumb]:h-3.5 [&::-moz-range-thumb]:w-3.5
-                                          [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border-0
-                                          [&::-moz-range-thumb]:bg-green-600">
+                            <input type="range" id="progress-slider" min="0" max="{{ 100 if is_downloading else 0 }}" step="any" value="0"
+                                   {% if not player_ready %}disabled{% endif %}{% if show_player_status %} aria-describedby="player-status"{% endif %}{% if is_downloading %} role="progressbar" aria-valuemin="0" aria-valuemax="100"{% endif %}
+                                   aria-label="{{ 'Download progress' if is_downloading else 'Playback position' }}"
+                                   class="episode-player-slider{% if is_downloading %} episode-player-slider--downloading{% endif %} w-full mb-6">
 
                             <!-- Duration and Size Info -->
                             <div class="w-full flex items-center justify-center gap-6 text-sm">
@@ -102,9 +95,13 @@
                                 {% endif %}
                             </div>
                         </div>
-                        <audio id="episode-audio" src="{{ audio_url }}" preload="metadata"></audio>
+                        {% if player_ready %}
+                            <audio id="episode-audio" src="{{ audio_url }}" preload="metadata"></audio>
+                        {% endif %}
+                        {% if show_player_status %}
+                            <p id="player-status" role="status" aria-live="polite" class="mt-3 text-center text-xs {{ 'text-red-300' if episode.status == 'ERROR' else 'text-blue-300' }}">{{ 'Download failed.' if episode.status == 'ERROR' else 'Downloading…' }}</p>
+                        {% endif %}
                     </div>
-                {% endif %}
                 <div id="player-feedback" data-feedback hidden role="status" aria-live="polite"></div>
 </div>{% endblock %}
 

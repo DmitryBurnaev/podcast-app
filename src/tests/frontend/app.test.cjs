@@ -360,3 +360,41 @@ test('old fragments cannot overwrite the page after its filter URL changes', asy
     await page.poll();
     assert.equal(page.replacements, 1);
 });
+
+test('download polling uses the disabled player slider and reports each processing stage', async () => {
+    const updates = [
+        {status: 'DL_EPISODE_DOWNLOADING', completed: 45, total_file_size: 100},
+        {status: 'DL_EPISODE_POSTPROCESSING', completed: 100, total_file_size: 0},
+        {status: 'DL_EPISODE_UPLOADING', completed: 120, total_file_size: 100},
+    ];
+    const page = editingPage(() => Promise.resolve({progressItems: [
+        {episode: {id: 42, status: 'DOWNLOADING'}, ...updates.shift()},
+    ]}), true);
+    const slider = new Element();
+    const label = new Element();
+    const styles = new Map();
+    slider.style = {setProperty: (name, value) => styles.set(name, value)};
+    slider.removeAttribute = name => { delete slider[name]; };
+    const getElementById = page.document.getElementById;
+    page.document.getElementById = id => ({'progress-slider': slider, 'player-status': label})[id] || getElementById(id);
+
+    await page.poll();
+    assert.equal(slider.disabled, true);
+    assert.equal(slider.max, '100');
+    assert.equal(slider.value, '45');
+    assert.equal(styles.get('--player-progress'), '45%');
+    assert.equal(label.textContent, 'Downloading audio 45%');
+    assert.equal(slider.getAttribute('aria-valuenow'), '45');
+
+    await page.poll();
+    assert.equal(label.textContent, 'Processing audio');
+    assert.equal(styles.get('--player-progress'), '0%');
+    assert.equal(slider.getAttribute('aria-valuenow'), null);
+    assert.equal(slider.getAttribute('aria-valuetext'), 'Processing audio');
+
+    await page.poll();
+    assert.equal(slider.disabled, true);
+    assert.equal(slider.value, '100');
+    assert.equal(styles.get('--player-progress'), '100%');
+    assert.equal(label.textContent, 'Uploading audio 100%');
+});

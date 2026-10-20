@@ -127,7 +127,7 @@
         notification.append(close);
         stack.append(notification);
         notifications.set(box, notification);
-        notificationTimers.set(notification, setTimeout(() => dismissNotification(notification), 5000));
+        notificationTimers.set(notification, setTimeout(() => dismissNotification(notification), 10000));
         if (error?.status === 401) {
             authExpired = true;
             const login = document.createElement('a');
@@ -280,7 +280,7 @@
                 if (!regions.has(name)) return;
                 const previous = document.querySelector(`[data-refresh-region="${name}"]`);
                 if (!previous) return;
-                if (name === 'episode-player' && previous.dataset.sourceUrl === node.dataset.sourceUrl) return;
+                if (name === 'episode-player' && previous.dataset.sourceUrl === node.dataset.sourceUrl && previous.dataset.status === node.dataset.status) return;
                 node.querySelectorAll('script').forEach(script => script.remove());
                 previous.replaceWith(node);
             });
@@ -582,17 +582,37 @@
         const id = item.episode.id;
         const cards = [...document.querySelectorAll('[data-episode-card]')].filter(card => Number(card.dataset.id) === id);
         const detail = document.querySelector('[data-refresh-region="episode-state"]');
-        if (Number(detail?.dataset.episodeId) === id) cards.push(detail);
+        const completed = Number.isFinite(item.completed) ? Math.max(0, Math.min(100, item.completed)) : 0;
+        const hasSize = item.total_file_size > 0;
+        const message = statusLabel(item.status) + (hasSize ? ` ${completed}%` : '');
+        if (Number(detail?.dataset.episodeId) === id) {
+            detail.dataset.status = item.episode.status;
+            const slider = byId('progress-slider');
+            const label = byId('player-status');
+            if (label) label.textContent = message;
+            if (slider && label) {
+                slider.disabled = true;
+                slider.max = '100';
+                slider.value = String(hasSize ? completed : 0);
+                slider.style.setProperty('--player-progress', `${hasSize ? completed : 0}%`);
+                slider.setAttribute('aria-valuetext', message);
+                if (hasSize) slider.setAttribute('aria-valuenow', String(completed));
+                else slider.removeAttribute('aria-valuenow');
+            }
+        }
         cards.forEach(card => {
             card.dataset.status = item.episode.status;
             const badge = card.querySelector('[data-status-label]');
-            if (badge) badge.textContent = statusLabel(item.episode.status);
+            if (badge) {
+                badge.textContent = statusLabel(item.episode.status);
+                badge.hidden = activeStatus(item.episode.status);
+            }
             const label = card.querySelector('[data-progress-label]');
-            if (label) label.textContent = statusLabel(item.status) + (item.total_file_size > 0 ? ` ${item.completed}%` : '');
+            if (label) label.textContent = message;
             const bar = card.querySelector('[data-progress-bar]');
-            if (bar) bar.style.width = `${Math.max(0, Math.min(100, item.completed))}%`;
+            if (bar) bar.style.width = `${completed}%`;
             const progress = card.querySelector('[data-progress]');
-            if (progress) progress.hidden = false;
+            if (progress) progress.hidden = !activeStatus(item.episode.status);
         });
     }
 
@@ -695,6 +715,7 @@
             byId('time-display').textContent = [Math.floor(seconds / 3600), Math.floor(seconds / 60) % 60, seconds % 60].map(value => String(value).padStart(2, '0')).join(':');
             slider.max = Number.isFinite(audio.duration) ? String(audio.duration) : '0';
             if (!dragging) slider.value = String(audio.currentTime);
+            slider.style.setProperty('--player-progress', `${audio.duration > 0 ? Math.max(0, Math.min(100, Number(slider.value) / audio.duration * 100)) : 0}%`);
             byId('play-icon').classList.toggle('hidden', !audio.paused);
             byId('pause-icon').classList.toggle('hidden', audio.paused);
         };
