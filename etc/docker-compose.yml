@@ -1,37 +1,62 @@
+name: podcast-app
+
+x-runtime: &runtime
+  DB_HOST: ${DB_HOST:?Set DB_HOST to the external PostgreSQL network alias}
+  DB_USER: ${DB_USER:?Set DB_USER in .env}
+  DB_PASSWORD: ${DB_PASSWORD:?Set DB_PASSWORD in .env}
+  DB_NAME: ${DB_NAME:?Set DB_NAME in .env}
+  REDIS_HOST: ${REDIS_HOST:?Set REDIS_HOST to the external Redis network alias}
+  APP_SECRET_KEY: ${APP_SECRET_KEY:?Set APP_SECRET_KEY in .env}
+  ADMIN_PASSWORD: ${ADMIN_PASSWORD:?Set ADMIN_PASSWORD in .env}
+  SENS_DATA_ENCRYPT_KEY: ${SENS_DATA_ENCRYPT_KEY:?Set SENS_DATA_ENCRYPT_KEY in .env}
+  S3_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID:?Set S3_ACCESS_KEY_ID in .env}
+  S3_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY:?Set S3_SECRET_ACCESS_KEY in .env}
+  S3_BUCKET_NAME: ${S3_BUCKET_NAME:?Set S3_BUCKET_NAME in .env}
+
+x-app: &app
+  image: ${DOCKER_IMAGE:?Set DOCKER_IMAGE in .version}
+  env_file:
+    - .env
+  init: true
+  restart: unless-stopped
+  networks:
+    - storage
+  stop_grace_period: 120s
+
 services:
   web:
-    container_name: podcast-app-web
-    image: ${DOCKER_IMAGE:-podcast-app}
+    <<: *app
     ports:
-      - 127.0.0.1:${APP_PORT}:${APP_PORT}
-    env_file:
-      - .env
+      - "127.0.0.1:${APP_PORT:-8003}:${APP_PORT:-8003}"
     environment:
+      <<: *runtime
       APP_SERVICE: web
-      APP_VERSION: ${DOCKER_IMAGE_TAG:-latest}
-    networks:
-      - storage
+      APP_PORT: ${APP_PORT:-8003}
+      APP_VERSION: ${DOCKER_IMAGE_TAG:?Set DOCKER_IMAGE_TAG in .version}
     healthcheck:
-      test: ["CMD-SHELL", 'python -c "import os,socket; s=socket.socket(); s.connect((''127.0.0.1'', int(os.environ[''APP_PORT''])))"']
-      interval: 5s
-      timeout: 2s
+      test: ["CMD", "python", "-m", "src.healthcheck", "web"]
+      interval: 10s
+      timeout: 10s
       retries: 5
       start_period: 60s
 
   background:
-    container_name: podcast-app-background
-    image: ${DOCKER_IMAGE:-podcast-app}
-    env_file:
-      - .env
+    <<: *app
     environment:
+      <<: *runtime
       APP_SERVICE: background
-      APP_VERSION: ${DOCKER_IMAGE_TAG:-latest}
-    networks:
-      - storage
+      APP_VERSION: ${DOCKER_IMAGE_TAG:?Set DOCKER_IMAGE_TAG in .version}
     depends_on:
       web:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-m", "src.healthcheck", "background"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
 
 networks:
   storage:
     external: true
+    name: storage

@@ -1,0 +1,10 @@
+#!/bin/bash
+set -euo pipefail
+for image in "$@"; do
+    echo "Checking linux/amd64 and linux/arm64 in $image"
+    docker buildx imagetools inspect --raw "$image" |
+        jq -e '
+            [.manifests[] | select(.platform.os == "linux") | .platform.architecture]
+            | index("amd64") != null and index("arm64") != null
+        '
+done

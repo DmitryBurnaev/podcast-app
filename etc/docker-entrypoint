@@ -1,78 +1,49 @@
 #!/bin/sh
+set -eu
 
-set -e
+# Fail with a nonzero exit code so Compose/systemd and CI see startup failures.
+: "${APP_SERVICE:?APP_SERVICE is required (web, background, test, lint)}"
+export PYTHONPATH=/app
 
-# Define required environment variables as a space-separated string for POSIX sh compatibility
-required_env_vars="DB_USER DB_PASSWORD DB_NAME APP_SECRET_KEY"
+case "$APP_SERVICE" in
+    web|background)
+        : "${DB_USER:?DB_USER is required}"
+        : "${DB_PASSWORD:?DB_PASSWORD is required}"
+        : "${DB_NAME:?DB_NAME is required}"
+        : "${APP_SECRET_KEY:?APP_SECRET_KEY is required}"
+        : "${ADMIN_PASSWORD:?ADMIN_PASSWORD is required}"
+        : "${SENS_DATA_ENCRYPT_KEY:?SENS_DATA_ENCRYPT_KEY is required}"
+        ;;
+esac
 
-print_caption() {
-  echo ""
-  echo "===================="
-  echo "$1"
-  echo "===================="
-  echo ""
-}
-
-check_env_var() {
-  local var="$1"
-  # Use eval for indirect variable reference in POSIX shell
-  local value
-  eval "value=\$$var"
-
-  if [ -z "$value" ]; then
-    echo "Error: Required environment variable $var is not set" >&2
-    kill -s SIGINT 1
-  fi
-
-  echo "Environment variable $var is set"
-}
-
-run_service() {
-
-  print_caption "Check environment variables"
-  echo "Environment variable APP_SERVICE is set (${APP_SERVICE})"
-  for var in $required_env_vars; do
-    check_env_var "$var"
-  done
-
-  case "${APP_SERVICE}" in
+case "$APP_SERVICE" in
     web)
-      print_caption "Start DB migrations"
-      alembic upgrade head
-      print_caption "Start web application"
-      uvicorn --factory src.main:make_app --host 0.0.0.0 --port ${APP_PORT} --loop uvloop --proxy-headers --forwarded-allow-ips="*"
-      ;;
+        echo "Applying database migrations..."
+        alembic upgrade head
+        echo "Starting Podcast App web service..."
+        exec uvicorn --factory src.main:make_app --host 0.0.0.0 \
+            --port "${APP_PORT:-8000}" --loop uvloop --proxy-headers \
+            --forwarded-allow-ips="${FORWARDED_ALLOW_IPS:-127.0.0.1}"
+        ;;
     background)
-      print_caption "Start background workers"
-      python -m src.worker
-      ;;
+        echo "Starting Podcast App background worker..."
+        exec python -m src.worker
+        ;;
     test)
-      print_caption "Lint check"
-      export RUFF_CACHE_DIR=/tmp/.ruff
-      ruff check
-      print_caption "Start DB migrations"
-      alembic upgrade head
-      print_caption "Test"
-      export COVERAGE_FILE=/tmp/.coverage
-      coverage run -m pytest -o cache_dir=/tmp
-      coverage report
-      ;;
+        : "${TEST_DB_NAME:?TEST_DB_NAME must name an isolated functional test database}"
+        # Fixtures create their own schema; never migrate the application DB here.
+        export COVERAGE_FILE=/tmp/.coverage
+        coverage run -m pytest -o cache_dir=/tmp/.pytest_cache "$@"
+        exec coverage report
+        ;;
     lint)
-      print_caption "Black check"
-      black --check .
-      print_caption "Lint check"
-      export RUFF_CACHE_DIR=/tmp/.ruff
-      ruff check .
-      print_caption "Mypy check"
-      mypy . --show-traceback --cache-dir /tmp/.mypy_cache
-      ;;
+        export RUFF_CACHE_DIR=/tmp/.ruff
+        black --check .
+        ruff check .
+        exec mypy . --show-traceback --cache-dir /tmp/.mypy_cache
+        ;;
     *)
-      echo "APP_SERVICE environment variable is unexpected or was not provided (APP_SERVICE='${APP_SERVICE}')" >&2
-      kill -s SIGINT 1
-      ;;
-  esac
-}
-
-run_service
-
-set +e
+        echo "Unknown APP_SERVICE: $APP_SERVICE" >&2
+        exit 1
+        ;;
+esac

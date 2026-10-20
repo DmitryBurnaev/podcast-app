@@ -1,17 +1,9 @@
 #!/bin/bash
-set -e
+set -euo pipefail
+source "$(dirname -- "${BASH_SOURCE[0]}")/common"
 
-export WORKING_DIR=/opt/podcast-app/
-
-echo "=== Move to app dir ==="
-cd ${WORKING_DIR}
-
-echo "=== Reading $(pwd)/.env file ==="
-export $(cat .env | grep -v ^# | xargs)
-
-echo "=== Reading $(pwd)/.version file ==="
-export $(cat .version | grep -v ^# | xargs)
-
-echo "=== Starting Code Agent service ==="
-echo "Detected version: '${DOCKER_IMAGE}'"
-docker compose up
+check_configuration
+trap diagnostics ERR
+echo "Starting Podcast App and waiting for web and worker readiness..."
+compose up --detach --no-build --pull never --wait --wait-timeout "$READY_TIMEOUT"
+check_health
