@@ -13,7 +13,8 @@ this conversation, beyond the original issue's CI-only description.
 - A reusable checks workflow builds service/test images for explicit platforms,
   verifies loaded image architecture and media tools, runs isolated PostgreSQL
   functional tests, and smoke-tests migrations plus web/worker readiness.
-  PRs use AMD64; `main` and release tags use AMD64 and ARM64.
+  PRs use AMD64 through `tests.yaml`; pushes/merges to `main` use AMD64 and
+  ARM64 through `tests-full.yaml`. Release tags also use both platforms.
 - PR checks include frontend tests, deployment-script regression tests, and
   Black/Ruff/mypy. No production secrets or developer `.env` are used by tests.
 - Release publication creates versioned and `latest` multi-platform GHCR images,
@@ -35,6 +36,8 @@ this conversation, beyond the original issue's CI-only description.
   and Docker lifecycle dependencies. The Nginx example proxies all app routes.
 - `DEPLOYMENT.md` documents server accounts/permissions, external network
   aliases, PostgreSQL/Redis/S3 setup, installation, updates, TLS, logs, and health.
+- The deployment kit uses the shared root `.env.template`; no separate server
+  template is maintained under `etc`. Server overrides are documented explicitly.
 - Existing Scan/CodeQL workflow artifact paths use valid `github.workspace`
   expressions; CodeQL's output directory is explicit.
 - P9 in the testing migration plan is split into implemented CI preparation and
