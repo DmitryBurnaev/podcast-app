@@ -66,8 +66,9 @@ media-processing requirements.
 
 ### Production deployment and systemd
 
-- Complete the production deployment kit under `etc`: Compose configuration,
-  environment template, Nginx example, systemd unit, and management scripts.
+- Complete the production deployment kit with Compose configuration, the shared
+  root `.env.template`, Nginx example, systemd unit, and management scripts from
+  `etc`.
 - Use `/opt/podcast-app` as the documented installation directory and
   `podcast-app.service` as the systemd unit.
 - Document creation of the `podcast-app-srv` service account, directory

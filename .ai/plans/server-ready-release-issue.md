@@ -16,8 +16,8 @@ server, following the CI/CD and deployment structure in `code-agent`.
   runs web and background workers from the same release, connecting to external
   PostgreSQL and Redis containers through the documented Docker network
   `storage`.
-- Complete the production `etc` kit: Compose, environment template, Nginx
-  example, systemd unit, and deployment/management scripts.
+- Complete the production kit: Compose, the shared root `.env.template`, Nginx
+  example, systemd unit, and deployment/management scripts from `etc`.
 - Support installation under `/opt/podcast-app`, startup on boot, migrations,
   readiness checks, updates, and service start/stop/restart/status/logs/health.
 - Document initial server setup, network aliases, external S3, secrets, image

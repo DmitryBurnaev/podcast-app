@@ -63,6 +63,13 @@ sudo chmod 600 /opt/podcast-app/.env
 sudoedit /opt/podcast-app/.env
 ```
 
+The kit includes the repository's shared `.env.template`, which defaults to
+local development. For the server, set `DB_HOST=podcast-db` and
+`REDIS_HOST=podcast-redis` (or your actual aliases on `storage`),
+`AUTH_COOKIE_SECURE=true`, `API_DOCS_ENABLED=false`, and
+`FORWARDED_ALLOW_IPS=*` for the trusted host Nginx setup described below.
+Remove the local `DOCKER_IMAGE` entry; the release's `.version` selects it.
+
 Fill the empty required fields: `DB_PASSWORD`, `APP_SECRET_KEY`,
 `ADMIN_PASSWORD`, `SENS_DATA_ENCRYPT_KEY`, `S3_ACCESS_KEY_ID`, and
 `S3_SECRET_ACCESS_KEY`. Set the real S3 endpoint, region, bucket, database
@@ -160,9 +167,9 @@ needed to reverse incompatible migrations.
 
 ## CI/CD
 
-- PRs targeting `main`: AMD64 image builds, Black/Ruff/mypy, backend tests, frontend
+- PRs targeting `main` (`tests.yaml`): AMD64 image builds, Black/Ruff/mypy, backend tests, frontend
   JavaScript tests, and deployment script checks.
-- Pushes to `main`: service and test image builds and backend tests on AMD64
+- Pushes to `main` (`tests-full.yaml`), including PR merges: service and test image builds and backend tests on AMD64
   and ARM64; ARM64 executes under QEMU on the hosted AMD64 runner.
 - Version tags matching `1.2.3`: the same checks on both platforms, then one
   multi-platform service image published to GHCR as the version and `latest`.
