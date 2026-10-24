@@ -1,4 +1,4 @@
-# Podcast App server installation
+# Podcast App installation guide
 
 The release provides one image for `linux/amd64` and `linux/arm64` and a
 `podcast-app-deploy.tar.gz` deployment kit. Docker selects the server's platform.
@@ -35,14 +35,31 @@ they survive container recreation. Set `DB_HOST=podcast-db` and
 aliases. Use container ports (`5432`/`6379` by default), not host-published ports.
 `localhost` inside an app container is not the database or Redis container.
 
-Create the PostgreSQL database and application role beforehand. The role must
-own its database/schema and be able to apply Alembic migrations. Production
+Create the PostgreSQL database and application role beforehand. For example,
+connect with your PostgreSQL administrator account:
+
+```sh
+docker exec -it YOUR_POSTGRES_CONTAINER psql -U YOUR_POSTGRES_ADMIN -d postgres
+```
+
+Then run these commands in psql, using a new database/role name when needed:
+
+```sql
+CREATE ROLE podcasts LOGIN;
+\password podcasts
+CREATE DATABASE podcasts OWNER podcasts;
+```
+
+Store that role's password as `DB_PASSWORD` in the app configuration. The role
+must own its database/schema and be able to apply Alembic migrations. Production
 does not need the test suite's `CREATEDB` permission. Use an app-specific Redis
 database if the Redis instance is shared. Redis must be reachable without
 authentication, as required by the application's current connection settings;
 do not publish it to an untrusted network.
 
-## First installation
+## Service installation
+
+### 1. Prepare the service account
 
 Commands below use `/opt/podcast-app`, user/group `podcast-app-srv`, and unit
 `podcast-app.service`. Run the administrative commands with sudo:
@@ -53,29 +70,56 @@ sudo usermod -aG docker podcast-app-srv
 sudo install -d -o podcast-app-srv -g podcast-app-srv -m 750 /opt/podcast-app
 ```
 
-Download `podcast-app-deploy.tar.gz` from the desired GitHub Release, transfer it
-to the server, then extract it as the service account:
+### 2. Download and extract a release
+
+Choose the required release tag. For a publicly downloadable GitHub Release:
 
 ```sh
-sudo -u podcast-app-srv tar -xzf podcast-app-deploy.tar.gz -C /opt/podcast-app
+VERSION=1.2.3 # replace with the desired release tag
+curl --fail --location \
+  "https://github.com/DmitryBurnaev/podcast-app/releases/download/${VERSION}/podcast-app-deploy.tar.gz" \
+  --output /tmp/podcast-app-deploy.tar.gz
+```
+
+If the release requires sign-in, download it in your browser and transfer it to
+`/tmp/podcast-app-deploy.tar.gz` on the server. Extract the selected kit and
+create the private runtime configuration:
+
+```sh
+sudo -u podcast-app-srv tar -xzf /tmp/podcast-app-deploy.tar.gz -C /opt/podcast-app
 sudo -u podcast-app-srv cp /opt/podcast-app/.env.template /opt/podcast-app/.env
 sudo chmod 600 /opt/podcast-app/.env
 sudoedit /opt/podcast-app/.env
 ```
 
-The kit includes the repository's shared `.env.template`, which defaults to
-local development. For the server, set `DB_HOST=podcast-db` and
-`REDIS_HOST=podcast-redis` (or your actual aliases on `storage`),
-`AUTH_COOKIE_SECURE=true`, `API_DOCS_ENABLED=false`, and
-`FORWARDED_ALLOW_IPS=*` for the trusted host Nginx setup described below.
-Remove the local `DOCKER_IMAGE` entry; the release's `.version` selects it.
+### 3. Configure the environment
 
-Fill the empty required fields: `DB_PASSWORD`, `APP_SECRET_KEY`,
-`ADMIN_PASSWORD`, `SENS_DATA_ENCRYPT_KEY`, `S3_ACCESS_KEY_ID`, and
-`S3_SECRET_ACCESS_KEY`. Set the real S3 endpoint, region, bucket, database
-settings, `SITE_URL`, and `SERVICE_URL`. Generate unique secrets, for example
-with `openssl rand -hex 32`; the encryption key needs at least 32 ASCII
-characters. Preserve it across updates or previously encrypted data will
+The kit contains the repository's single `.env.template`, with local-development
+defaults. Set the following values in `/opt/podcast-app/.env` before deploying:
+
+| Setting | Server value |
+| --- | --- |
+| `DB_HOST`, `DB_PORT` | Existing PostgreSQL alias on `storage`, such as `podcast-db`, and internal port `5432` |
+| `DB_USER`, `DB_NAME`, `DB_PASSWORD` | Existing application role/database and its real password |
+| `REDIS_HOST`, `REDIS_PORT`, `REDIS_DB` | Existing Redis alias, such as `podcast-redis`, internal port `6379`, and the selected app database |
+| `APP_SECRET_KEY` | A unique random secret; use at least 64 ASCII characters |
+| `SENS_DATA_ENCRYPT_KEY` | A unique random key of at least 32 ASCII characters; preserve it across upgrades |
+| `ADMIN_USERNAME`, `ADMIN_PASSWORD` | Initial admin credentials with a unique password |
+| `S3_STORAGE_URL`, `S3_REGION_NAME`, `S3_BUCKET_NAME` | Real endpoint, region, and existing bucket |
+| `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY` | Credentials for the configured bucket |
+| `SITE_URL`, `SERVICE_URL` | Your public HTTPS origin, for example `https://podcast.example.com` |
+| `AUTH_COOKIE_SECURE` | `true` for production HTTPS |
+| `API_DOCS_ENABLED` | `false` unless the API documentation should be exposed |
+| `FORWARDED_ALLOW_IPS` | `*` for the trusted host Nginx topology described below |
+| `APP_PORT` | `8003` by default; match the Nginx upstream if changed |
+
+Remove the local `DOCKER_IMAGE` entry; the release's `.version` selects it.
+Generate new application/admin secrets with `openssl rand -hex 32` and copy them
+into the corresponding fields. Use the existing database and S3 credentials
+rather than generating replacements. The release kit needs no Python or uv on
+the host; `make secrets` is for a source checkout and is described in README.
+
+The encryption key must survive upgrades or previously encrypted data will
 become unreadable.
 
 The bucket must exist and permit the configured account to read, write, and
@@ -88,6 +132,8 @@ reference) and `DOCKER_IMAGE_TAG` (the application version). Management scripts
 pass `.env` and then `.version` to Compose; `.version` takes precedence for image
 selection, including over exported image variables. They do not execute dotenv
 files as shell scripts. Do not put image selection in `.env`.
+
+### 4. Configure image access and systemd
 
 If the GHCR package requires authentication, log in as `podcast-app-srv` with a
 token permitted to read the package before deploying. Ensure subsequent updates
@@ -106,10 +152,14 @@ Install a narrowly scoped sudoers rule for the service/deployment account using
 podcast-app-srv ALL=(root) NOPASSWD: /usr/bin/systemctl start podcast-app.service, /usr/bin/systemctl stop podcast-app.service, /usr/bin/systemctl restart podcast-app.service, /usr/bin/systemctl status podcast-app.service, /usr/bin/systemctl is-active --quiet podcast-app.service
 ```
 
+### 5. Start and verify the release
+
 Start the selected release (the deployment script pulls the images first):
 
 ```sh
 sudo -iu podcast-app-srv /opt/podcast-app/bin/deploy
+sudo -iu podcast-app-srv /opt/podcast-app/bin/service health
+curl --fail http://127.0.0.1:8003/api/system/health/
 ```
 
 The unit waits for both services, rather than treating process creation as
@@ -118,11 +168,22 @@ starts after web readiness. A failed migration, dependency check, image pull,
 or readiness timeout makes deployment fail. The default readiness timeout is
 240 seconds, within systemd's 360-second startup limit.
 
-### Reverse proxy and HTTPS
+### 6. Configure Nginx and HTTPS
 
-Copy `nginx.conf` into your host Nginx configuration, set your domain, match its
-upstream port to `APP_PORT` (default `8003`), and configure TLS using your host's
-certificate tooling. Validate with `nginx -t` before reloading Nginx.
+For Debian/Ubuntu with host Nginx installed:
+
+```sh
+sudo install -m 644 /opt/podcast-app/nginx.conf /etc/nginx/sites-available/podcast-app.conf
+sudoedit /etc/nginx/sites-available/podcast-app.conf
+sudo ln -s /etc/nginx/sites-available/podcast-app.conf /etc/nginx/sites-enabled/podcast-app.conf
+sudo nginx -t
+sudo systemctl reload nginx
+```
+
+Set your domain and match the upstream port to `APP_PORT` (default `8003`)
+before validating/reloading. On other distributions, use their Nginx include
+layout. Configure a certificate, HTTPS listener and renewal using your host's
+TLS tooling before exposing the public site.
 
 The app binds only to host loopback. The example proxies all paths so the UI,
 static files, cookie-authenticated browser APIs, admin, and public RSS/media
@@ -135,7 +196,7 @@ to the host proxy and trusted containers on `storage`.
 Use `/padm/` and the configured admin credentials to create the first ordinary
 user; configure SMTP if your onboarding uses invitation email.
 
-## Operations and upgrades
+## Service management
 
 The scripts work from any working directory:
 
@@ -155,6 +216,8 @@ policies handle process exits; `service health` checks current web/database
 readiness and this worker container's live RQ heartbeat. Docker marks a failed
 probe unhealthy; it does not automatically restart an unhealthy running process.
 
+## Upgrades and rollback
+
 Before upgrading, back up PostgreSQL and preserve `.env` and the previous
 `.version`. Extract the new kit into `/opt/podcast-app` as the service account;
 it replaces `.version`, scripts, and examples but contains no `.env`. Reinstall
@@ -165,22 +228,11 @@ network. Restore the previous image/version and deploy again for an application
 rollback only when its database schema is compatible; a database backup is
 needed to reverse incompatible migrations.
 
-## CI/CD
+## Automatic deployment
 
-- PRs targeting `main` (`tests.yaml`): AMD64 image builds, Black/Ruff/mypy, backend tests, frontend
-  JavaScript tests, and deployment script checks.
-- Pushes to `main` (`tests-full.yaml`), including PR merges: service and test image builds and backend tests on AMD64
-  and ARM64; ARM64 executes under QEMU on the hosted AMD64 runner.
-- Version tags matching `1.2.3`: the same checks on both platforms, then one
-  multi-platform service image published to GHCR as the version and `latest`.
-  Both manifests are checked before GitHub Release creation or deployment.
-- Both platform jobs smoke-test migrations, web and worker readiness, and
-  synthetic MP3 encoding/probing. S3 values in `.github/ci.env` are dummy values;
-  this smoke test does not verify a real bucket or external media providers.
-- Releases include the deployment kit and `release-metadata.json`.
-- Set repository variable `DEPLOY_ENABLED=true` to enable automatic deployment
-  after preparing the server. The `production` GitHub environment can impose
-  approval rules. CI tests do not receive production secrets.
+Set repository variable `DEPLOY_ENABLED=true` after preparing the server. The
+`production` GitHub environment can require deployment approval. CI uses the
+same release kit and management scripts as manual deployment.
 
 For automatic deployment configure `SSH_PKEY`, `SSH_HOST`, `SSH_USER`,
 `SSH_PORT` (defaults to 22), `SSH_KNOWN_HOSTS` (verified host-key entries, including
@@ -197,24 +249,18 @@ podcast-app-srv ALL=(root) NOPASSWD: /usr/bin/install -m 644 podcast-app.service
 CI delivers the same kit and runs `bin/deploy`; it does not overwrite `.env`,
 install Nginx configuration, or provision external dependencies.
 
-## Verification
+## Troubleshooting
 
-For local checks, use `.github/ci.env` explicitly; no production `.env` is needed.
-The database fixture creates a separate `TEST_DB_NAME` database and needs a
-CI-only PostgreSQL role with `CREATEDB`. Infrastructure data defaults to `.data`;
-set `PODCAST_DATA_DIR` to a disposable absolute directory for an isolated run.
+| Symptom | Check |
+| --- | --- |
+| `storage` network is missing | Create it and attach both dependency containers with the aliases used in `.env` |
+| Migrations or database startup fail | Database name, role/password, network alias, ownership, and `bin/service logs web` |
+| Web starts but worker is unhealthy | `bin/service logs background`, Redis settings, and RQ worker registration |
+| Login redirects back to login | Public URL scheme, HTTPS configuration, and `AUTH_COOKIE_SECURE` |
+| Pull or SSH deployment fails | Registry access for the service account, verified SSH host key, and the documented sudoers rules |
+| systemd startup fails | `journalctl -u podcast-app.service -n 100 --no-pager` and `bin/service logs --tail 100` |
 
-```sh
-make test-frontend
-node --test tests/deployment.test.cjs
-APP_PLATFORM=linux/arm64 make build-platform
-APP_PLATFORM=linux/arm64 make check-platform
-```
-
-Repeat the last two commands with `linux/amd64`. The platform check verifies the
-actual loaded image architectures and media tools, starts PostgreSQL/Redis,
-and runs the backend suite without rebuilding images. Tear down that test stack
-with `docker compose --env-file .github/ci.env --profile test down`.
+## Server acceptance checklist
 
 On a disposable Linux server, verify first installation, reboot startup, an
 upgrade, and start/stop/restart/status/logs/health. Log in, create a podcast and an

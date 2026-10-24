@@ -1,4 +1,5 @@
 .DEFAULT_GOAL := help
+UV ?= uv
 
 APP_PLATFORM ?= linux/amd64
 PLATFORM_ARCH = $(lastword $(subst /, ,$(APP_PLATFORM)))
@@ -103,6 +104,5 @@ downgrade: .env ## Downgrade (unapply) DB migration (last revision)
 	uv run alembic downgrade -1
 
 .PHONY: secrets
-secrets: .env ## Create new secrets
-	@echo Encryption: creating new key
-	uv run python -m src.modules.cli.generate_secrets
+secrets: .env ## Fill missing secrets without changing existing credentials
+	$(UV) run python -m src.cli.generate_secrets

@@ -108,7 +108,7 @@ test('release kit contains the matching version, scripts, and instructions but n
   assert.equal(spawnSync('tar', ['-xzf', archive, '-C', root]).status, 0);
   assert.equal(fs.existsSync(path.join(root, '.env')), false);
   assert.equal(fs.readFileSync(path.join(root, '.version'), 'utf8'), 'DOCKER_IMAGE=example/app:1.2.3\nDOCKER_IMAGE_TAG=1.2.3\n');
-  for (const name of ['docker-compose.yml', '.env.template', 'podcast-app.service', 'nginx.conf', 'DEPLOYMENT.md', 'bin/common', 'bin/start', 'bin/stop', 'bin/deploy', 'bin/service']) {
+  for (const name of ['docker-compose.yml', '.env.template', 'podcast-app.service', 'nginx.conf', 'INSTALL.md', 'bin/common', 'bin/start', 'bin/stop', 'bin/deploy', 'bin/service']) {
     assert.ok(fs.existsSync(path.join(root, name)), name);
   }
 });
