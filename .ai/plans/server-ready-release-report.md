@@ -34,7 +34,7 @@ this conversation, beyond the original issue's CI-only description.
   readiness, and retain secrets/data and unrelated host images.
 - The systemd unit defines installation paths, startup timeout, reboot startup,
   and Docker lifecycle dependencies. The Nginx example proxies all app routes.
-- `DEPLOYMENT.md` documents server accounts/permissions, external network
+- `INSTALL.md` documents server accounts/permissions, external network
   aliases, PostgreSQL/Redis/S3 setup, installation, updates, TLS, logs, and health.
 - The deployment kit uses the shared root `.env.template`; no separate server
   template is maintained under `etc`. Server overrides are documented explicitly.
@@ -95,3 +95,20 @@ host-wide cleanup was performed.
 - Ordinary tests still use external-boundary fakes as required by the project's
   testing strategy; they do not replace the server acceptance checklist.
 - Changes are left for review without a commit, push, or GitHub issue mutation.
+
+## Installation-guide follow-up — 2026-10-24
+
+- Renamed the server guide to `INSTALL.md` and updated deployment packaging,
+  release notes, dotenv comments and the archive regression check.
+- Moved development, local platform checks and CI details into README. The
+  installation guide now has numbered setup steps, a server-settings table,
+  database setup examples, Nginx commands, operations and troubleshooting.
+- Restored `make secrets` through `src.cli.generate_secrets`. It fills only
+  missing/empty values, preserves configured credentials, writes privately,
+  and does not print values. Generator verification used only temporary dotenv
+  files; the application's existing configuration was not modified.
+- Targeted Python checks: 25 passed (12 secret-generator and 13 health-probe
+  scenarios). Deployment/packaging checks: 13 passed.
+- Black, Ruff, mypy, shell syntax, workflow YAML parsing and diff whitespace
+  checks passed. The previously downloaded actionlint executable is no longer
+  present in `/private/tmp`; it was not available for this follow-up check.

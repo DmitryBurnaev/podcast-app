@@ -5,7 +5,7 @@ version=${2:?Version is required}
 output=${3:?Output archive is required}
 staging=$(mktemp -d)
 trap 'rm -rf "$staging"' EXIT
-cp etc/docker-compose.yml .env.template etc/nginx.conf etc/podcast-app.service DEPLOYMENT.md "$staging/"
+cp etc/docker-compose.yml .env.template etc/nginx.conf etc/podcast-app.service INSTALL.md "$staging/"
 cp -R etc/bin "$staging/bin"
 chmod +x "$staging/bin/"{start,stop,deploy,service}
 printf 'DOCKER_IMAGE=%s\nDOCKER_IMAGE_TAG=%s\n' "$image" "$version" > "$staging/.version"
