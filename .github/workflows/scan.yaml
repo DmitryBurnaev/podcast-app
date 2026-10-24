@@ -8,7 +8,7 @@ on:
     - cron: "0 0 * * 1" # Every Monday at 00:00
 
 env:
-  DOCKER_IMAGE: code-agent:scan-${{ github.sha }}
+  DOCKER_IMAGE: podcast-app:scan-${{ github.sha }}
   TRIVY_VERSION: "v0.67.2"
   TRIVY_SEVERITY: "CRITICAL,HIGH,MEDIUM,LOW"
   OPENGREP_VERSION: "v1.11.2"
@@ -41,7 +41,7 @@ jobs:
 #          scan-type: "image"
 #          image-ref: ${{ env.DOCKER_IMAGE }}
 #          format: "json"
-#          output: "${{ runner.workspace }}/trivy-image-results.json"
+#          output: "${{ github.workspace }}/trivy-image-results.json"
 #          exit-code: "0"
 #          ignore-unfixed: false
 #          vuln-type: "os,library"
@@ -52,7 +52,7 @@ jobs:
 #        uses: actions/upload-artifact@v4
 #        with:
 #          name: trivy-images-results
-#          path: ${{ runner.workspace }}/trivy-image-results.json
+#          path: ${{ github.workspace }}/trivy-image-results.json
 #          retention-days: 60
 #
 #      - name: Run Trivy Image (alert)
@@ -81,7 +81,7 @@ jobs:
 #          scan-type: "fs"
 #          scan-ref: "."
 #          format: "json"
-#          output: "${{ runner.workspace }}/trivy-fs-results.json"
+#          output: "${{ github.workspace }}/trivy-fs-results.json"
 #          exit-code: "0"
 #          ignore-unfixed: false
 #          vuln-type: "os,library"
@@ -92,7 +92,7 @@ jobs:
 #        uses: actions/upload-artifact@v4
 #        with:
 #          name: trivy-fs-results
-#          path: ${{ runner.workspace }}/trivy-fs-results.json
+#          path: ${{ github.workspace }}/trivy-fs-results.json
 #          retention-days: 60
 #
 #      - name: Run Trivy FS (alert)
@@ -121,19 +121,19 @@ jobs:
 
       - name: Run Trufflehog FS (report)
         run: |
-          ls -lah ${{ runner.workspace }}
-          trufflehog filesystem ${{ runner.workspace }} --results=verified,unknown --json > "${{ runner.workspace }}/trufflehog-results.json"
+          ls -lah ${{ github.workspace }}
+          trufflehog filesystem ${{ github.workspace }} --results=verified,unknown --json > "${{ github.workspace }}/trufflehog-results.json"
 
       - name: Upload scan results
         uses: actions/upload-artifact@v4
         with:
           name: trufflehog-results
-          path: "${{ runner.workspace }}/trufflehog-results.json"
+          path: "${{ github.workspace }}/trufflehog-results.json"
           retention-days: 60
 
       - name: Run Trufflehog FS (alert)
         run: |
-          trufflehog filesystem ${{ runner.workspace }} --results=verified,unknown --fail --github-actions
+          trufflehog filesystem ${{ github.workspace }} --results=verified,unknown --fail --github-actions
 
   gitleaks:
     name: gitleaks
@@ -155,13 +155,13 @@ jobs:
       - name: Run Gitleaks (report)
         run: |
           export PATH='/home/runner/.gitleaks':$PATH
-          gitleaks git . --exit-code 0 --report-format json --report-path "${{ runner.workspace }}/gitleaks-results.json"
+          gitleaks git . --exit-code 0 --report-format json --report-path "${{ github.workspace }}/gitleaks-results.json"
 
       - name: Upload scan results
         uses: actions/upload-artifact@v4
         with:
           name: gitleaks-results
-          path: "${{ runner.workspace }}/gitleaks-results.json"
+          path: "${{ github.workspace }}/gitleaks-results.json"
           retention-days: 60
 
       - name: Run Gitleaks (alert)
@@ -186,13 +186,13 @@ jobs:
       - name: Run Opengrep Scan (report)
         run: |
           export PATH='/home/runner/.opengrep/cli/latest':$PATH
-          opengrep scan --config opengrep-rules/python --json -o "${{ runner.workspace }}/opengrep-results.json" .
+          opengrep scan --config opengrep-rules/python --json -o "${{ github.workspace }}/opengrep-results.json" .
 
       - name: Upload scan results
         uses: actions/upload-artifact@v4
         with:
           name: opengrep-results
-          path: "${{ runner.workspace }}/opengrep-results.json"
+          path: "${{ github.workspace }}/opengrep-results.json"
           retention-days: 60
 
       - name: Run Opengrep Scan (alert)

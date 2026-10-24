@@ -1,4 +1,11 @@
 .DEFAULT_GOAL := help
+UV ?= uv
+
+APP_PLATFORM ?= linux/amd64
+PLATFORM_ARCH = $(lastword $(subst /, ,$(APP_PLATFORM)))
+CI_SERVICE_IMAGE = podcast-app:ci-$(PLATFORM_ARCH)
+CI_TEST_IMAGE = podcast-app:test-$(PLATFORM_ARCH)
+CI_COMPOSE = APP_PLATFORM=$(APP_PLATFORM) DOCKER_IMAGE=$(CI_SERVICE_IMAGE) TEST_DOCKER_IMAGE=$(CI_TEST_IMAGE) docker compose --env-file .github/ci.env
 
 MAKEFILE_TARGET := $(filter-out ai-client --help Makefile,$(MAKECMDGOALS))
 
@@ -35,12 +42,12 @@ run: .env ## Run app
 	@echo Run project...
 	uv run python -m src.main
 
-.PHONY: run
+.PHONY: run-worker
 run-worker: .env ## Run app
 	@echo Run background worker process...
 	uv run python -m src.worker
 
-.PHONY: run
+.PHONY: run-in-docker
 run-in-docker: .env ## Run app
 	@echo Run project in container...
 	docker compose --profile service up --build
@@ -57,15 +64,29 @@ test-frontend: ## Run frontend JavaScript tests
 	@echo Test frontend JavaScript...
 	node --test src/tests/frontend/app.test.cjs src/tests/frontend/http.test.cjs
 
-.PHONY: run
+.PHONY: test-in-docker
 test-in-docker: .env  ## Run tests inside docker container
 	@echo Run project in container...
 	docker compose --profile test up --build --abort-on-container-exit --exit-code-from test test
 
-.PHONY: run
+.PHONY: lint-in-docker
 lint-in-docker: .env  ## Run linting inside docker container
 	@echo Run project in container...
-	docker compose up lint --build
+	docker compose run --rm --no-deps --build lint
+
+.PHONY: build-platform
+build-platform: ## Build service and test images for APP_PLATFORM (default linux/amd64)
+	docker buildx build --platform $(APP_PLATFORM) --target service --tag $(CI_SERVICE_IMAGE) --load .
+	docker buildx build --platform $(APP_PLATFORM) --target tests --build-arg DEV_DEPS=true --tag $(CI_TEST_IMAGE) --load .
+
+.PHONY: check-platform
+check-platform: ## Verify and test previously built APP_PLATFORM images using CI-only configuration
+	test "$$(docker image inspect --format '{{.Os}}/{{.Architecture}}' $(CI_SERVICE_IMAGE))" = "$(APP_PLATFORM)"
+	test "$$(docker image inspect --format '{{.Os}}/{{.Architecture}}' $(CI_TEST_IMAGE))" = "$(APP_PLATFORM)"
+	docker run --rm --platform $(APP_PLATFORM) --entrypoint ffmpeg $(CI_SERVICE_IMAGE) -version
+	docker run --rm --platform $(APP_PLATFORM) --entrypoint ffprobe $(CI_SERVICE_IMAGE) -version
+	$(CI_COMPOSE) --profile test up --detach --wait --wait-timeout 120 db redis
+	$(CI_COMPOSE) run --rm --no-deps --pull never test
 
 .PHONY: migration
 migration: .env ## Make DB migrations
@@ -83,6 +104,5 @@ downgrade: .env ## Downgrade (unapply) DB migration (last revision)
 	uv run alembic downgrade -1
 
 .PHONY: secrets
-secrets: .env ## Create new secrets
-	@echo Encryption: creating new key
-	uv run python -m src.modules.cli.generate_secrets
+secrets: .env ## Fill missing secrets without changing existing credentials
+	$(UV) run python -m src.cli.generate_secrets

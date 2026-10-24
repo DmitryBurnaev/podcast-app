@@ -1,0 +1,111 @@
+name: Reusable checks
+
+on:
+  workflow_call:
+    inputs:
+      architectures:
+        type: string
+        default: '["amd64"]'
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    name: Build and test (${{ matrix.arch }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: ${{ fromJSON(inputs.architectures) }}
+    env:
+      APP_PLATFORM: linux/${{ matrix.arch }}
+      DOCKER_IMAGE: podcast-app:ci-${{ matrix.arch }}
+      TEST_DOCKER_IMAGE: podcast-app:test-${{ matrix.arch }}
+      COMPOSE_ENV_FILES: .github/ci.env
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-qemu-action@v3
+        if: matrix.arch == 'arm64'
+        with:
+          platforms: arm64
+      - uses: docker/setup-buildx-action@v3
+      - name: Build service image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          target: service
+          platforms: ${{ env.APP_PLATFORM }}
+          tags: ${{ env.DOCKER_IMAGE }}
+          load: true
+          cache-from: type=gha,scope=service-${{ matrix.arch }}
+          cache-to: type=gha,mode=max,scope=service-${{ matrix.arch }}
+      - name: Build test image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          target: tests
+          build-args: DEV_DEPS=true
+          platforms: ${{ env.APP_PLATFORM }}
+          tags: ${{ env.TEST_DOCKER_IMAGE }}
+          load: true
+          cache-from: type=gha,scope=tests-${{ matrix.arch }}
+          cache-to: type=gha,mode=max,scope=tests-${{ matrix.arch }}
+      - name: Verify loaded image architectures and runtime tools
+        shell: bash
+        run: |
+          set -euo pipefail
+          for image in "$DOCKER_IMAGE" "$TEST_DOCKER_IMAGE"; do
+            test "$(docker image inspect --format '{{.Os}}/{{.Architecture}}' "$image")" = "$APP_PLATFORM"
+          done
+          docker run --rm --platform "$APP_PLATFORM" --entrypoint ffmpeg "$DOCKER_IMAGE" -version
+          docker run --rm --platform "$APP_PLATFORM" --entrypoint ffprobe "$DOCKER_IMAGE" -version
+      - name: Lint
+        if: matrix.arch == 'amd64'
+        run: docker compose run --rm --no-deps --pull never lint
+      - name: Start isolated test infrastructure
+        run: docker compose --profile test up --detach --wait --wait-timeout 120 db redis
+      - name: Run backend suite on the selected architecture
+        run: docker compose run --rm --no-deps --pull never test
+      - name: Verify service startup, migrations, worker readiness, and media codecs
+        run: |
+          docker compose --profile service up --detach --no-build --wait --wait-timeout 240 web background
+          docker compose exec -T web python -m src.healthcheck web
+          docker compose exec -T background python -m src.healthcheck background
+          docker compose exec -T background ffmpeg -v error -f lavfi -i sine=frequency=440 -t 0.1 /tmp/ci-smoke.mp3
+          docker compose exec -T background ffprobe -v error -show_entries format=duration /tmp/ci-smoke.mp3
+      - name: Diagnostics
+        if: failure()
+        run: docker compose --profile test --profile service logs --no-color --tail 100
+      - name: Cleanup
+        if: always()
+        run: docker compose --profile test --profile service down --volumes --remove-orphans
+
+  frontend-and-deployment:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Frontend tests
+        run: make test-frontend
+      - name: Deployment script regression tests
+        run: node --test tests/deployment.test.cjs
+      - name: Validate shell syntax
+        run: |
+          bash -n etc/bin/common etc/bin/start etc/bin/stop etc/bin/deploy etc/bin/service
+          bash -n .github/scripts/package-release .github/scripts/verify-platforms
+          sh -n etc/docker-entrypoint
+      - name: Validate production configuration
+        run: |
+          staging=$(mktemp -d)
+          cp etc/docker-compose.yml "$staging/docker-compose.yml"
+          cp .github/ci.env "$staging/.env"
+          printf 'DOCKER_IMAGE=podcast-app:check\nDOCKER_IMAGE_TAG=check\n' > "$staging/.version"
+          docker compose --env-file "$staging/.env" --env-file "$staging/.version" -f "$staging/docker-compose.yml" config --quiet
+          sudo install -Dm755 etc/bin/start /opt/podcast-app/bin/start
+          sudo install -Dm755 etc/bin/stop /opt/podcast-app/bin/stop
+          systemd-analyze verify etc/podcast-app.service

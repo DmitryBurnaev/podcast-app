@@ -1,18 +1,20 @@
 services:
   web:
-    container_name: podcast-app-web
-    image: ${DOCKER_IMAGE:-podcast-app}
+    image: ${DOCKER_IMAGE:-podcast-app:latest}
+    platform: ${APP_PLATFORM:-}
+    init: true
     build:
       context: .
       target: "service"
     ports:
-      - 127.0.0.1:${APP_PORT}:${APP_PORT}
+      - "127.0.0.1:${APP_PORT:-8003}:${APP_PORT:-8003}"
     env_file:
-      - .env
+      - ${APP_ENV_FILE:-.env}
     profiles:
       - service
     environment:
       APP_SERVICE: web
+      APP_PORT: ${APP_PORT:-8003}
       APP_VERSION: ${DOCKER_IMAGE_TAG:-latest}
       DB_HOST: db
       REDIS_HOST: redis
@@ -22,22 +24,23 @@ services:
       redis:
         condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", 'python -c "import os,socket; s=socket.socket(); s.connect((''127.0.0.1'', int(os.environ[''APP_PORT''])))"']
+      test: ["CMD", "python", "-m", "src.healthcheck", "web"]
       interval: 5s
-      timeout: 2s
+      timeout: 10s
       retries: 5
       start_period: 60s
 
   background:
-    image: ${DOCKER_IMAGE_NAME:-podcast-service}:${DOCKER_IMAGE_TAG:-latest}
-    container_name: podcast-app-background
+    image: ${DOCKER_IMAGE:-podcast-app:latest}
+    platform: ${APP_PLATFORM:-}
+    init: true
     build:
       context: .
       target: "service"
     profiles:
       - service
     env_file:
-      - .env
+      - ${APP_ENV_FILE:-.env}
     environment:
       APP_SERVICE: background
       APP_VERSION: ${DOCKER_IMAGE_TAG:-latest}
@@ -51,11 +54,17 @@ services:
       web:
         condition: service_healthy
 
+    healthcheck:
+      test: ["CMD", "python", "-m", "src.healthcheck", "background"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
   db:
-    container_name: podcast-app-db
     image: postgres:17-alpine
     env_file:
-      - .env
+      - ${APP_ENV_FILE:-.env}
     profiles:
       - service
       - test
@@ -70,10 +79,9 @@ services:
       timeout: 2s
       retries: 5
     volumes:
-      - ${PWD}/.data/postgres:/var/lib/postgresql/data/pgdata
+      - ${PODCAST_DATA_DIR:-./.data}/postgres:/var/lib/postgresql/data/pgdata
 
   redis:
-    container_name: podcast-app-redis
     image: redis:7-alpine
     command: ["redis-server", "--appendonly", "yes"]
     profiles:
@@ -85,15 +93,15 @@ services:
       timeout: 2s
       retries: 5
     volumes:
-      - ${PWD}/.data/redis:/data
+      - ${PODCAST_DATA_DIR:-./.data}/redis:/data
 
   test:
-    container_name: podcast-app-test
-    image: podcast-app:test
+    image: ${TEST_DOCKER_IMAGE:-podcast-app:test}
+    platform: ${APP_PLATFORM:-}
     profiles:
       - test
     env_file:
-      - .env
+      - ${APP_ENV_FILE:-.env}
     build:
       context: .
       target: tests
@@ -101,6 +109,7 @@ services:
         DEV_DEPS: true
     environment:
       APP_SERVICE: test
+      TEST_DB_NAME: ${TEST_DB_NAME:?Set TEST_DB_NAME to a separate test database}
       DB_HOST: db
       REDIS_HOST: redis
     depends_on:
@@ -110,12 +119,12 @@ services:
         condition: service_healthy
 
   lint:
-    container_name: podcast-app-lint
-    image: podcast-app:test
+    image: ${TEST_DOCKER_IMAGE:-podcast-app:test}
+    platform: ${APP_PLATFORM:-}
     profiles:
       - test
     env_file:
-      - .env
+      - ${APP_ENV_FILE:-.env}
     build:
       context: .
       target: tests
@@ -123,6 +132,3 @@ services:
         DEV_DEPS: true
     environment:
       APP_SERVICE: lint
-
-networks:
-  internal-subnet:
