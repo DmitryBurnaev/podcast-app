@@ -105,12 +105,22 @@
   - [x] **P9a — подготовить CI gates и multi-platform сборку, issue #16.**
     Workflow для PR выполняет Black/Ruff/mypy, backend и frontend tests;
     `main` и release tags собирают service/test images и запускают backend
-    suite на AMD64 и ARM64. Добавлены startup/media smoke и deployment script
-    checks, изолированный `TEST_DB_NAME`, проверка платформ опубликованного
+    suite на AMD64 и ARM64. Добавлены startup/media smoke, изолированный
+    `TEST_DB_NAME`, проверка платформ опубликованного
     manifest. Локально собраны обе архитектуры, полные контейнерные прогоны
     проходят; hosted Actions и реальная публикация требуют последующего
     PR/tag run. Подробные результаты — в
     `../plans/server-ready-release-report.md`.
+    - **Уточнение ARM CI, 2026-11-08.** Проверки `main` и release tags
+      переведены на нативные `ubuntu-24.04` / `ubuntu-24.04-arm` runners.
+      Release builds публикуют каждую платформу по digest, затем отдельный job
+      собирает общие version/latest manifests и запускает прежнюю проверку
+      платформ. PR по-прежнему проверяет только AMD64. Локально: actionlint,
+      YAML/shell syntax и 19 deployment/release checks прошли; hosted ARM run
+      остаётся проверкой после push.
+    - **Упрощение deployment-проверок, 2026-11-08.** По решению пользователя
+      удалён набор `tests/deployment.test.cjs` и его запуск в CI. Проверки
+      синтаксиса shell, production configuration и release manifests сохранены.
   - [ ] **P9b — завершить типизацию тестов и coverage >= 90%.** Текущие gates
     не вводят недостигнутый coverage threshold и не закрывают оставшиеся
     этапы P6–P8.

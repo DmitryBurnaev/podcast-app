@@ -1,0 +1,22 @@
+#!/bin/bash
+set -euo pipefail
+
+image=${1:?Image name is required}
+version=${2:?Version is required}
+digests=${3:?Digest directory is required}
+
+# Validate both native builds before publishing either shared tag.
+images=()
+for arch in amd64 arm64; do
+    IFS= read -r digest < "$digests/$arch"
+    if [[ ! "$digest" =~ ^sha256:[a-f0-9]{64}$ ]]; then
+        echo "Invalid image digest for $arch" >&2
+        exit 1
+    fi
+    images+=("$image@$digest")
+done
+
+docker buildx imagetools create \
+    --tag "$image:$version" \
+    --tag "$image:latest" \
+    "${images[@]}"
