@@ -15,8 +15,8 @@ this conversation, beyond the original issue's CI-only description.
   functional tests, and smoke-tests migrations plus web/worker readiness.
   PRs use AMD64 through `tests.yaml`; pushes/merges to `main` use AMD64 and
   ARM64 through `tests-full.yaml`. Release tags also use both platforms.
-- PR checks include frontend tests, deployment-script regression tests, and
-  Black/Ruff/mypy. No production secrets or developer `.env` are used by tests.
+- PR checks include frontend tests, shell/production configuration validation,
+  and Black/Ruff/mypy. No production secrets or developer `.env` are used by tests.
 - Release publication creates versioned and `latest` multi-platform GHCR images,
   verifies both platforms, and packages a deployment kit and metadata before
   GitHub Release creation. Automatic SSH deployment uses the same kit and is
@@ -112,3 +112,31 @@ host-wide cleanup was performed.
 - Black, Ruff, mypy, shell syntax, workflow YAML parsing and diff whitespace
   checks passed. The previously downloaded actionlint executable is no longer
   present in `/private/tmp`; it was not available for this follow-up check.
+
+## Native ARM CI follow-up — 2026-11-08
+
+- Matched `../code-agent`'s native runner approach: reusable backend checks use
+  `ubuntu-24.04` for AMD64 and `ubuntu-24.04-arm` for ARM64, without QEMU setup.
+  PRs still select AMD64 only; `main` and release tags select both platforms.
+  Existing backend, migration, readiness and media-codec checks remain enabled.
+- Release service images build independently on matching native runners and
+  publish by digest. Each matrix job uploads its digest; a separate merge job
+  validates both digests before publishing version/latest manifests. Platform
+  verification, packaging, release creation and deployment depend on this merge.
+- Added regression coverage for complete manifests, missing/invalid digests for
+  either platform, and propagation of registry publication failures. These tests
+  stub registry writes; they do not push images or create a GitHub Release.
+- Local validation: actionlint 1.7.12 passed across all workflows; workflow YAML
+  parsing and shell syntax passed; deployment/release checks: 19 passed.
+- Native GitHub-hosted ARM execution and actual digest/manifest publication
+  remain to be confirmed by the next authorized push/tag run. No hosted jobs
+  were dispatched and no registry state was changed during this follow-up.
+
+## Deployment test removal — 2026-11-08
+
+- Removed `tests/deployment.test.cjs` and its CI step at the user's request,
+  including the deployment-script, archive and manifest-helper regression tests.
+  Historical test counts above describe verification before this removal.
+- Removed the deleted suite's command and prerequisites from README. Shell
+  syntax, production configuration, published-platform verification and service
+  startup/media checks remain in CI.

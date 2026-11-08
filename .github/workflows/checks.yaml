@@ -13,7 +13,7 @@ permissions:
 jobs:
   backend:
     name: Build and test (${{ matrix.arch }})
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.arch == 'arm64' && 'ubuntu-24.04-arm' || 'ubuntu-24.04' }}
     timeout-minutes: 45
     strategy:
       fail-fast: false
@@ -27,10 +27,6 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
-      - uses: docker/setup-qemu-action@v3
-        if: matrix.arch == 'arm64'
-        with:
-          platforms: arm64
       - uses: docker/setup-buildx-action@v3
       - name: Build service image
         uses: docker/build-push-action@v6
@@ -92,12 +88,11 @@ jobs:
           node-version: '22'
       - name: Frontend tests
         run: make test-frontend
-      - name: Deployment script regression tests
-        run: node --test tests/deployment.test.cjs
       - name: Validate shell syntax
         run: |
-          bash -n etc/bin/common etc/bin/start etc/bin/stop etc/bin/deploy etc/bin/service
-          bash -n .github/scripts/package-release .github/scripts/verify-platforms
+          for script in etc/bin/* .github/scripts/*; do
+            bash -n "$script"
+          done
           sh -n etc/docker-entrypoint
       - name: Validate production configuration
         run: |

@@ -16,7 +16,7 @@ networking, S3 configuration, systemd, Nginx/HTTPS, and upgrades. Releases suppo
 - Python 3.14 and uv for the source checkout.
 - Docker Engine/Desktop with Compose and Buildx for the local container stack.
 - An existing S3-compatible bucket and its credentials.
-- Node.js 22 or newer for the frontend/deployment script tests.
+- Node.js 22 or newer for the frontend tests.
 
 The local Compose stack starts its own PostgreSQL and Redis. Production connects
 to externally managed services instead.
@@ -74,7 +74,6 @@ make format
 make lint
 make test-in-docker
 make test-frontend
-node --test tests/deployment.test.cjs
 ```
 
 Functional tests require the explicit, separate `TEST_DB_NAME`; use a dedicated
@@ -97,18 +96,20 @@ APP_PLATFORM=linux/arm64 make check-platform
 Repeat the last two commands with `linux/amd64`. The platform check verifies the
 actual loaded image architectures and media tools, starts PostgreSQL/Redis,
 and runs the backend suite without rebuilding images. Tear down that test stack
-with `docker compose --env-file .github/ci.env --profile test down`. Running ARM64
-images on AMD64 requires QEMU/binfmt support; the CI workflow configures it.
+with `docker compose --env-file .github/ci.env --profile test down`. Running images
+for a different host architecture requires locally configured QEMU/binfmt support.
+CI uses native runners for each architecture.
 
 ## CI/CD
 
 - PRs targeting `main` (`tests.yaml`): AMD64 image builds, Black/Ruff/mypy,
-  backend/frontend tests, and deployment script checks.
+  backend/frontend tests, and shell/production configuration validation.
 - Pushes to `main` (`tests-full.yaml`), including PR merges: service/test image
-  builds and backend tests on AMD64 and ARM64; ARM64 runs under QEMU on the
-  hosted AMD64 runner.
-- Version tags matching `1.2.3`: the same checks on both platforms, then one
-  multi-platform service image published to GHCR as the version and `latest`.
+  builds and backend tests on native `ubuntu-24.04` (AMD64) and
+  `ubuntu-24.04-arm` (ARM64) runners.
+- Version tags matching `1.2.3`: the same checks on both platforms, then native
+  per-platform service builds published to GHCR by digest. A separate merge job
+  combines both digests into one multi-platform image as the version and `latest`.
   Both manifests are checked before GitHub Release creation or deployment.
 - Both platform jobs smoke-test migrations, web and worker readiness, and
   synthetic MP3 encoding/probing. S3 values in `.github/ci.env` are dummy values;
