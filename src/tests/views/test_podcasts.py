@@ -118,6 +118,9 @@ class TestPodcastsDetailsController:
             context={
                 "podcast": podcast,
                 "episodes": episodes,
+                "has_more": False,
+                "next_offset": 1,
+                "podcast_id": 1,
                 "podcast_stats": podcast_stats,
                 "current": "podcasts",
                 "title": "A" * 32 + "...",

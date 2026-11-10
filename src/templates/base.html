@@ -9,6 +9,7 @@
     <link rel="apple-touch-icon" sizes="76x76" href="/static/img/apple-touch-icon.png">
     <link rel="icon" type="image/png" href="/static/img/favicon.ico">
     <script src="/static/js/tailwind.3.4.17.js"></script>
+    <script src="/static/js/htmx.2.0.8.min.js" defer></script>
     <link rel="stylesheet" href="/static/css/podcast-app.css">
     <script src="/static/js/http.js" defer></script>
     <script src="/static/js/app.js" defer></script>
@@ -175,6 +176,7 @@
     {% endblock %}
     {{ modal_action() }}
     <div id="notification-stack" class="ui-notification-stack" aria-live="polite" aria-relevant="additions"></div>
+    <div id="sse-sink" hidden></div>
     <!-- Shared UI functionality -->
 
     {% block scripts %}

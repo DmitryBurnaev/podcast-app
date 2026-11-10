@@ -189,6 +189,17 @@ def get_episode_status_color(status: str) -> dict:
 
 def get_episode_status_label(status: str) -> str:
     """Get human-readable label for episode status."""
+    progress_labels = {
+        "CANCELING": "Canceling",
+        "DL_PENDING": "Waiting for download",
+        "DL_EPISODE_DOWNLOADING": "Downloading audio",
+        "DL_EPISODE_POSTPROCESSING": "Processing audio",
+        "DL_EPISODE_UPLOADING": "Uploading audio",
+        "DL_COVER_DOWNLOADING": "Downloading cover",
+        "DL_COVER_UPLOADING": "Uploading cover",
+    }
+    if str(status).upper() in progress_labels:
+        return progress_labels[str(status).upper()]
     # Normalize status if it's an enum value
     normalized_status = normalize_episode_status(status)
 

@@ -59,7 +59,7 @@ class PodcastsDetailsController(BaseViewController):
             podcast_repository = PodcastRepository(session=uow.session, scope=user_scope)
             episode_repository = EpisodeRepository(session=uow.session, scope=user_scope)
             podcast = await podcast_repository.get(podcast_id)
-            episodes, _ = await episode_repository.all_paginated(
+            episodes, total = await episode_repository.all_paginated(
                 podcast_id=podcast_id,
                 limit=settings.default_pagination_limit,
             )
@@ -71,6 +71,9 @@ class PodcastsDetailsController(BaseViewController):
             context={
                 "podcast": podcast,
                 "episodes": episodes,
+                "has_more": len(episodes) < total,
+                "next_offset": len(episodes),
+                "podcast_id": podcast_id,
                 "podcast_stats": podcast_stats,
                 "current": "podcasts",
                 "title": cut_string(podcast.name, max_length=32),

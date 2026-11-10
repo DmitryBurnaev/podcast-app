@@ -207,18 +207,19 @@
 
 {% block refresh_episodes %}<div data-refresh-region="episodes">
     <!-- Episodes List -->
-    <div class="space-y-4">
+    <div class="space-y-4" id="episode-rows">
 {#        <h2 class="text-xl font-semibold text-white mb-4">Episodes</h2>#}
         {% if episodes %}
             {% for episode in episodes %}
                 {% include "snippets/episode_in_list.html" %}
             {% endfor %}
         {% else %}
-            <div class="bg-slate-800 rounded-lg border border-slate-700 p-8 text-center">
+            <div id="empty-episodes" class="bg-slate-800 rounded-lg border border-slate-700 p-8 text-center">
                 <p class="text-slate-400">No episodes available</p>
             </div>
         {% endif %}
     </div>
+    {% include "snippets/episode_more.html" %}
 
 </div>{% endblock %}
 {% endblock %}

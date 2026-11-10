@@ -1,0 +1,7 @@
+<div id="episode-status-{{ episode.id }}" data-live-status data-episode-id="{{ episode.id }}" data-status="{{ episode.status }}"{% if oob %} hx-swap-oob="outerHTML"{% endif %}>
+    <span data-status-label class="text-xs font-semibold text-slate-300"{% if episode.status in ('DOWNLOADING', 'CANCELING') %} hidden{% endif %}>{{ get_episode_status_label(episode.status) }}</span>
+    <div data-progress class="ui-progress" {% if episode.status not in ('DOWNLOADING', 'CANCELING') %}hidden{% endif %}>
+        <span class="ui-spinner" aria-hidden="true"></span><span data-progress-label>{{ get_episode_status_label(progress.status if progress else episode.status) }}{% if progress and progress.total_file_size %} {{ progress.completed }}%{% endif %}</span>
+        <div class="ui-progress-track"><div data-progress-bar class="ui-progress-bar" style="width: {{ progress.completed if progress else 0 }}%"></div></div>
+    </div>
+</div>

@@ -1,0 +1,5 @@
+{% from "snippets/icons.html" import icon_clock, icon_database, icon_calendar, icon_download, icon_close, icon_edit, icon_trash %}
+{% for episode in episodes %}
+    {% include "snippets/episode_in_list.html" %}
+{% endfor %}
+{% include "snippets/episode_more.html" %}

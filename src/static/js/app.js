@@ -283,6 +283,7 @@
                 if (name === 'episode-player' && previous.dataset.sourceUrl === node.dataset.sourceUrl && previous.dataset.status === node.dataset.status) return;
                 node.querySelectorAll('script').forEach(script => script.remove());
                 previous.replaceWith(node);
+                window.htmx?.process(node);
             });
             if (scroll !== undefined) document.querySelector('main').scrollTop = scroll;
             if (focusKey && !focused.isConnected) {
@@ -488,11 +489,20 @@
             case 'add-podcast':
                 openModal('addPodcastModal', button);
                 break;
-            case 'add-episode':
-                byId('add-episode-form').dataset.id = String(id);
+            case 'add-episode': {
+                const form = byId('add-episode-form');
+                form.dataset.id = String(id);
+                if (byId('episode-rows')) {
+                    form.setAttribute('hx-post', `/podcasts/${id}/episodes/create/`);
+                    form.setAttribute('hx-target', '#episode-rows');
+                    form.setAttribute('hx-swap', 'afterbegin');
+                    form.setAttribute('hx-disabled-elt', 'find button[type=submit]');
+                    window.htmx.process(form);
+                }
                 byId('episodePodcastTitle').textContent = button.dataset.name;
                 openModal('addEpisodeModal', button);
                 break;
+            }
             case 'close-modal':
                 closeModal();
                 break;
@@ -744,6 +754,39 @@
     }
 
     function init() {
+        document.addEventListener('htmx:afterSwap', syncButtons);
+        document.addEventListener('htmx:beforeSwap', event => {
+            if (event.detail.elt.id !== 'add-episode-form' || !event.detail.shouldSwap) return;
+            const incoming = new DOMParser().parseFromString(event.detail.serverResponse, 'text/html');
+            const id = incoming.querySelector('[data-episode-card]')?.dataset.id;
+            if (id) document.querySelectorAll('[data-episode-card]').forEach(card => {
+                if (card.dataset.id === id) card.remove();
+            });
+        });
+        document.addEventListener('htmx:afterRequest', event => {
+            const form = event.detail.elt;
+            if (form.id !== 'add-episode-form') return;
+            if (event.detail.successful) {
+                byId('empty-episodes')?.remove();
+                closeModal(true);
+                syncButtons();
+            } else {
+                feedback(form, 'Unable to create the episode. Check the URL and try again.', 'error');
+            }
+        });
+        if (window.EventSource && document.querySelector('[data-episode-card], #episode-rows')) {
+            const source = new EventSource('/episodes/progress/events/');
+            source.addEventListener('progress', event => {
+                const fragment = new DOMParser().parseFromString(event.data, 'text/html');
+                fragment.querySelectorAll('[data-live-status]').forEach(status => {
+                    document.querySelectorAll('[data-episode-card]').forEach(card => {
+                        if (card.dataset.id === status.dataset.episodeId) card.dataset.status = status.dataset.status;
+                    });
+                });
+                window.htmx.swap(byId('sse-sink'), event.data, {swapStyle: 'innerHTML'});
+                syncButtons();
+            });
+        }
         document.addEventListener('click', event => {
             if (event.target === activeModal) {
                 closeModal();
@@ -762,6 +805,7 @@
         document.addEventListener('submit', event => {
             const form = event.target.closest('[data-form]');
             if (!form) return;
+            if (form.getAttribute('hx-post')) return;
             event.preventDefault();
             if (form.checkValidity()) submitForm(form).catch(error => feedback(form, error.message, 'error', error));
         });

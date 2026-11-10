@@ -5,9 +5,10 @@ from pathlib import Path
 from typing import ClassVar, TypedDict, cast
 
 from litestar import Request, get, post
+from litestar import get as route_get
 from litestar.di import NamedDependency
 from litestar.exceptions import HTTPException, NotFoundException
-from litestar.params import FromPath
+from litestar.params import FromPath, FromQuery
 from litestar.response import File, Template
 from litestar.status_codes import HTTP_201_CREATED
 from pydantic import ValidationError
@@ -79,7 +80,7 @@ class EpisodesController(BaseViewController):
                 limit=settings.default_pagination_limit,
             )
             episodes_repository = EpisodeRepository(session=uow.session, scope=user_scope)
-            episodes, _ = await episodes_repository.all_paginated(
+            episodes, total = await episodes_repository.all_paginated(
                 limit=settings.default_pagination_limit,
                 **repository_filters,
             )
@@ -88,6 +89,8 @@ class EpisodesController(BaseViewController):
             template_name="episodes.html",
             context={
                 "episodes": episodes,
+                "has_more": len(episodes) < total,
+                "next_offset": len(episodes),
                 "podcasts": podcasts,
                 "filters": filters,
                 "current": "episodes",
@@ -106,6 +109,41 @@ class EpisodesController(BaseViewController):
         except ValidationError as e:
             logger.warning("Invalid create episode request: %s", e)
             raise HTTPException(status_code=400, detail=str(e)) from e
+
+    @route_get("/episodes/more/")
+    async def get_more(
+        self,
+        request: AppRequest,
+        settings: NamedDependency[AppSettings],
+        user_scope: NamedDependency[OwnerScope],
+        offset: FromQuery[int] = 0,
+        podcast_id: FromQuery[int | None] = None,
+    ) -> Template:
+        """Render one additional, ownership-scoped chunk of episodes."""
+        if offset < 0:
+            raise HTTPException(status_code=400, detail="Invalid episode offset.")
+        filters, repository_filters = prepare_episode_filters(dict(request.query_params))
+        async with SASessionUOW() as uow:
+            if podcast_id is not None:
+                await PodcastRepository(session=uow.session, scope=user_scope).get(podcast_id)
+                repository_filters["podcast_id"] = podcast_id
+            episodes, total = await EpisodeRepository(
+                session=uow.session, scope=user_scope
+            ).all_paginated(
+                offset=offset, limit=settings.default_pagination_limit, **repository_filters
+            )
+
+        return self.get_response_template(
+            template_name="snippets/episode_page.html",
+            context={
+                "episodes": episodes,
+                "filters": filters,
+                "podcast_id": podcast_id,
+                "next_offset": offset + len(episodes),
+                "has_more": offset + len(episodes) < total,
+            },
+            request=request,
+        )
 
 
 class EpisodeDetailsController(BaseViewController):
@@ -158,6 +196,39 @@ class EpisodeDetailsController(BaseViewController):
         )
 
 
+class EpisodeCreateFragmentController(BaseViewController):
+    @post("/podcasts/{podcast_id:int}/episodes/create/", status_code=HTTP_201_CREATED)
+    async def create_fragment(
+        self,
+        request: AppRequest,
+        podcast_id: FromPath[int],
+        user_scope: NamedDependency[OwnerScope],
+    ) -> Template:
+        if request.headers.get("HX-Request") != "true":
+            raise HTTPException(status_code=403, detail="HTMX request required.")
+        form = await request.form()
+        try:
+            data = EpisodeCreateNestedSchema.model_validate({"sourceURL": form.get("sourceURL")})
+        except ValidationError as exc:
+            raise HTTPException(status_code=400, detail="Invalid source URL.") from exc
+        created = await PodcastEpisodeOperations().create(
+            queue=cast(TaskQueueApp, request.app).rq_queue,
+            podcast_id=podcast_id,
+            current_user=request.user,
+            user_scope=user_scope,
+            data=data,
+        )
+        async with SASessionUOW() as uow:
+            episode = await EpisodeRepository(uow.session, scope=user_scope).first(created.id)
+            if episode is None:
+                raise NotFoundException("Created episode not found")
+        return self.get_response_template(
+            template_name="snippets/episode_page.html",
+            context={"episodes": [episode], "has_more": False},
+            request=request,
+        )
+
+
 class EpisodeCoverController(BaseViewController):
     cache_dir_prefix: ClassVar[str] = "episodes"
     cache_file_prefix: ClassVar[str] = "episode_cover"
@@ -203,6 +274,7 @@ class EpisodeCoverController(BaseViewController):
 
 
 class EpisodeFilters(TypedDict, total=False):
+    podcast_id: int
     statuses: str
     search: str
     podcast__name: str
