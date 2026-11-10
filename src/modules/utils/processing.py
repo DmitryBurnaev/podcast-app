@@ -91,6 +91,9 @@ def get_file_size(file_path: str | Path) -> int:
 async def check_state(episodes: Iterable["Episode"]) -> list[dict]:
     """Allows getting info about download progress for requested episodes"""
 
+    episodes = list(episodes)
+    if not episodes:
+        return []
     redis_client = RedisClient()
     filenames = {redis_client.get_key_by_filename(episode.audio_filename) for episode in episodes}
     current_states = await redis_client.async_get_many(filenames, pkey="event_key")

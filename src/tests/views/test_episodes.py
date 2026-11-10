@@ -1,5 +1,5 @@
 from pathlib import Path
-from unittest.mock import create_autospec
+from unittest.mock import AsyncMock, MagicMock, create_autospec
 from urllib.parse import parse_qsl
 
 import pytest
@@ -14,7 +14,9 @@ from src.modules.db.repositories import EpisodeRepository, PodcastRepository
 from src.modules.db.services import SASessionUOW
 from src.modules.views import episodes as episode_views
 from src.modules.views.base import BaseViewController
+from src.modules.services.episodes_operations import PodcastEpisodeOperations
 from src.modules.views.episodes import (
+    EpisodeCreateFragmentController,
     EpisodeDetailsController,
     EpisodesController,
     prepare_episode_filters,
@@ -73,6 +75,35 @@ class TestEpisodeFilters:
 
 
 class TestEpisodesController:
+    async def test_more_preserves_filters_and_returns_next_offset(
+        self, app_settings: AppSettings, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        uow = create_autospec(SASessionUOW, instance=True, spec_set=True)
+        uow.session = create_autospec(AsyncSession, instance=True, spec_set=True)
+        uow.__aenter__.return_value = uow
+        repository = create_autospec(EpisodeRepository, instance=True, spec_set=True)
+        episodes = [make_episode()]
+        repository.all_paginated.return_value = (episodes, 30)
+        monkeypatch.setattr(episode_views, "SASessionUOW", lambda: uow)
+        monkeypatch.setattr(episode_views, "EpisodeRepository", lambda **_: repository)
+        request = request_for("search=audio&offset=20")
+        scope = OwnerScope(1)
+        controller = EpisodesController.__new__(EpisodesController)
+
+        result = await EpisodesController.get_more.fn(
+            controller, request, app_settings, scope, 20, None
+        )
+
+        assert result.template_name == "snippets/episode_page.html"
+        assert result.context == BaseViewController.get_base_context(request) | {
+            "episodes": episodes,
+            "filters": {"search": "audio"},
+            "podcast_id": None,
+            "next_offset": 21,
+            "has_more": True,
+        }
+        repository.all_paginated.assert_awaited_once_with(offset=20, limit=20, search="audio")
+
     async def test_list_passes_display_filters_and_only_filters_episodes(
         self, app_settings: AppSettings, monkeypatch: pytest.MonkeyPatch
     ) -> None:
@@ -105,6 +136,8 @@ class TestEpisodesController:
         assert result.template_name == "fragments/episodes.html"
         assert result.context == BaseViewController.get_base_context(request) | {
             "episodes": episodes,
+            "has_more": False,
+            "next_offset": 1,
             "podcasts": podcasts,
             "filters": {"status": "pending", "size_min": "0.5"},
             "current": "episodes",
@@ -117,6 +150,49 @@ class TestEpisodesController:
         episode_repository.all_paginated.assert_awaited_once_with(
             limit=app_settings.default_pagination_limit, statuses="NEW", audio__size__gte=524288
         )
+
+
+class TestEpisodeCreateFragment:
+    async def test_creation_renders_owned_episode(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        episode = make_episode(id=12, podcast_id=7)
+        user = make_user()
+        request = MagicMock(spec=Request)
+        request.headers = {"HX-Request": "true"}
+        request.form = AsyncMock(return_value={"sourceURL": "https://example.test/video"})
+        request.user = user
+        request.query_params = {}
+        operations = create_autospec(PodcastEpisodeOperations, instance=True, spec_set=True)
+        operations.create.return_value = episode
+        uow = create_autospec(SASessionUOW, instance=True, spec_set=True)
+        uow.session = create_autospec(AsyncSession, instance=True, spec_set=True)
+        uow.__aenter__.return_value = uow
+        repository = create_autospec(EpisodeRepository, instance=True, spec_set=True)
+        repository.first.return_value = episode
+        monkeypatch.setattr(episode_views, "PodcastEpisodeOperations", lambda: operations)
+        monkeypatch.setattr(episode_views, "SASessionUOW", lambda: uow)
+        monkeypatch.setattr(episode_views, "EpisodeRepository", lambda *args, **kwargs: repository)
+        controller = EpisodeCreateFragmentController.__new__(EpisodeCreateFragmentController)
+        scope = OwnerScope(user.id)
+
+        response = await EpisodeCreateFragmentController.create_fragment.fn(
+            controller, request, 7, scope
+        )
+
+        assert response.template_name == "snippets/episode_page.html"
+        assert response.context["episodes"] == [episode]
+        assert operations.create.await_args.kwargs["podcast_id"] == 7
+        assert operations.create.await_args.kwargs["user_scope"] == scope
+        repository.first.assert_awaited_once_with(12)
+
+    async def test_creation_rejects_non_htmx_requests(self) -> None:
+        request = MagicMock(spec=Request)
+        request.headers = {}
+        controller = EpisodeCreateFragmentController.__new__(EpisodeCreateFragmentController)
+        with pytest.raises(HTTPException) as error:
+            await EpisodeCreateFragmentController.create_fragment.fn(
+                controller, request, 7, OwnerScope(1)
+            )
+        assert error.value.status_code == 403
 
 
 class TestEpisodeDetailsController:
