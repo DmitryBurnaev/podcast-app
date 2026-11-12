@@ -224,7 +224,7 @@ class EpisodeCreateFragmentController(BaseViewController):
                 raise NotFoundException("Created episode not found")
         return self.get_response_template(
             template_name="snippets/episode_page.html",
-            context={"episodes": [episode], "has_more": False},
+            context={"episodes": [episode], "has_more": False, "created_episode": episode},
             request=request,
         )
 

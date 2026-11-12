@@ -2,4 +2,9 @@
 {% for episode in episodes %}
     {% include "snippets/episode_in_list.html" %}
 {% endfor %}
+{% if created_episode %}
+<div hidden data-created-episode data-id="{{ created_episode.id }}" data-title="{{ created_episode.title }}"
+     data-description="{{ created_episode.description or '' }}" data-author="{{ created_episode.author or '' }}"
+     data-length="{{ created_episode.length or 0 }}" data-status="{{ created_episode.status }}"></div>
+{% endif %}
 {% include "snippets/episode_more.html" %}

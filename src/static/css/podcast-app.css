@@ -30,11 +30,22 @@ button:disabled { cursor: wait; opacity: .55; }
 [data-refresh-region="episode-player"] button:disabled,
 [data-refresh-region="episode-player"] input:disabled { cursor: not-allowed; opacity: .55; }
 .ui-modal-panel { max-height: calc(100dvh - 3rem); overflow-y: auto; }
+.ui-drawer-overlay { justify-content: flex-end; align-items: stretch; }
+.ui-drawer {
+    width: min(100%, 28rem); height: 100%; overflow-y: auto;
+    animation: ui-drawer-enter .25s ease-out;
+}
+.ui-drawer-layout { display: flex; flex-direction: column; height: 100%; }
+.ui-drawer-content { flex: 1 1 auto; min-height: 0; overflow-y: auto; }
+.ui-drawer-actions { flex: none; }
+.episode-download-bar { width: 100%; height: .5rem; accent-color: #60a5fa; }
+@keyframes ui-drawer-enter { from { transform: translateX(100%); } to { transform: translateX(0); } }
 .ui-notification-stack {
     position: fixed; right: 1.3rem; bottom: 2rem; z-index: 80;
     display: flex; flex-direction: column-reverse; gap: .75rem;
     width: min(24rem, calc(100vw - 2rem)); pointer-events: none;
 }
+.ui-drawer-overlay:not([hidden]) ~ #notification-stack .ui-feedback-pending { display: none; }
 .ui-notification {
     display: flex; align-items: flex-start; gap: .75rem; pointer-events: auto;
     padding: .75rem 1rem; border: 1px solid; border-radius: .5rem;
@@ -74,6 +85,6 @@ button:disabled { cursor: wait; opacity: .55; }
 @keyframes ui-spin { to { transform: rotate(360deg); } }
 @keyframes ui-notification-enter { from { opacity: 0; transform: translateY(1rem); } }
 @media (prefers-reduced-motion: reduce) {
-    .ui-spinner, .ui-notification { animation: none; }
+    .ui-spinner, .ui-notification, .ui-drawer { animation: none; }
     .ui-progress-bar { transition: none; }
 }

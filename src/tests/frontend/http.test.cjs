@@ -74,6 +74,16 @@ test('timeouts abort requests and warn against blindly repeating a mutation', as
     await assert.rejects(request('/web-api/podcasts/', {method: 'POST', timeout: 5}), /check the current state before retrying/);
 });
 
+test('user cancellation aborts the request and warns the server may still create the episode', async () => {
+    const controller = new AbortController();
+    global.fetch = (_url, {signal}) => new Promise((_, reject) => {
+        signal.addEventListener('abort', () => reject(new DOMException('Aborted', 'AbortError')));
+    });
+    const pending = request('/web-api/podcasts/1/episodes/', {method: 'POST', signal: controller.signal});
+    controller.abort();
+    await assert.rejects(pending, error => error.cancelled && /may still be created/.test(error.message));
+});
+
 test('fragment requests return HTML and request same-origin credentials', async () => {
     global.fetch = async (_url, options) => {
         assert.equal(options.headers.Accept, 'text/html');

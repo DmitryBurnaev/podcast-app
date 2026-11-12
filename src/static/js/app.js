@@ -20,6 +20,10 @@
     let authExpired = false;
     let rssDiscovered = false;
     let refreshPending = false;
+    let episodeCreationController = null;
+    let episodeCreationCancelled = false;
+    let episodeCreationSequence = 0;
+    let progressSource = null;
 
     const byId = id => document.getElementById(id);
     const episodeForm = () => byId('edit-episode-form');
@@ -27,14 +31,14 @@
     const activeStatus = status => ['DOWNLOADING', 'CANCELING'].includes(String(status).toUpperCase());
     const actionButtons = () => document.querySelectorAll('[data-action]');
 
-    function downloadingEpisodeId() {
+    function detailEpisodeId() {
         const detail = document.querySelector('[data-refresh-region="episode-state"]');
         const id = Number(detail?.dataset.episodeId);
-        return detail?.dataset.status === 'DOWNLOADING' && Number.isSafeInteger(id) && id > 0 ? id : null;
+        return Number.isSafeInteger(id) && id > 0 ? id : null;
     }
 
     function shouldPoll() {
-        return downloadingEpisodeId() !== null || rssTasks.size > 0 ||
+        return refreshPending || rssTasks.size > 0 ||
             (Boolean(podcastForm()?.dataset.id) && !rssDiscovered);
     }
 
@@ -71,6 +75,146 @@
             DL_COVER_DOWNLOADING: 'Downloading cover',
             DL_COVER_UPLOADING: 'Uploading cover'
         })[status] || 'Processing';
+    }
+
+    function setCreationStatus(message, loading = false) {
+        const progress = byId('episode-creation-progress');
+        if (!progress) return;
+        progress.hidden = false;
+        byId('episode-creation-status').textContent = message;
+        const spinner = byId('episode-creation-spinner');
+        if (spinner) spinner.hidden = !loading;
+    }
+
+    function setCreatedEpisodeDownload(status, label, percentage = null) {
+        const download = byId('episode-creation-download');
+        const button = byId('episode-creation-start-download');
+        if (!download || !button) return;
+        const active = activeStatus(status);
+        download.hidden = !active;
+        button.hidden = !['NEW', 'ERROR'].includes(String(status).toUpperCase());
+        if (!active) return;
+        byId('episode-creation-download-label').textContent = label || statusLabel(status);
+        const bar = byId('episode-creation-download-bar');
+        if (percentage === null || !Number.isFinite(percentage)) bar.removeAttribute('value');
+        else bar.value = Math.max(0, Math.min(100, percentage));
+    }
+
+    function connectProgressStream(episodeId = null) {
+        if (!window.EventSource) return;
+        progressSource?.close();
+        const url = '/episodes/progress/events/' + (episodeId ? `?episode_id=${episodeId}` : '');
+        const source = new EventSource(url);
+        progressSource = source;
+        source.addEventListener('progress', event => {
+            if (source !== progressSource) return;
+            const fragment = new DOMParser().parseFromString(event.data, 'text/html');
+            fragment.querySelectorAll('[data-live-status]').forEach(status => {
+                const detail = document.querySelector('[data-refresh-region="episode-state"]');
+                if (detail?.dataset.episodeId === status.dataset.episodeId) {
+                    const wasActive = activeStatus(detail.dataset.status);
+                    const active = activeStatus(status.dataset.status);
+                    detail.dataset.status = status.dataset.status;
+                    if (wasActive !== active) {
+                        refreshPending = true;
+                        wakePoll();
+                    }
+                    if (active) {
+                        const label = status.querySelector('[data-progress-label]')?.textContent.trim() || statusLabel(status.dataset.status);
+                        const match = label.match(/(\d+(?:\.\d+)?)%/);
+                        const percentage = match ? Math.max(0, Math.min(100, Number(match[1]))) : null;
+                        const playerLabel = byId('player-status');
+                        const slider = byId('progress-slider');
+                        if (playerLabel) playerLabel.textContent = label;
+                        if (slider && playerLabel) {
+                            slider.disabled = true;
+                            slider.max = '100';
+                            slider.value = String(percentage ?? 0);
+                            slider.style.setProperty('--player-progress', `${percentage ?? 0}%`);
+                            slider.setAttribute('aria-valuetext', label);
+                            if (percentage === null) slider.removeAttribute('aria-valuenow');
+                            else slider.setAttribute('aria-valuenow', String(percentage));
+                        }
+                    }
+                }
+                if (byId('episode-creation-progress')?.dataset.episodeId === status.dataset.episodeId) {
+                    const label = activeStatus(status.dataset.status)
+                        ? status.querySelector('[data-progress-label]')?.textContent.trim()
+                        : statusLabel(status.dataset.status);
+                    const match = label?.match(/(\d+(?:\.\d+)?)%/);
+                    setCreatedEpisodeDownload(status.dataset.status, label, match ? Number(match[1]) : null);
+                }
+                document.querySelectorAll('[data-episode-card]').forEach(card => {
+                    if (card.dataset.id === status.dataset.episodeId) card.dataset.status = status.dataset.status;
+                });
+            });
+            window.htmx.swap(byId('sse-sink'), event.data, {swapStyle: 'innerHTML'});
+            syncButtons();
+        });
+    }
+
+    function setCreationActions(state) {
+        const submit = byId('episode-creation-submit');
+        const close = byId('episode-creation-close');
+        const cancel = byId('episode-creation-cancel');
+        if (!submit || !close || !cancel) return;
+        submit.hidden = state !== 'ready';
+        cancel.hidden = state !== 'loading';
+        close.hidden = state === 'loading';
+        close.textContent = state === 'complete' ? 'Close' : 'Cancel';
+    }
+
+    function beginEpisodeCreation() {
+        const progress = byId('episode-creation-progress');
+        if (!progress) return;
+        progress.dataset.episodeId = '';
+        episodeCreationSequence++;
+        episodeCreationCancelled = false;
+        setCreationActions('loading');
+        byId('episode-creation-details').hidden = true;
+        const download = byId('episode-creation-download');
+        if (download) download.hidden = true;
+        const start = byId('episode-creation-start-download');
+        if (start) start.hidden = true;
+        const link = byId('episode-creation-link');
+        if (link) link.hidden = true;
+        setCreationStatus('Getting information from source...', true);
+    }
+
+    function showCreatedEpisode(episode) {
+        const progress = byId('episode-creation-progress');
+        if (!progress) return;
+        const id = Number(episode.id);
+        if (!Number.isSafeInteger(id) || id < 1) return;
+        progress.dataset.episodeId = String(id);
+        setCreationActions('complete');
+        byId('episode-creation-title').textContent = episode.title || '';
+        byId('episode-creation-description').textContent = episode.description || '';
+        const seconds = Math.max(0, Number(episode.length) || 0);
+        const duration = seconds ? `${Math.floor(seconds / 60)}:${String(Math.floor(seconds % 60)).padStart(2, '0')}` : '';
+        byId('episode-creation-meta').textContent = [episode.author, duration].filter(Boolean).join(' · ');
+        const link = byId('episode-creation-link');
+        link.href = `/episodes/${id}/`;
+        link.hidden = false;
+        byId('episode-creation-details').hidden = false;
+        setCreatedEpisodeDownload(episode.status, statusLabel(episode.status));
+        connectProgressStream(id);
+        setCreationStatus('Episode created. Loading cover preview…', true);
+        const cover = byId('episode-creation-cover');
+        cover.alt = `Cover for ${episode.title || 'episode'}`;
+        cover.onload = () => {
+            if (progress.dataset.episodeId === String(id)) setCreationStatus('Episode information and cover preview loaded.');
+        };
+        cover.onerror = () => {
+            if (progress.dataset.episodeId === String(id)) {
+                setCreationStatus('Episode information loaded. Cover preview is unavailable.');
+                cover.onload = null;
+                cover.onerror = null;
+                cover.alt = 'Cover unavailable';
+                cover.src = '/static/img/episode-default.jpg';
+            }
+        };
+        cover.src = `/episodes/${id}/cover/`;
     }
 
     function dismissNotification(notification) {
@@ -158,6 +302,7 @@
         scope.dataset.busy = String(busy);
         scope.setAttribute('aria-busy', String(busy));
         scope.querySelectorAll('button, input, textarea, select').forEach(control => {
+            if (control.dataset.cancelCreation !== undefined) return;
             if (busy) {
                 busyControls.set(control, control.disabled);
                 control.disabled = true;
@@ -211,7 +356,7 @@
         modal.classList.remove('hidden');
         modal.classList.add('flex');
         document.body.style.overflow = 'hidden';
-        const focus = modal.querySelector('[autofocus], input, textarea, button');
+        const focus = modal.querySelector('[autofocus]') || modal.querySelector('input, textarea, button');
         focus?.focus();
     }
 
@@ -327,6 +472,13 @@
         operations.delete(key);
         if (failure) {
             setBusy(scope, false);
+            if (failure.cancelled) {
+                setCreationActions('ready');
+                setCreationStatus(failure.message);
+                wakePoll();
+                return;
+            }
+            if (key.startsWith('podcast:') && scope.id === 'addEpisodeModal') setCreationActions('ready');
             let notification;
             if (scope.matches('form, [data-modal]')) notification = feedback(scope, failure.message, 'error', failure);
             else {
@@ -388,15 +540,26 @@
                     });
                 break;
             case 'create-episode':
+                beginEpisodeCreation();
+                episodeCreationController = new AbortController();
                 await mutate(`podcast:${id}`, scope, 'Getting episode information…',
-                    () => request(`/web-api/podcasts/${id}/episodes/`, {
-                        method: 'POST',
-                        data: {sourceURL: String(data.get('sourceURL')).trim()}
-                    }),
+                    async () => {
+                        try {
+                            return await request(`/web-api/podcasts/${id}/episodes/`, {
+                                method: 'POST',
+                                signal: episodeCreationController.signal,
+                                data: {sourceURL: String(data.get('sourceURL')).trim()}
+                            });
+                        } catch (error) {
+                            setCreationStatus(error.message || 'Unable to create the episode.');
+                            throw error;
+                        }
+                    },
                     async episode => {
-                        closeModal(true);
+                        showCreatedEpisode(episode);
                         await refreshAfterSuccess();
                     });
+                episodeCreationController = null;
                 break;
             case 'edit-podcast':
                 await mutate(`podcast:${id}`, form, 'Saving podcast…',
@@ -491,6 +654,14 @@
                 break;
             case 'add-episode': {
                 const form = byId('add-episode-form');
+                episodeCreationSequence++;
+                byId('episode-creation-progress').hidden = true;
+                byId('episode-creation-progress').dataset.episodeId = '';
+                for (const id of ['episode-creation-details', 'episode-creation-download', 'episode-creation-start-download', 'episode-creation-link']) {
+                    const node = byId(id);
+                    if (node) node.hidden = true;
+                }
+                setCreationActions('ready');
                 form.dataset.id = String(id);
                 if (byId('episode-rows')) {
                     form.setAttribute('hx-post', `/podcasts/${id}/episodes/create/`);
@@ -506,6 +677,24 @@
             case 'close-modal':
                 closeModal();
                 break;
+            case 'cancel-episode-creation':
+                episodeCreationCancelled = true;
+                if (episodeCreationController) episodeCreationController.abort();
+                else window.htmx.trigger(byId('add-episode-form'), 'htmx:abort');
+                break;
+            case 'start-created-episode-download': {
+                const episodeId = Number(byId('episode-creation-progress')?.dataset.episodeId);
+                if (!Number.isSafeInteger(episodeId) || episodeId < 1) break;
+                const panel = byId('addEpisodeModal');
+                await mutate(`episode:${episodeId}`, panel, 'Starting download…',
+                    () => request(`/web-api/episodes/${episodeId}/download/`, {method: 'PUT'}),
+                    async episode => {
+                        if (byId('episode-creation-progress')?.dataset.episodeId !== String(episodeId)) return;
+                        setCreatedEpisodeDownload(episode.status, statusLabel(episode.status));
+                        connectProgressStream(episodeId);
+                    });
+                break;
+            }
             case 'open-filters':
                 syncFilterForm();
                 openModal('filtersModal', button);
@@ -588,71 +777,12 @@
         }
     }
 
-    function paintProgress(item) {
-        const id = item.episode.id;
-        const cards = [...document.querySelectorAll('[data-episode-card]')].filter(card => Number(card.dataset.id) === id);
-        const detail = document.querySelector('[data-refresh-region="episode-state"]');
-        const completed = Number.isFinite(item.completed) ? Math.max(0, Math.min(100, item.completed)) : 0;
-        const hasSize = item.total_file_size > 0;
-        const message = statusLabel(item.status) + (hasSize ? ` ${completed}%` : '');
-        if (Number(detail?.dataset.episodeId) === id) {
-            detail.dataset.status = item.episode.status;
-            const slider = byId('progress-slider');
-            const label = byId('player-status');
-            if (label) label.textContent = message;
-            if (slider && label) {
-                slider.disabled = true;
-                slider.max = '100';
-                slider.value = String(hasSize ? completed : 0);
-                slider.style.setProperty('--player-progress', `${hasSize ? completed : 0}%`);
-                slider.setAttribute('aria-valuetext', message);
-                if (hasSize) slider.setAttribute('aria-valuenow', String(completed));
-                else slider.removeAttribute('aria-valuenow');
-            }
-        }
-        cards.forEach(card => {
-            card.dataset.status = item.episode.status;
-            const badge = card.querySelector('[data-status-label]');
-            if (badge) {
-                badge.textContent = statusLabel(item.episode.status);
-                badge.hidden = activeStatus(item.episode.status);
-            }
-            const label = card.querySelector('[data-progress-label]');
-            if (label) label.textContent = message;
-            const bar = card.querySelector('[data-progress-bar]');
-            if (bar) bar.style.width = `${completed}%`;
-            const progress = card.querySelector('[data-progress]');
-            if (progress) progress.hidden = !activeStatus(item.episode.status);
-        });
-    }
-
     async function poll() {
         if (pollRunning || document.hidden || authExpired || !shouldPoll()) return;
         pollRunning = true;
         try {
             if (operations.size) return;
             let refresh = refreshPending;
-            const episodeId = downloadingEpisodeId();
-            if (episodeId !== null) {
-                const data = await request('/web-api/progress/');
-                if (!Array.isArray(data.progressItems)) throw new RequestError('Live updates returned an unexpected response.');
-                if (operations.size) return;
-                const item = data.progressItems.find(progress => progress.episode.id === episodeId);
-                if (item) {
-                    paintProgress(item);
-                } else {
-                    const episode = await request(`/web-api/episodes/${episodeId}/`).catch(error => {
-                        if (error.status === 404) return null;
-                        throw error;
-                    });
-                    if (!episode || !activeStatus(episode.status)) {
-                        refresh = true;
-                        if (episode?.status === 'ERROR' && document.querySelector(`[data-episode-id="${episodeId}"]`)) {
-                            pageMessage(`Download failed for “${episode.title}”. You can try downloading it again.`);
-                        }
-                    }
-                }
-            }
             const podId = Number(podcastForm()?.dataset.id);
             if (podId && !rssDiscovered) {
                 const task = await request(`/web-api/podcasts/${podId}/rss-task/`);
@@ -755,6 +885,11 @@
 
     function init() {
         document.addEventListener('htmx:afterSwap', syncButtons);
+        document.addEventListener('htmx:beforeRequest', event => {
+            if (event.detail.elt.id !== 'add-episode-form') return;
+            beginEpisodeCreation();
+            setBusy(byId('addEpisodeModal'), true);
+        });
         document.addEventListener('htmx:beforeSwap', event => {
             if (event.detail.elt.id !== 'add-episode-form' || !event.detail.shouldSwap) return;
             const incoming = new DOMParser().parseFromString(event.detail.serverResponse, 'text/html');
@@ -763,30 +898,45 @@
                 if (card.dataset.id === id) card.remove();
             });
         });
-        document.addEventListener('htmx:afterRequest', event => {
+        document.addEventListener('htmx:afterRequest', async event => {
             const form = event.detail.elt;
             if (form.id !== 'add-episode-form') return;
+            setBusy(byId('addEpisodeModal'), false);
+            if (episodeCreationCancelled) {
+                setCreationActions('ready');
+                setCreationStatus('Request cancelled. The episode may still be created; check the list before retrying.');
+                return;
+            }
             if (event.detail.successful) {
                 byId('empty-episodes')?.remove();
-                closeModal(true);
+                const response = new DOMParser().parseFromString(event.detail.xhr.responseText, 'text/html');
+                const episode = response.querySelector('[data-created-episode]');
+                if (episode) showCreatedEpisode(episode.dataset);
+                else {
+                    const card = response.querySelector('[data-episode-card]');
+                    const id = Number(card?.dataset.id);
+                    const sequence = episodeCreationSequence;
+                    setCreationActions('complete');
+                    setCreationStatus('Getting episode details…', true);
+                    try {
+                        if (!Number.isSafeInteger(id) || id < 1) throw new Error('Missing episode id');
+                        const details = await request(`/web-api/episodes/${id}/`);
+                        if (sequence !== episodeCreationSequence) return;
+                        showCreatedEpisode(details);
+                    } catch {
+                        if (sequence !== episodeCreationSequence) return;
+                        setCreationActions('complete');
+                        setCreationStatus('Episode created, but its details could not be displayed.');
+                    }
+                }
                 syncButtons();
             } else {
+                setCreationActions('ready');
+                setCreationStatus('Unable to create the episode. Check the URL and try again.');
                 feedback(form, 'Unable to create the episode. Check the URL and try again.', 'error');
             }
         });
-        if (window.EventSource && document.querySelector('[data-episode-card], #episode-rows')) {
-            const source = new EventSource('/episodes/progress/events/');
-            source.addEventListener('progress', event => {
-                const fragment = new DOMParser().parseFromString(event.data, 'text/html');
-                fragment.querySelectorAll('[data-live-status]').forEach(status => {
-                    document.querySelectorAll('[data-episode-card]').forEach(card => {
-                        if (card.dataset.id === status.dataset.episodeId) card.dataset.status = status.dataset.status;
-                    });
-                });
-                window.htmx.swap(byId('sse-sink'), event.data, {swapStyle: 'innerHTML'});
-                syncButtons();
-            });
-        }
+        if (window.EventSource && (detailEpisodeId() || document.querySelector('[data-episode-card], #episode-rows, #addEpisodeModal'))) connectProgressStream(detailEpisodeId());
         document.addEventListener('click', event => {
             if (event.target === activeModal) {
                 closeModal();

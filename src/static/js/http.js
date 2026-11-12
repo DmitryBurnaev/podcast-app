@@ -34,8 +34,11 @@
         return new RequestError(extra && extra !== message ? `${message}\n${extra}` : message, status, details);
     }
 
-    async function request(url, {method = 'GET', data, html = false, timeout = 120000} = {}) {
+    async function request(url, {method = 'GET', data, html = false, timeout = 120000, signal} = {}) {
         const controller = new AbortController();
+        const abortRequest = () => controller.abort();
+        if (signal?.aborted) controller.abort();
+        else signal?.addEventListener('abort', abortRequest, {once: true});
         const timer = setTimeout(() => controller.abort(), timeout);
         try {
             const headers = {
@@ -60,12 +63,18 @@
             return payload;
         } catch (error) {
             if (error instanceof RequestError) throw error;
+            if (signal?.aborted) {
+                const cancelled = new RequestError('Request cancelled. The episode may still be created; check the list before retrying.');
+                cancelled.cancelled = true;
+                throw cancelled;
+            }
             if (controller.signal.aborted) {
                 throw new RequestError('The server took too long to respond. Please check the current state before retrying.');
             }
             throw new RequestError('Unable to reach the server. Check your connection and try again.');
         } finally {
             clearTimeout(timer);
+            signal?.removeEventListener('abort', abortRequest);
         }
     }
 

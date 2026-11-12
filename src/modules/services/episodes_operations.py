@@ -33,7 +33,7 @@ from src.modules.schemas.episodes import (
 from src.modules.services.episodes import EpisodeCreator
 from src.modules.services.task_queue import TaskQueue
 from src.modules.tasks.base import RQTask
-from src.modules.utils.processing import publish_redis_stop_downloading
+from src.modules.utils.processing import publish_redis_stop_downloading, reset_episode_progress
 
 logger = logging.getLogger(__name__)
 
@@ -152,6 +152,8 @@ class PodcastEpisodeOperations(EpisodeOperationHelpers):
                 )
 
             await uow.flush()
+            if creator.created and podcast.download_automatically:
+                await reset_episode_progress(episode)
             uow.mark_for_commit()
 
         if creator.created:
@@ -260,6 +262,7 @@ class PodcastEpisodeOperations(EpisodeOperationHelpers):
                 episode.image = image_file
             await uow.flush()
             if created:
+                await reset_episode_progress(episode)
                 uow.mark_for_commit()
 
         if created:
@@ -402,6 +405,7 @@ class EpisodeOperations(EpisodeOperationHelpers):
                 else tasks.DownloadEpisodeTask
             )
             await uow.flush()
+            await reset_episode_progress(episode)
             uow.mark_for_commit()
 
         try:

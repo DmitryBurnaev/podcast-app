@@ -25,6 +25,38 @@ class TestProgressEvents:
         assert response.status_code == 302
         assert response.headers["location"] == "/login"
 
+    async def test_reconnected_stream_includes_owned_episode_already_finished(
+        self, monkeypatch: pytest.MonkeyPatch, app_settings: AppSettings
+    ) -> None:
+        scope = OwnerScope(17)
+        finished = ProgressItemResponse(
+            status="PUBLISHED",
+            completed=100,
+            current_file_size=0,
+            total_file_size=0,
+            episode=ProgressEpisodeResponse(id=2, title="Episode", status="PUBLISHED"),
+        )
+        operations = create_autospec(ProgressOperations, instance=True, spec_set=True)
+        operations.get_progress.side_effect = [
+            {"progressItems": []},
+            {"progressItems": [finished]},
+        ]
+        pubsub = create_autospec(PubSub, instance=True, spec_set=True)
+        redis = create_autospec(RedisClient, instance=True, spec_set=True)
+        redis.async_pubsub.return_value = pubsub
+        template = create_autospec(Template, instance=True, spec_set=True)
+        template.render.return_value = "finished"
+        request = MagicMock(spec=Request)
+        request.app.template_engine.get_template.return_value = template
+        monkeypatch.setattr(progress_view, "RedisClient", lambda: redis)
+        monkeypatch.setattr(progress_view, "ProgressOperations", lambda: operations)
+
+        events = progress_view.progress_events(cast(AppRequest, request), scope, app_settings, 2)
+        assert (await anext(events)).data == "finished"
+        await events.aclose()
+        assert operations.get_progress.await_args_list == [((scope,), {}), ((scope, 2), {})]
+        pubsub.aclose.assert_awaited_once()
+
     @pytest.mark.parametrize("heartbeat", [False, True])
     async def test_stream_sends_terminal_state_and_closes_subscription(
         self, monkeypatch: pytest.MonkeyPatch, app_settings: AppSettings, heartbeat: bool
