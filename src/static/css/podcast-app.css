@@ -55,6 +55,11 @@ button:disabled { cursor: wait; opacity: .55; }
     border: 2px solid currentColor; border-right-color: transparent;
     border-radius: 50%; animation: ui-spin .8s linear infinite;
 }
+.episode-submit-button { display: inline-flex; align-items: center; gap: .5rem; }
+.episode-submit-icon { display: flex; flex: none; }
+.episode-submit-spinner { display: none; }
+.htmx-request .episode-submit-spinner, [data-busy="true"] .episode-submit-spinner { display: inline-block; visibility: visible; opacity: 1; }
+.htmx-request .episode-submit-icon, [data-busy="true"] .episode-submit-icon { display: none; }
 .episode-player-slider { --player-progress: 0%; --player-color: #16a34a; appearance: none; height: .5rem; background: transparent; cursor: pointer; accent-color: var(--player-color); }
 .episode-player-slider--downloading { --player-color: #60a5fa; }
 .episode-player-slider::-webkit-slider-runnable-track { height: .375rem; border-radius: .25rem; background: linear-gradient(to right, var(--player-color) var(--player-progress), #475569 var(--player-progress)); }
