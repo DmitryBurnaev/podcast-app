@@ -8,7 +8,7 @@
             </div>
             <label>
                 <input id="search-input" type="text" placeholder="Search"
-                    class="block w-full bg-slate-800 pl-10 pr-3 py-2 border border-slate-600 rounded-lg bg-slate-700 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent">
+                    class="block w-full bg-slate-800 pl-10 pr-3 py-2 border border-slate-600 rounded-lg bg-slate-700 text-white placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-500 focus:border-slate-500">
             </label>
         </div>
     </div>
@@ -100,22 +100,19 @@
             </a>
         {% endfor %}
         <!-- Add New Podcast Card -->
-        <div class="bg-slate-800 rounded-lg border border-slate-700 hover:border-slate-600 transition overflow-hidden cursor-pointer">
-            <div class="p-3 flex items-start gap-4">
-                <div class="flex-shrink-0">
-                    <button
-                        type="button" data-action="add-podcast"
-                        class="icon-18 rounded-lg bg-slate-700 flex items-center justify-center"
-                        title="Add Episode">
+        <button type="button" data-action="add-podcast" class="block w-full text-left bg-slate-800 rounded-lg border border-slate-700 hover:border-slate-600 transition overflow-hidden cursor-pointer">
+            <span class="p-3 flex items-start gap-4">
+                <span class="flex-shrink-0">
+                    <span class="icon-18 rounded-lg bg-slate-700 flex items-center justify-center" aria-hidden="true">
                         {{ icon_plus("w-8 h-8 text-slate-400") }}
-                    </button>
-                </div>
-                <div class="flex-1 min-w-0">
-                    <h3 class="text-lg font-semibold text-white mb-1">Add new podcast</h3>
-                    <p class="text-sm text-slate-400 line-clamp-2">You can add new podcast from here!</p>
-                </div>
-            </div>
-        </div>
+                    </span>
+                </span>
+                <span class="flex-1 min-w-0">
+                    <span class="block text-lg font-semibold text-white mb-1">Add new podcast</span>
+                    <span class="block text-sm text-slate-400 line-clamp-2">You can add new podcast from here!</span>
+                </span>
+            </span>
+        </button>
     </div>
 
 </div>{% endblock %}

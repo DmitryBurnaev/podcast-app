@@ -8,7 +8,7 @@
         </div>
         <label for="search-input"></label>
         <input type="text" id="search-input" placeholder="Search" value="{{ filters.search or '' }}"
-                                                 class="block bg-slate-800 w-full pl-10 pr-10 py-2 border border-slate-600 rounded-lg bg-slate-700 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent">
+                                                 class="block bg-slate-800 w-full pl-10 pr-10 py-2 border border-slate-600 rounded-lg bg-slate-700 text-white placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-500 focus:border-slate-500">
         <button type="button" data-action="open-filters" aria-label="Filters" class="absolute inset-y-0 right-0 pr-3 flex items-center">
             {% if filters %}
                 {{ icon_filter("h-5 w-5 text-purple-400")}}
@@ -91,8 +91,8 @@
 
 {% block modals %}
 <!-- Filters Modal -->
-<div id="filtersModal" data-modal hidden role="dialog" aria-modal="true" aria-labelledby="filters-title" tabindex="-1" class="fixed inset-0 bg-black/50 z-50 hidden items-center justify-center">
-    <div class="bg-slate-800 rounded-lg border border-slate-700 w-full max-w-md mx-4 shadow-xl">
+<div id="filtersModal" data-modal hidden role="dialog" aria-modal="true" aria-labelledby="filters-title" tabindex="-1" class="ui-drawer-overlay fixed inset-0 bg-black/50 z-50 hidden">
+    <div class="ui-drawer bg-slate-800 border-l border-slate-700 shadow-xl">
         <div class="p-6 border-b border-slate-700">
             <div class="flex items-center justify-between">
                 <h3 id="filters-title" class="text-lg font-semibold text-white">Filters</h3>
@@ -106,7 +106,7 @@
             <div>
                 <label for="filterSearch" class="block text-sm font-medium text-slate-300 mb-2">Search</label>
                 <input type="text" id="filterSearch" name="search" value="{{ filters.search or '' }}"
-                    class="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    class="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-500"
                     placeholder="Search episodes...">
             </div>
 
@@ -122,25 +122,25 @@
                     <label class="flex items-center gap-2 text-slate-300">
                         <input type="checkbox" name="status" value="published" {% if 'published' in status_list
                             %}checked{% endif %}
-                            class="rounded bg-slate-700 border-slate-600 text-purple-600 focus:ring-purple-500">
+                            class="rounded bg-slate-700 border-slate-600 text-purple-600 focus:ring-slate-500">
                         <span>Published</span>
                     </label>
                     <label class="flex items-center gap-2 text-slate-300">
                         <input type="checkbox" name="status" value="downloading" {% if 'downloading' in status_list
                             %}checked{% endif %}
-                            class="rounded bg-slate-700 border-slate-600 text-purple-600 focus:ring-purple-500">
+                            class="rounded bg-slate-700 border-slate-600 text-purple-600 focus:ring-slate-500">
                         <span>Downloading</span>
                     </label>
                     <label class="flex items-center gap-2 text-slate-300">
                         <input type="checkbox" name="status" value="error" {% if 'error' in status_list %}checked{%
                             endif %}
-                            class="rounded bg-slate-700 border-slate-600 text-purple-600 focus:ring-purple-500">
+                            class="rounded bg-slate-700 border-slate-600 text-purple-600 focus:ring-slate-500">
                         <span>Error</span>
                     </label>
                     <label class="flex items-center gap-2 text-slate-300">
                         <input type="checkbox" name="status" value="pending" {% if 'pending' in status_list %}checked{%
                             endif %}
-                            class="rounded bg-slate-700 border-slate-600 text-purple-600 focus:ring-purple-500">
+                            class="rounded bg-slate-700 border-slate-600 text-purple-600 focus:ring-slate-500">
                         <span>Pending</span>
                     </label>
                 </div>
@@ -152,12 +152,12 @@
                 <div class="flex items-center gap-2">
                     <input type="number" id="sizeMin" name="size_min" value="{{ filters.size_min or '' }}" step="0.1"
                         min="0"
-                        class="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                        class="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-500"
                         placeholder="Min">
                     <span class="text-slate-400">-</span>
                     <input type="number" id="sizeMax" name="size_max" value="{{ filters.size_max or '' }}" step="0.1"
                         min="0"
-                        class="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                        class="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-500"
                         placeholder="Max">
                 </div>
             </div>
@@ -166,7 +166,7 @@
             <div>
                 <label for="filterPodcast" class="block text-sm font-medium text-slate-300 mb-2">Podcast</label>
                 <select id="filterPodcast" name="podcast"
-                    class="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500">
+                    class="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-1 focus:ring-slate-500">
                     <option value="">All Podcasts</option>
                     {% for podcast in podcasts %}
                     <option value="{{ podcast.name }}" {% if filters.podcast==podcast.name %}selected{% endif %}>{{

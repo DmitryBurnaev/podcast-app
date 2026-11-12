@@ -1,8 +1,9 @@
 {% from "snippets/icons.html" import icon_close, icon_plus %}
 
 {% macro modal_add_podcast() %}
-<div id="addPodcastModal" data-modal hidden role="dialog" aria-modal="true" aria-labelledby="add-podcast-title" tabindex="-1" class="fixed inset-0 bg-black/50 z-50 hidden items-center justify-center">
-    <div class="ui-modal-panel bg-slate-800 rounded-lg border border-slate-700 w-full max-w-md mx-4 shadow-xl">
+<div id="addPodcastModal" data-modal hidden role="dialog" aria-modal="true" aria-labelledby="add-podcast-title" tabindex="-1" class="ui-drawer-overlay fixed inset-0 bg-black/50 z-50 hidden">
+    <div class="ui-drawer bg-slate-800 border-l border-slate-700 shadow-xl">
+        <form class="ui-drawer-layout" id="add-podcast-form" data-form="create-podcast">
         <div class="p-6 border-b border-slate-700">
             <div class="flex items-center justify-between">
                 <h3 id="add-podcast-title" class="text-lg font-semibold text-white">Add New Podcast</h3>
@@ -11,18 +12,18 @@
                 </button>
             </div>
         </div>
-        <form class="p-6 space-y-4" id="add-podcast-form" data-form="create-podcast">
+        <div class="ui-drawer-content p-6 space-y-4">
             <div>
                 <label for="new-podcast-name" class="block text-sm font-medium text-slate-300 mb-2">Podcast Title</label>
                 <input type="text" id="new-podcast-name" name="name" required maxlength="256" autofocus
-                    class="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    class="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-500"
                     placeholder="Enter podcast title">
             </div>
             <div>
                 <label for="podcastDescription" class="block text-sm font-medium text-slate-300 mb-2">Description
                     (optional)</label>
                 <textarea id="podcastDescription" name="description" rows="3"
-                    class="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    class="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-500"
                     placeholder="Enter podcast description"></textarea>
             </div>
             <label class="flex items-center gap-2 text-sm text-slate-300">
@@ -30,7 +31,8 @@
                 Automatically download new episodes
             </label>
             <div data-feedback data-operation-feedback hidden role="status" aria-live="polite"></div>
-            <div class="flex items-center justify-end gap-3 pt-4 border-t border-slate-700">
+        </div>
+            <div class="ui-drawer-actions flex items-center justify-end gap-3 p-6 border-t border-slate-700">
                 <button type="button" data-action="close-modal" aria-label="Close"
                     class="px-4 py-2 text-slate-300 hover:text-white transition">
                     Cancel
@@ -66,8 +68,9 @@
 
 <!-- Add Episode Modal -->
 {% macro modal_add_episode() %}
-<div id="addEpisodeModal" data-modal hidden role="dialog" aria-modal="true" aria-labelledby="add-episode-title" tabindex="-1" class="fixed inset-0 bg-black/50 z-50 hidden items-center justify-center">
-    <div class="ui-modal-panel bg-slate-800 rounded-lg border border-slate-700 w-full max-w-lg mx-4 shadow-xl">
+<div id="addEpisodeModal" data-modal hidden role="dialog" aria-modal="true" aria-labelledby="add-episode-title" tabindex="-1" class="ui-drawer-overlay fixed inset-0 bg-black/50 z-50 hidden">
+    <div class="ui-drawer bg-slate-800 border-l border-slate-700 shadow-xl">
+        <form id="add-episode-form" data-form="create-episode" class="ui-drawer-layout">
         <div class="p-6 border-b border-slate-700">
             <div class="flex items-center justify-between">
                 <h3 id="add-episode-title" class="text-lg font-semibold text-white">Add New Episode</h3>
@@ -76,30 +79,45 @@
                 </button>
             </div>
         </div>
-        <form id="add-episode-form" data-form="create-episode" class="p-6 space-y-4">
+        <div class="ui-drawer-content p-6 space-y-4">
             <div>
                 <label for="episodePodcastTitle" class="block text-sm font-medium text-slate-300 mb-2">Podcast</label>
-                <span id="episodePodcastTitle" class="w-full block px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500"></span>
+                <span id="episodePodcastTitle" class="w-full block px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-1 focus:ring-slate-500"></span>
             </div>
             <div>
                 <label for="sourceURL" class="block text-sm font-medium text-slate-300 mb-2">Source URL</label>
                 <input type="text" id="sourceURL" name="sourceURL" required maxlength="2048" autofocus
-                    class="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    class="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-500"
                     placeholder="Enter source URL (ex: YouTube's link)">
             </div>
             <div data-feedback data-operation-feedback hidden role="status" aria-live="polite"></div>
-            <div class="flex items-center justify-end gap-3 pt-4 border-t border-slate-700">
-                <button type="button" data-action="close-modal" aria-label="Close"
-                    class="px-4 py-2 text-slate-300 hover:text-white transition">
-                    Cancel
-                </button>
-                <button type="submit"
-                    class="episode-submit-button px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition font-medium">
+            <section id="episode-creation-progress" class="border-t border-slate-700 pt-4" hidden aria-live="polite" aria-atomic="true">
+                <p class="flex items-center gap-2 text-sm text-slate-300" role="status"><span id="episode-creation-spinner" class="ui-spinner" aria-hidden="true"></span><span id="episode-creation-status"></span></p>
+            </section>
+            <section id="episode-creation-details" class="border-t border-slate-700 pt-4" hidden>
+                <img id="episode-creation-cover" class="w-24 h-24 rounded-lg object-cover mb-3" alt="">
+                <h4 id="episode-creation-title" class="font-semibold text-white break-words"></h4>
+                <p id="episode-creation-meta" class="mt-1 text-sm text-slate-400"></p>
+                <p id="episode-creation-description" class="mt-3 text-sm text-slate-300 whitespace-pre-wrap break-words"></p>
+            </section>
+        </div>
+        <div class="ui-drawer-actions p-6 border-t border-slate-700">
+            <section id="episode-creation-download" class="mb-4" hidden aria-live="polite">
+                <p id="episode-creation-download-label" class="text-sm text-slate-300"></p>
+                <progress id="episode-creation-download-bar" class="episode-download-bar mt-2" max="100" aria-label="Episode download progress"></progress>
+            </section>
+            <div class="flex items-center justify-end gap-3">
+                <a id="episode-creation-link" hidden class="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition" href="#">Open episode</a>
+                <button type="button" data-action="close-modal" id="episode-creation-close" class="px-4 py-2 text-slate-300 hover:text-white transition">Cancel</button>
+                <button type="button" data-action="cancel-episode-creation" id="episode-creation-cancel" data-cancel-creation hidden class="px-4 py-2 text-slate-300 hover:text-white transition">Cancel loading</button>
+                <button type="button" data-action="start-created-episode-download" id="episode-creation-start-download" hidden class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition font-medium">Start download</button>
+                <button type="submit" id="episode-creation-submit" class="episode-submit-button px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition font-medium">
                     <span class="episode-submit-icon" aria-hidden="true">{{ icon_plus("w-4 h-4") }}</span>
                     <span class="htmx-indicator ui-spinner episode-submit-spinner" aria-hidden="true"></span>
                     <span>Add Episode</span>
                 </button>
             </div>
+        </div>
         </form>
     </div>
 </div>

@@ -18,6 +18,7 @@ from src.modules.utils.processing import (
     move_file,
     publish_redis_stop_downloading,
     remote_copy_episode,
+    reset_episode_progress,
     save_uploaded_file,
     upload_episode,
     upload_process_hook,
@@ -119,6 +120,45 @@ class TestTaskContext:
 
 
 class TestProgressState:
+    async def test_reset_discards_previous_download_progress(
+        self, app_settings: AppSettings, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        episode = make_episode(id=10, podcast_id=20, status=EpisodeStatus.DOWNLOADING)
+        episode.audio = make_file(path="audio/episode.mp3")
+        redis = MockRedisClient(
+            content={
+                "episode": {
+                    "event_key": "episode",
+                    "status": "DL_EPISODE_UPLOADING",
+                    "processed_bytes": 100,
+                    "total_bytes": 100,
+                }
+            }
+        )
+
+        async def store(key: str, value: object, ttl: int = 120) -> None:
+            redis.content[key] = value
+
+        redis.async_set.side_effect = store
+        monkeypatch.setattr("src.modules.utils.processing.RedisClient", lambda: redis)
+        monkeypatch.setattr("src.modules.utils.processing.get_app_settings", lambda: app_settings)
+
+        await reset_episode_progress(episode)
+
+        state = (await check_state([episode]))[0]
+        assert state["status"] == EpisodeStatus.DL_PENDING
+        assert state["completed"] == 0
+        redis.async_set.assert_awaited_once_with(
+            "episode",
+            {
+                "event_key": "episode",
+                "status": "DL_PENDING",
+                "processed_bytes": 0,
+                "total_bytes": 0,
+            },
+            ttl=app_settings.download_event_redis_ttl,
+        )
+
     async def test_check_state__current_progress__ok(
         self,
         app_settings: AppSettings,

@@ -132,7 +132,7 @@
                                class="block text-sm font-medium text-slate-300 mb-2">Name</label>
                         <input type="text" id="podcast-name" name="name" required maxlength="256" value="{{ podcast.name }}"
                                class="w-full px-3 py-2 border border-slate-600 rounded-lg bg-slate-700 text-white
-                                      focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent">
+                                      focus:outline-none focus:ring-1 focus:ring-slate-500 focus:border-slate-500">
                     </div>
 
                     <!-- Created At Field (Read-only) -->
@@ -177,7 +177,7 @@
                                class="block text-sm font-medium text-slate-300 mb-2">Description</label>
                         <textarea id="podcast-description" name="description" rows="4"
                                   class="w-full px-3 py-2 border border-slate-600 rounded-lg bg-slate-700 text-white
-                                         focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent">{{ podcast.description or '' }}</textarea>
+                                         focus:outline-none focus:ring-1 focus:ring-slate-500 focus:border-slate-500">{{ podcast.description or '' }}</textarea>
                     </div>
 
                     <label class="flex items-center gap-2 text-sm text-slate-300"><input type="checkbox" name="download_automatically" {% if podcast.download_automatically %}checked{% endif %}> Automatically download new episodes</label>

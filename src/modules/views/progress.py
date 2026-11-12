@@ -2,6 +2,7 @@ from collections.abc import AsyncIterator
 
 from litestar import get
 from litestar.di import NamedDependency
+from litestar.params import FromQuery
 from litestar.response import ServerSentEvent
 from litestar.response.sse import ServerSentEventMessage
 
@@ -14,21 +15,29 @@ from src.settings.app import AppSettings
 
 
 async def progress_events(
-    request: AppRequest, user_scope: OwnerScope, settings: AppSettings
+    request: AppRequest,
+    user_scope: OwnerScope,
+    settings: AppSettings,
+    episode_id: int | None = None,
 ) -> AsyncIterator[ServerSentEventMessage]:
     """Send owned progress and terminal states; release the Redis subscription on disconnect."""
     pubsub = RedisClient().async_pubsub(ignore_subscribe_messages=True)
     channel = settings.redis.progress_pubsub_ch
     previous: set[int] = set()
+    initial = True
     try:
         await pubsub.subscribe(channel)
         while True:
             active = (await ProgressOperations().get_progress(user_scope))["progressItems"]
             active_ids = {item.episode.id for item in active}
             completed = []
-            for episode_id in previous - active_ids:
+            finished_ids = previous - active_ids
+            if initial and episode_id is not None and episode_id not in active_ids:
+                finished_ids.add(episode_id)
+            initial = False
+            for finished_id in finished_ids:
                 completed.extend(
-                    (await ProgressOperations().get_progress(user_scope, episode_id))[
+                    (await ProgressOperations().get_progress(user_scope, finished_id))[
                         "progressItems"
                     ]
                 )
@@ -71,5 +80,6 @@ class ProgressEventsController(BaseViewController):
         request: AppRequest,
         user_scope: NamedDependency[OwnerScope],
         settings: NamedDependency[AppSettings],
+        episode_id: FromQuery[int | None] = None,
     ) -> ServerSentEvent:
-        return ServerSentEvent(progress_events(request, user_scope, settings))
+        return ServerSentEvent(progress_events(request, user_scope, settings, episode_id))

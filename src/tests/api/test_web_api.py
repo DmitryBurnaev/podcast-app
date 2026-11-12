@@ -365,6 +365,11 @@ class TestBrowserEpisodes:
         assert second.status_code == 201, second.text
         assert second.json()["id"] == first.json()["id"]
         assert first.json()["status"] == ("DOWNLOADING" if automatic else "NEW")
+        if automatic:
+            progress = browser_session.client.get(
+                f"/web-api/progress/?episode_id={first.json()['id']}"
+            ).json()
+            assert progress["progressItems"][0]["status"] == "DL_PENDING"
         persisted = await functional_session.get(Episode, first.json()["id"])
         assert persisted is not None
         assert File.token_is_correct(persisted.audio.access_token)
@@ -394,7 +399,18 @@ class TestBrowserEpisodes:
             "New author",
             "Changed",
         )
+        await functional_session.refresh(episode, ["audio"])
+        key = episode.audio_filename.partition(".")[0]
+        mocked_redis.content[key] = {
+            "event_key": key,
+            "status": "DL_EPISODE_UPLOADING",
+            "processed_bytes": 100,
+            "total_bytes": 100,
+        }
         assert client.put(url + "download/").json()["status"] == "DOWNLOADING"
+        progress = client.get(f"/web-api/progress/?episode_id={episode.id}").json()
+        assert progress["progressItems"][0]["status"] == "DL_PENDING"
+        assert progress["progressItems"][0]["completed"] == 0
         assert client.put(url + "download/").status_code == 409
         assert len(mocked_rq_queue.enqueued) == 1
         assert client.delete(url).status_code == 409

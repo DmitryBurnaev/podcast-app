@@ -144,6 +144,22 @@ async def check_state(episodes: Iterable["Episode"]) -> list[dict]:
     return result
 
 
+async def reset_episode_progress(episode: Episode) -> None:
+    """Replace progress left by an earlier download before queuing a new one."""
+    redis_client = RedisClient()
+    event_key = redis_client.get_key_by_filename(episode.audio_filename)
+    await redis_client.async_set(
+        event_key,
+        {
+            "event_key": event_key,
+            "status": str(EpisodeStatus.DL_PENDING),
+            "processed_bytes": 0,
+            "total_bytes": 0,
+        },
+        ttl=get_app_settings().download_event_redis_ttl,
+    )
+
+
 def upload_process_hook(filename: str, chunk: int) -> None:
     """
     Allows handling uploading to S3 storage and update redis state (for user's progress).
