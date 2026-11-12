@@ -1,4 +1,4 @@
-{% from "snippets/icons.html" import icon_close %}
+{% from "snippets/icons.html" import icon_close, icon_plus %}
 
 {% macro modal_add_podcast() %}
 <div id="addPodcastModal" data-modal hidden role="dialog" aria-modal="true" aria-labelledby="add-podcast-title" tabindex="-1" class="fixed inset-0 bg-black/50 z-50 hidden items-center justify-center">
@@ -94,8 +94,10 @@
                     Cancel
                 </button>
                 <button type="submit"
-                    class="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition font-medium">
-                    <span class="htmx-indicator ui-spinner" aria-hidden="true"></span> Add Episode
+                    class="episode-submit-button px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition font-medium">
+                    <span class="episode-submit-icon" aria-hidden="true">{{ icon_plus("w-4 h-4") }}</span>
+                    <span class="htmx-indicator ui-spinner episode-submit-spinner" aria-hidden="true"></span>
+                    <span>Add Episode</span>
                 </button>
             </div>
         </form>

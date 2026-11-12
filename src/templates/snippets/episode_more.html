@@ -1,7 +1,7 @@
 {% if has_more %}
-<div class="mt-4" id="episode-more">
-    <button type="button" class="px-4 py-2 rounded-lg bg-slate-700 text-white"
-            hx-get="/episodes/more/?offset={{ next_offset }}{% if podcast_id %}&amp;podcast_id={{ podcast_id }}{% endif %}{% for key, value in (filters or {}).items() %}&amp;{{ key|urlencode }}={{ value|urlencode }}{% endfor %}"
-            hx-target="#episode-more" hx-swap="outerHTML">Load more episodes</button>
+<div id="episode-more" class="text-center text-sm text-slate-400"
+     hx-get="/episodes/more/?offset={{ next_offset }}{% if podcast_id %}&amp;podcast_id={{ podcast_id }}{% endif %}{% for key, value in (filters or {}).items() %}&amp;{{ key|urlencode }}={{ value|urlencode }}{% endfor %}"
+     hx-trigger="intersect once root:main" hx-swap="outerHTML" role="status">
+    Loading more episodes…
 </div>
 {% endif %}
