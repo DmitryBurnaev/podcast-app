@@ -34,16 +34,12 @@
 
                     <!-- Podcast Info -->
                     <div class="flex-1 min-w-0">
-                        <div class="flex items-start justify-between gap-4">
+                        <div class="overview-podcast-content flex items-start justify-between gap-4">
                             <div class="flex-1 min-w-0">
                                 <h3 class="text-lg font-semibold text-white">{{ podcast.name }}</h3>
-                                <p class="text-sm text-slate-400 line-clamp-2">{{ podcast.description }}</p>
+                                <p class="card-description text-sm text-slate-400 line-clamp-2">{{ podcast.description }}</p>
                             </div>
-                            <div class="flex items-center gap-2 flex-shrink-0">
-                                <span
-                                    class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-green-500/20 text-green-400 border border-green-500/30">
-                                    {{ podcast.stat.episodes_count }} episodes
-                                </span>
+                            <div class="card-actions-overlay flex items-center gap-2 flex-shrink-0">
                                 <button
                                     type="button" data-action="add-episode" data-id="{{ podcast.id }}" data-name="{{ podcast.name }}"
                                     class="p-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition"

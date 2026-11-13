@@ -12,22 +12,22 @@
 
         <!-- Episode Info -->
         <div class="flex-1 min-w-0">
-            <div class="flex items-start justify-between gap-4">
+            <div class="episode-card-content flex items-start justify-between gap-4">
                 <div class="flex-1 min-w-0">
                     <h3 class="text-lg font-semibold text-white">
                         {% if episode.icon %}<span class="mr-2">{{ episode.icon }}</span>{% endif %}
                         {{ episode.title }}
                     </h3>
                     {% if episode.description %}
-                        <p class="text-sm text-slate-400 line-clamp-1 mb-1">
+                        <p class="card-description text-sm text-slate-400 line-clamp-1 mb-1">
                             {{ episode.description }}
                         </p>
                     {% endif %}
 
                     <!-- Additional Info -->
-                    <div class="flex items-center gap-4 flex-wrap text-xs text-slate-500">
+                    <div class="episode-card-metadata flex items-center gap-4 flex-wrap text-xs text-slate-500">
                         {% if episode.length %}
-                            <div class="flex items-center gap-1">
+                            <div class="episode-card-duration flex items-center gap-1">
                                 {{ icon_clock() }}
                                 <span>{{ format_duration(episode.length) }}</span>
                             </div>
@@ -39,7 +39,7 @@
                             </div>
                         {% endif %}
                         {% if episode.published_at or episode.created_at %}
-                            <div class="flex items-center gap-3">
+                            <div class="flex flex-wrap items-center gap-3">
                                 {% if episode.published_at %}
                                     <div class="flex items-center gap-1"
                                          title="Publication date">
@@ -57,11 +57,11 @@
                             </div>
                         {% endif %}
                     </div>
+                    <div class="episode-card-status">{% include "snippets/episode_status.html" %}</div>
                 </div>
 
                 <!-- Right Side: Status and Controls -->
-                <div class="flex flex-col items-end gap-3 flex-shrink-0">
-                    {% include "snippets/episode_status.html" %}
+                <div class="episode-card-controls card-actions-overlay flex flex-col items-end gap-3 flex-shrink-0">
                     <!-- Control Buttons -->
                     <div class="flex items-center gap-2">
                         <button type="button" data-action="download-episode" data-id="{{ episode.id }}" class="p-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg" title="Download" aria-label="Download episode">{{ icon_download() }}</button>

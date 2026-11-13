@@ -10,7 +10,7 @@
     <link rel="icon" type="image/png" href="/static/img/favicon.ico">
     <script src="/static/js/tailwind.3.4.17.js"></script>
     <script src="/static/js/htmx.2.0.8.min.js" defer></script>
-    <link rel="stylesheet" href="/static/css/podcast-app.css?v=6">
+    <link rel="stylesheet" href="/static/css/podcast-app.css?v=10">
     <script src="/static/js/http.js?v=2" defer></script>
     <script src="/static/js/app.js?v=11" defer></script>
     {% endblock %}
@@ -49,9 +49,9 @@
 
 <body class="bg-slate-900 min-h-screen">
     {% block body %}
-    <div class="flex h-screen overflow-hidden">
+    <div class="app-shell flex h-screen overflow-hidden">
         <!-- Left Sidebar -->
-        <aside class="w-64 bg-slate-800 flex flex-col h-full border-r border-slate-700">
+        <aside class="app-sidebar w-64 bg-slate-800 flex flex-col h-full border-r border-slate-700">
             <!-- Logo -->
             <a href="/" class="block p-6 flex items-center gap-3">
                 <div
@@ -93,9 +93,10 @@
         </aside>
 
         <!-- Main Content Area -->
-        <div class="flex flex-col flex-1 overflow-hidden">
+        <div class="app-column flex flex-col flex-1 overflow-hidden">
             <!-- Top Navigation Bar -->
-            <header class="bg-slate-800 border-b border-slate-700 px-6 py-1 flex items-center justify-between">
+            <header class="app-header bg-slate-800 border-b border-slate-700 px-6 py-1 flex items-center justify-between">
+                <div class="app-breadcrumbs">
                 {% block breadcrumbs %}
                 <!-- Breadcrumbs -->
                 <div class="flex">
@@ -104,8 +105,9 @@
                     </nav>
                 </div>
                 {% endblock %}
+                </div>
                 <!-- Right side: Notifications, User -->
-                <div class="flex items-center gap-2 ml-6">
+                <div class="app-header-actions flex items-center gap-2 ml-6">
                     {% include "snippets/app_statistics.html" %}
 
                     <!-- Search -->
@@ -113,11 +115,11 @@
                         {{ icon_search("h-5 w-5") }}
                     </button>
                     <!-- Notifications -->
-                    <button class="p-2 text-slate-400 hover:text-white hover:bg-slate-700 rounded-lg transition">
+                    <button class="app-notifications-button p-2 text-slate-400 hover:text-white hover:bg-slate-700 rounded-lg transition" aria-label="Notifications">
                         {{ icon_bell() }}
                     </button>
 
-                    <div class="h-6 mr-2 w-px bg-slate-600"></div>
+                    <div class="app-header-divider h-6 mr-2 w-px bg-slate-600"></div>
 
                     {% if is_authenticated %}
                     <div class="relative" id="user-dropdown">
@@ -128,7 +130,7 @@
                                 <span class="text-sm font-medium text-slate-300">
                                     {{ user_data.name[0] if user_data.name else 'U' }}</span>
                             </div>
-                            <span class="text-sm font-medium">{{ user_data.name or 'User' }}</span>
+                            <span class="app-user-name text-sm font-medium">{{ user_data.name or 'User' }}</span>
                             {{ icon_chevron_down() }}
                         </button>
                         <div id="user-dropdown-menu"
@@ -155,8 +157,8 @@
             </header>
 
             <!-- Main Content -->
-            <main class="flex-1 overflow-y-auto bg-slate-900 pattern-bg">
-                <div class="p-6">
+            <main class="app-main flex-1 overflow-y-auto bg-slate-900 pattern-bg">
+                <div class="app-main-content p-6">
                     {% block search %}
                     {% endblock %}
                     <div id="page-feedback" data-feedback hidden role="status" aria-live="polite" class="mb-4"></div>
@@ -165,6 +167,19 @@
                     {% endblock %}
                 </div>
             </main>
+
+            <nav class="mobile-navigation" aria-label="Main navigation">
+                {% for link in navigation %}
+                <a href="{{ link.path }}" {% if link.slug == current %}aria-current="page"{% endif %}>
+                    {% if link.slug == 'home' %}{{ icon_home() }}
+                    {% elif link.slug == 'episodes' %}{{ icon_headphones() }}
+                    {% elif link.slug == 'podcasts' %}{{ icon_list() }}
+                    {% elif link.slug == 'profile' %}{{ icon_user() }}
+                    {% elif link.slug == 'about' %}{{ icon_info() }}{% endif %}
+                    <span>{{ link.title }}</span>
+                </a>
+                {% endfor %}
+            </nav>
 
             {% block footer %}
             {% endblock %}
