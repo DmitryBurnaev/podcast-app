@@ -154,7 +154,7 @@
                         <div class="flex items-center gap-2">
                             <input type="text" id="podcast-rss-link"
                                    value="{{ podcast.rss_url or '' }}" placeholder="No RSS link available"
-                                   readonly class="flex-1 px-3 py-2 border border-slate-600 rounded-lg bg-slate-700 text-slate-400
+                                   readonly class="flex-1 min-w-0 px-3 py-2 border border-slate-600 rounded-lg bg-slate-700 text-slate-400
                                           cursor-not-allowed">
 
                                 <button type="button" id="rss-copy-button" data-action="copy-rss" {% if not podcast.rss_url %}hidden{% endif %}
@@ -183,7 +183,7 @@
                     <label class="flex items-center gap-2 text-sm text-slate-300"><input type="checkbox" name="download_automatically" {% if podcast.download_automatically %}checked{% endif %}> Automatically download new episodes</label>
                     <div data-feedback data-operation-feedback hidden role="status" aria-live="polite"></div>
                     <!-- Action Buttons -->
-                    <div class="flex items-center gap-3 pt-4 border-t border-slate-700 mt-auto">
+                    <div class="flex flex-wrap items-center gap-3 pt-4 border-t border-slate-700 mt-auto">
                         <button type="submit" class="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition
                                        flex items-center gap-2">
                             {{ icon_edit() }}

@@ -82,6 +82,80 @@ button:disabled { cursor: wait; opacity: .55; }
 .ui-progress [data-progress-label] { min-width: 0; overflow-wrap: anywhere; }
 .ui-progress-track { flex: 1 1 6rem; min-width: 4rem; height: .25rem; border-radius: .25rem; background: #334155; overflow: hidden; }
 .ui-progress-bar { height: 100%; background: #60a5fa; transition: width .3s ease; }
+.app-shell { height: 100dvh; }
+.app-column, .app-breadcrumbs { min-width: 0; }
+.mobile-navigation { display: none; }
+
+@media (max-width: 767px) {
+    .app-shell .app-sidebar { display: none; }
+    .app-shell .app-header { min-height: 3.5rem; padding: .375rem 1rem; }
+    .app-shell .app-header-actions { flex: none; gap: .25rem; margin-left: .5rem; }
+    .app-header-actions [data-refresh-region="app-statistics"],
+    .app-header-divider, .app-user-name { display: none; }
+    .app-breadcrumbs { overflow: hidden; }
+    .app-breadcrumbs nav { min-width: 0; white-space: nowrap; overflow: hidden; }
+    .app-breadcrumbs nav > svg { flex: none; }
+    .app-breadcrumbs nav > a, .app-breadcrumbs nav > span {
+        min-width: 0; overflow: hidden; text-overflow: ellipsis;
+    }
+    .app-shell .app-main { min-height: 0; }
+    .app-shell .app-main-content { padding: 1rem; overflow-wrap: anywhere; }
+    .mobile-navigation {
+        display: flex; flex: none; justify-content: space-around;
+        background: #1e293b; border-top: 1px solid #334155;
+        padding: .25rem .25rem max(.25rem, env(safe-area-inset-bottom));
+    }
+    .mobile-navigation a {
+        display: flex; flex: 1 1 0; min-width: 0; min-height: 3rem;
+        align-items: center; justify-content: center; flex-direction: column;
+        gap: .125rem; border-radius: .5rem; color: #cbd5e1;
+        font-size: .6875rem; line-height: 1rem; text-decoration: none;
+    }
+    .mobile-navigation a[aria-current="page"] { background: #334155; color: #fff; }
+    .mobile-navigation a:focus-visible { outline: 2px solid #94a3b8; outline-offset: -2px; }
+    .mobile-navigation a span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .app-shell .episode-card-content, .app-shell .podcast-card-content, .app-shell .overview-podcast-content { flex-direction: column; gap: .75rem; }
+    .app-shell .episode-card-controls { align-items: flex-start; width: 100%; gap: .5rem; }
+    .episode-card-controls > .flex { flex-wrap: wrap; }
+    .episode-card-controls button, .podcast-card-content button, .overview-podcast-content button {
+        min-width: 2.75rem; min-height: 2.75rem;
+    }
+    /* Let the controls occupy the trailing edge without squeezing the text. */
+    .app-shell .episode-card-content,
+    .app-shell .podcast-card-content,
+    .app-shell .overview-podcast-content { flex-direction: row; gap: 0; }
+    .app-shell .card-actions-overlay {
+        position: relative; z-index: 1; flex: 0 0 3.25rem; width: 3.25rem;
+        margin-left: -3.25rem; align-self: stretch; align-items: center;
+        justify-content: center; gap: .375rem;
+        background: linear-gradient(to right, transparent, #1e293b 35%);
+    }
+    .app-shell .episode-card-controls > .flex { flex-direction: column; gap: .375rem; }
+    .episode-card-content h3, .podcast-card-content h3, .overview-podcast-content h3 { padding-right: 3.25rem; }
+    .card-description {
+        -webkit-mask-image: linear-gradient(to right, #000 60%, transparent 100%);
+        mask-image: linear-gradient(to right, #000 60%, transparent 100%);
+    }
+    .app-shell .podcast-card-metadata, .episode-card-metadata > :not(.episode-card-duration) { display: none; }
+    .episode-card-status { margin-top: .375rem; padding-right: 3.25rem; }
+    .app-shell .overview-podcast-content { min-height: 70px; }
+    .app-shell .overview-podcast-content .card-actions-overlay button {
+        display: flex; align-items: center; justify-content: center;
+    }
+    .app-shell .overview-podcast-content .card-description {
+        -webkit-mask-image: linear-gradient(to right, #000 45%, transparent 85%);
+        mask-image: linear-gradient(to right, #000 45%, transparent 85%);
+    }
+    .ui-notification-stack { bottom: calc(4rem + env(safe-area-inset-bottom)); right: 1rem; }
+    .ui-drawer-actions { padding-bottom: max(1rem, env(safe-area-inset-bottom)); }
+}
+
+@media (max-width: 360px) {
+    .app-shell .app-notifications-button { display: none; }
+    .app-shell .app-main-content { padding: .75rem; }
+    [data-episode-card] .icon-18, [data-podcast-card] .icon-18 { width: 56px !important; height: 56px !important; }
+    .app-shell .overview-podcast-content { min-height: 56px; }
+}
 @keyframes ui-spin { to { transform: rotate(360deg); } }
 @keyframes ui-notification-enter { from { opacity: 0; transform: translateY(1rem); } }
 @media (prefers-reduced-motion: reduce) {
