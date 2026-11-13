@@ -142,7 +142,8 @@ test('episode creation keeps the panel open and shows metadata and cover status'
         'episode-creation-meta', 'episode-creation-link',
         'episode-creation-cover', 'episode-creation-submit', 'episode-creation-close',
         'episode-creation-cancel', 'episode-creation-spinner', 'episode-creation-download',
-        'episode-creation-download-label', 'episode-creation-download-bar', 'episode-creation-start-download'];
+        'episode-creation-download-label', 'episode-creation-download-bar', 'episode-creation-start-download',
+        'episode-creation-download-state'];
     const nodes = Object.fromEntries(ids.map(id => [id, new Element()]));
     const originalGet = page.document.getElementById;
     page.document.getElementById = id => nodes[id] || originalGet(id);
@@ -201,7 +202,8 @@ test('episode creation loads details by id when the response has only a card', a
         'episode-creation-meta', 'episode-creation-link',
         'episode-creation-cover', 'episode-creation-submit', 'episode-creation-close',
         'episode-creation-cancel', 'episode-creation-spinner', 'episode-creation-download',
-        'episode-creation-download-label', 'episode-creation-download-bar', 'episode-creation-start-download'];
+        'episode-creation-download-label', 'episode-creation-download-bar', 'episode-creation-start-download',
+        'episode-creation-download-state'];
     const nodes = Object.fromEntries(ids.map(id => [id, new Element()]));
     const originalGet = page.document.getElementById;
     page.document.getElementById = id => nodes[id] || originalGet(id);
@@ -214,6 +216,8 @@ test('episode creation loads details by id when the response has only a card', a
     assert.equal(nodes['episode-creation-description'].textContent, 'Recovered description');
     assert.equal(nodes['episode-creation-start-download'].hidden, false);
     assert.equal(nodes['episode-creation-download'].hidden, true);
+    page.sendProgress([new Element({episodeId: '42', status: 'NEW'})]);
+    assert.equal(nodes['episode-creation-start-download'].hidden, false);
     nodes['episode-creation-start-download'].dataset.action = 'start-created-episode-download';
     page.click(nodes['episode-creation-start-download']);
     await tick();
@@ -224,6 +228,10 @@ test('episode creation loads details by id when the response has only a card', a
     assert.equal(nodes['episode-creation-download'].hidden, false);
     assert.equal(nodes['episode-creation-download-label'].textContent, 'Downloading audio 45%');
     assert.equal(nodes['episode-creation-download-bar'].value, 45);
+    page.sendProgress([new Element({episodeId: '42', status: 'PUBLISHED'})]);
+    assert.equal(nodes['episode-creation-download'].hidden, true);
+    assert.equal(nodes['episode-creation-start-download'].hidden, true);
+    assert.equal(nodes['episode-creation-download-state'].textContent, 'Already downloaded');
     assert.deepEqual(requested, ['/web-api/episodes/42/', '/web-api/episodes/42/download/']);
     assert.equal(page.eventSources.at(-1).url, '/episodes/progress/events/?episode_id=42');
 });
