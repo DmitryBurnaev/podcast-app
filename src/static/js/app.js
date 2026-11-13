@@ -90,9 +90,15 @@
         const download = byId('episode-creation-download');
         const button = byId('episode-creation-start-download');
         if (!download || !button) return;
-        const active = activeStatus(status);
+        const normalized = String(status).toUpperCase();
+        const active = activeStatus(normalized);
+        const state = byId('episode-creation-download-state');
+        if (state) {
+            state.hidden = !['PUBLISHED', 'ARCHIVED'].includes(normalized);
+            if (!state.hidden) state.textContent = normalized === 'PUBLISHED' ? 'Already downloaded' : 'Episode archived';
+        }
         download.hidden = !active;
-        button.hidden = !['NEW', 'ERROR'].includes(String(status).toUpperCase());
+        button.hidden = !['NEW', 'ERROR'].includes(normalized);
         if (!active) return;
         byId('episode-creation-download-label').textContent = label || statusLabel(status);
         const bar = byId('episode-creation-download-bar');
@@ -174,6 +180,8 @@
         byId('episode-creation-details').hidden = true;
         const download = byId('episode-creation-download');
         if (download) download.hidden = true;
+        const downloadState = byId('episode-creation-download-state');
+        if (downloadState) downloadState.hidden = true;
         const start = byId('episode-creation-start-download');
         if (start) start.hidden = true;
         const link = byId('episode-creation-link');
@@ -657,7 +665,7 @@
                 episodeCreationSequence++;
                 byId('episode-creation-progress').hidden = true;
                 byId('episode-creation-progress').dataset.episodeId = '';
-                for (const id of ['episode-creation-details', 'episode-creation-download', 'episode-creation-start-download', 'episode-creation-link']) {
+                for (const id of ['episode-creation-details', 'episode-creation-download', 'episode-creation-download-state', 'episode-creation-start-download', 'episode-creation-link']) {
                     const node = byId(id);
                     if (node) node.hidden = true;
                 }
