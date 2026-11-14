@@ -3,9 +3,9 @@
     <!-- Breadcrumbs -->
     <div class="flex">
         <nav class="flex items-center gap-2 text-sm text-slate-400">
-            {{ icon_home() }} <a href="/" class="hover:text-white transition">Home</a>
+            <a href="/" class="breadcrumb-section hover:text-white transition">{{ icon_home() }} <span class="breadcrumb-label">Home</span></a>
             {{ icon_chevron_right("w-4 h-4") }}
-            <a href="/podcasts/" class="hover:text-white transition">Podcasts</a>
+            <a href="/podcasts/" class="breadcrumb-section hover:text-white transition"><span class="breadcrumb-icon" aria-hidden="true">{{ icon_list() }}</span><span class="breadcrumb-label">Podcasts</span></a>
             {{ icon_chevron_right("w-4 h-4") }}
             <span class="text-slate-300 font-medium">{{ podcast.name }}</span>
         </nav>
@@ -118,10 +118,8 @@
                     </button>
                 </div>
                 <div class="mobile-detail-actions" aria-label="Podcast actions">
+                    <button type="button" data-action="add-episode" data-id="{{ podcast.id }}" data-name="{{ podcast.name }}" class="mobile-add-episode" aria-label="Add episode">{{ icon_plus() }} <span>Add Episode</span></button>
                     <button type="button" data-action="open-detail-edit" data-id="{{ podcast.id }}" aria-label="Edit podcast" title="Edit podcast">✏️</button>
-                    <button type="button" data-action="add-episode" data-id="{{ podcast.id }}" data-name="{{ podcast.name }}" aria-label="Add episode" title="Add episode">➕</button>
-                    <button type="button" data-action="generate-rss" data-id="{{ podcast.id }}" aria-label="Regenerate RSS" title="Regenerate RSS">🔄</button>
-                    <button type="button" data-action="delete-podcast" data-id="{{ podcast.id }}" aria-label="Delete podcast" title="Delete podcast">🗑️</button>
                 </div>
             </div>
         </div>
@@ -134,6 +132,7 @@
                 <div class="detail-edit-heading"><h2 id="detail-edit-title" class="text-xl font-semibold text-white mb-4">Edit Podcast</h2><button type="button" data-action="close-modal" aria-label="Close" class="detail-edit-close text-slate-400">{{ icon_close() }}</button></div>
 
                 <form id="edit-podcast-form" data-form="edit-podcast" data-id="{{ podcast.id }}" class="space-y-4 flex flex-col flex-1 min-h-0">
+                    <div class="detail-edit-content space-y-4">
                     <!-- Name Field -->
                     <div>
                         <label for="podcast-name"
@@ -175,6 +174,10 @@
                                    title="Open RSS link">
                                     {{ icon_external_link() }}
                                 </a>
+                                <button type="button" data-action="generate-rss" data-id="{{ podcast.id }}" aria-label="Regenerate RSS" title="Regenerate RSS"
+                                        class="p-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition">
+                                    {{ icon_refresh() }}
+                                </button>
                         </div>
                         <div id="rss-feedback" data-feedback hidden role="status" aria-live="polite" class="mt-2"></div>
                     </div>
@@ -183,30 +186,26 @@
                     <div>
                         <label for="podcast-description"
                                class="block text-sm font-medium text-slate-300 mb-2">Description</label>
-                        <textarea id="podcast-description" name="description" rows="4"
+                        <textarea id="podcast-description" name="description" rows="8"
                                   class="w-full px-3 py-2 border border-slate-600 rounded-lg bg-slate-700 text-white
                                          focus:outline-none focus:ring-1 focus:ring-slate-500 focus:border-slate-500">{{ podcast.description or '' }}</textarea>
                     </div>
 
                     <label class="flex items-center gap-2 text-sm text-slate-300"><input type="checkbox" name="download_automatically" {% if podcast.download_automatically %}checked{% endif %}> Automatically download new episodes</label>
                     <div data-feedback data-operation-feedback hidden role="status" aria-live="polite"></div>
+                    </div>
                     <!-- Action Buttons -->
-                    <div class="flex flex-wrap items-center gap-3 pt-4 border-t border-slate-700 mt-auto">
+                    <div class="detail-edit-actions flex flex-wrap items-center gap-3 pt-4 border-t border-slate-700 mt-auto">
+                        <button type="button" data-action="delete-podcast" data-id="{{ podcast.id }}"
+                                class="p-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition mr-auto"
+                                title="Delete podcast" aria-label="Delete podcast">
+                            {{ icon_trash("w-5 h-5") }}
+                        </button>
+                        <button type="button" data-action="close-modal" class="detail-edit-close px-4 py-2 text-slate-300">Cancel</button>
                         <button type="submit" class="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition
                                        flex items-center gap-2">
                             {{ icon_edit() }}
-                            Update
-                        </button>
-                        <button type="button" data-action="close-modal" class="detail-edit-close px-4 py-2 text-slate-300">Cancel</button>
-                        <button type="button" data-desktop-detail-action data-action="generate-rss" data-id="{{ podcast.id }}" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition
-                                       flex items-center gap-2">
-                            {{ icon_refresh() }}
-                            Regenerate RSS
-                        </button>
-                        <button type="button" data-desktop-detail-action data-action="delete-podcast" data-id="{{ podcast.id }}"
-                                class="p-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition ml-auto"
-                                title="Delete podcast">
-                            {{ icon_trash("w-5 h-5") }}
+                            <span class="detail-save-label">Save</span>
                         </button>
                     </div>
                 </form>

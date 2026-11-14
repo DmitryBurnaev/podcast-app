@@ -11,6 +11,8 @@
         'episode-state', 'episode-metadata', 'episode-description', 'episode-player', 'app-statistics', 'breadcrumbs']);
     let activeModal = null;
     let modalOpener = null;
+    let suspendedModal = null;
+    let pendingClose = null;
     let confirmation = null;
     let refreshChain = Promise.resolve();
     let pollTimer = null;
@@ -355,9 +357,14 @@
     }
 
     function openModal(id, opener = document.activeElement) {
+        if (pendingClose) closeModal(true, true);
         const modal = byId(id);
         if (!modal || activeModal?.dataset.busy === 'true') return;
-        if (activeModal) closeModal();
+        if (activeModal && id === 'actionModal' && activeModal.dataset.responsiveEdit !== undefined) {
+            suspendedModal = {modal: activeModal, opener: modalOpener};
+            activeModal.inert = true;
+            activeModal = null;
+        } else if (activeModal) closeModal(true, true);
         modalOpener = {element: opener, action: opener?.dataset?.action, id: opener?.dataset?.id};
         activeModal = modal;
         modal.hidden = false;
@@ -375,9 +382,26 @@
         focus?.focus();
     }
 
-    function closeModal(force = false) {
+    function closeModal(force = false, immediate = false) {
         if (!activeModal || (!force && activeModal.dataset.busy === 'true')) return;
         const modal = activeModal;
+        if (pendingClose) {
+            if (!immediate) return;
+            clearTimeout(pendingClose);
+            pendingClose = null;
+        }
+        const reducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+        const isDrawer = modal.dataset.drawer !== undefined ||
+            (modal.dataset.responsiveEdit !== undefined && window.matchMedia?.('(max-width: 767px)').matches);
+        if (!immediate && isDrawer && !reducedMotion) {
+            modal.classList.add('is-closing');
+            pendingClose = setTimeout(() => {
+                pendingClose = null;
+                closeModal(true, true);
+            }, 125);
+            return;
+        }
+        modal.classList.remove('is-closing');
         modal.hidden = true;
         modal.classList.add('hidden');
         modal.classList.remove('flex');
@@ -394,6 +418,13 @@
         }
         const opener = modalOpener;
         modalOpener = null;
+        if (modal.id === 'actionModal' && suspendedModal) {
+            activeModal = suspendedModal.modal;
+            activeModal.inert = false;
+            modalOpener = suspendedModal.opener;
+            suspendedModal = null;
+            document.body.style.overflow = 'hidden';
+        }
         const target = opener?.element?.isConnected ? opener.element :
             [...actionButtons()].find(button => button.dataset.action === opener?.action && button.dataset.id === opener?.id);
         target?.focus({preventScroll: true});
@@ -759,17 +790,31 @@
                     });
                 break;
             }
-            case 'generate-rss':
-                await mutate(`podcast:${id}`, scope, 'Starting RSS generation…',
-                    () => request(`/web-api/podcasts/${id}/generate-rss/`, {method: 'PUT'}),
+            case 'generate-rss': {
+                const dialog = byId('rssConfirmModal');
+                dialog.dataset.id = String(id);
+                feedback(dialog, '');
+                dialog.showModal();
+                break;
+            }
+            case 'cancel-rss-confirm':
+                if (byId('rssConfirmModal').dataset.busy !== 'true') byId('rssConfirmModal').close();
+                break;
+            case 'confirm-rss': {
+                const dialog = byId('rssConfirmModal');
+                const podcastId = Number(dialog.dataset.id);
+                if (!Number.isSafeInteger(podcastId) || podcastId < 1) break;
+                await mutate(`podcast:${podcastId}`, dialog, 'Starting RSS generation…',
+                    () => request(`/web-api/podcasts/${podcastId}/generate-rss/`, {method: 'PUT'}),
                     async task => {
-                        rssTasks.set(id, task.job_id);
-                        feedback(scope, 'RSS generation started.');
+                        rssTasks.set(podcastId, task.job_id);
+                        dialog.close();
                         feedback(byId('rss-feedback'), 'Generating RSS…', 'pending');
                         syncButtons();
                         wakePoll();
                     });
                 break;
+            }
             case 'copy-rss':
                 try {
                     await copyText(byId('podcast-rss-link'));
@@ -910,6 +955,9 @@
     }
 
     function init() {
+        byId('rssConfirmModal')?.addEventListener('cancel', event => {
+            if (event.currentTarget.dataset.busy === 'true') event.preventDefault();
+        });
         document.addEventListener('htmx:afterSwap', syncButtons);
         document.addEventListener('htmx:beforeRequest', event => {
             if (event.detail.elt.id !== 'add-episode-form') return;
@@ -986,6 +1034,10 @@
             if (form.checkValidity()) submitForm(form).catch(error => feedback(form, error.message, 'error', error));
         });
         document.addEventListener('keydown', event => {
+            if (byId('rssConfirmModal')?.open) {
+                if (event.key === 'Escape' && byId('rssConfirmModal').dataset.busy === 'true') event.preventDefault();
+                return;
+            }
             if (activeModal) {
                 if (event.key === 'Escape') {
                     event.preventDefault();

@@ -10,9 +10,9 @@
     <link rel="icon" type="image/png" href="/static/img/favicon.ico">
     <script src="/static/js/tailwind.3.4.17.js"></script>
     <script src="/static/js/htmx.2.0.8.min.js" defer></script>
-    <link rel="stylesheet" href="/static/css/podcast-app.css?v=11">
+    <link rel="stylesheet" href="/static/css/podcast-app.css?v=17">
     <script src="/static/js/http.js?v=2" defer></script>
-    <script src="/static/js/app.js?v=12" defer></script>
+    <script src="/static/js/app.js?v=16" defer></script>
     {% endblock %}
 </head>
 {% from "snippets/icons.html" import
@@ -101,7 +101,7 @@
                 <!-- Breadcrumbs -->
                 <div class="flex">
                     <nav class="flex items-center gap-2 text-sm text-slate-400">
-                        {{ icon_home() }} <span class="text-slate-300 font-medium">Home</span>
+                        <span class="breadcrumb-section text-slate-300 font-medium" aria-current="page">{{ icon_home() }} <span class="breadcrumb-label">Home</span></span>
                     </nav>
                 </div>
                 {% endblock %}
@@ -190,6 +190,15 @@
     <!-- modal windows place here -->
     {% endblock %}
     {{ modal_action() }}
+    <dialog id="rssConfirmModal" data-modal aria-labelledby="rss-confirm-title" class="rss-confirm-dialog bg-slate-800 rounded-lg border border-slate-700 w-full max-w-md shadow-xl p-6 text-slate-300">
+        <h3 id="rss-confirm-title" class="text-lg font-semibold text-white">Regenerate RSS?</h3>
+        <p class="mt-4 text-sm">Regenerate the RSS feed for this podcast?</p>
+        <div data-feedback data-operation-feedback hidden role="status" aria-live="polite"></div>
+        <div class="flex justify-end gap-3 border-t border-slate-700 pt-4 mt-4">
+            <button type="button" data-action="cancel-rss-confirm" class="px-4 py-2 text-slate-300 hover:text-white">Cancel</button>
+            <button type="button" data-action="confirm-rss" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg">Regenerate RSS</button>
+        </div>
+    </dialog>
     <div id="notification-stack" class="ui-notification-stack" aria-live="polite" aria-relevant="additions"></div>
     <div id="sse-sink" hidden></div>
     <!-- Shared UI functionality -->

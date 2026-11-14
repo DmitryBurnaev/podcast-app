@@ -1,4 +1,11 @@
 {% extends "base.html" %}
+{% block breadcrumbs %}
+<nav class="flex items-center gap-2 text-sm text-slate-400">
+  <a href="/" class="breadcrumb-section hover:text-white transition">{{ icon_home() }} <span class="breadcrumb-label">Home</span></a>
+  {{ icon_chevron_right() }}
+  <span class="breadcrumb-section text-slate-300 font-medium" aria-current="page"><span class="breadcrumb-icon" aria-hidden="true">{{ icon_info() }}</span><span class="breadcrumb-label">About</span></span>
+</nav>
+{% endblock %}
 {% block content %}
 <div class="space-y-2">
   <h3 class="text-white">Current version is: <span class="text-slate-300">{{ version }}</span></h3>
