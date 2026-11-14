@@ -135,6 +135,27 @@ function editingPage(request, polling = false, enableSSE = false) {
     };
 }
 
+test('episode detail download action follows the live episode status', () => {
+    const page = editingPage(() => assert.fail('No request expected'));
+    const download = new Element({action: 'download-episode', id: '42'});
+    const state = new Element({episodeId: '42', status: 'NEW'});
+    const originalQuery = page.document.querySelector;
+    const originalAll = page.document.querySelectorAll;
+    page.document.querySelector = selector => selector === '[data-refresh-region="episode-state"]' ? state : originalQuery(selector);
+    page.document.querySelectorAll = selector => selector === '[data-action]' ? [download] : originalAll(selector);
+    page.dispatch('htmx:afterSwap', {});
+    assert.equal(download.hidden, false);
+    state.dataset.status = 'DOWNLOADING';
+    page.dispatch('htmx:afterSwap', {});
+    assert.equal(download.hidden, true);
+    state.dataset.status = 'PUBLISHED';
+    page.dispatch('htmx:afterSwap', {});
+    assert.equal(download.hidden, true);
+    state.dataset.status = 'ERROR';
+    page.dispatch('htmx:afterSwap', {});
+    assert.equal(download.hidden, false);
+});
+
 test('episode creation keeps the panel open and shows metadata and cover status', () => {
     const page = editingPage(() => assert.fail('HTMX sends the request'));
     const ids = ['addEpisodeModal', 'episode-creation-progress', 'episode-creation-status',

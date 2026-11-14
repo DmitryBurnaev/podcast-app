@@ -18,15 +18,16 @@
     <div class="grid grid-cols-1 lg:grid-cols-4 gap-6 mb-6">
 {% block refresh_podcast_summary %}<div data-refresh-region="podcast-summary" class="lg:col-span-1">
         <!-- Left Column: Podcast Overview Card (1/4 width) -->
-        <div class="lg:col-span-1 bg-slate-800 rounded-lg border border-slate-700 overflow-hidden relative flex flex-col h-full">
+        <div class="podcast-summary-card lg:col-span-1 bg-slate-800 rounded-lg border border-slate-700 overflow-hidden relative flex flex-col h-full">
             <!-- Background Image with Blur -->
-            <div class="absolute inset-0 overflow-hidden">
+            <div class="detail-summary-background absolute inset-0 overflow-hidden">
                 <img src="/podcasts/{{ podcast.id }}/cover/" alt="{{ podcast.name }}"
                      class="w-full h-full object-cover blur-3xl opacity-20" onerror="this.src='/static/img/podcast-default.jpg'">
             </div>
 
             <!-- Content -->
-            <div class="relative p-6 flex flex-col flex-1 min-h-0">
+            <div class="detail-summary-content relative p-6 flex flex-col flex-1 min-h-0">
+                <div class="podcast-main-content">
                 <!-- Podcast Image -->
                 <div class="mb-4 flex justify-center">
                     <img class="w-24 h-24 rounded-full object-cover border-4 border-slate-700 shadow-lg"
@@ -44,8 +45,9 @@
                     <p class="text-sm text-slate-400 line-clamp-3">{{ podcast.description or 'No description' }}</p>
                 </div>
 
+                </div>
                 <!-- Statistics Section -->
-                <div class="space-y-3 mt-4 pt-4 border-t border-slate-700">
+                <div class="podcast-detail-metadata space-y-3 mt-4 pt-4 border-t border-slate-700">
                     <!-- Episodes Count -->
                     <div class="flex items-center gap-2 text-sm">
                         {{ icon_music("w-4 h-4 text-slate-400 flex-shrink-0") }}
@@ -108,22 +110,28 @@
                 </div>
 
                 <!-- Add Episode Button -->
-                <div class="mt-auto pt-4 border-t border-slate-700">
+                <div class="desktop-podcast-add mt-auto pt-4 border-t border-slate-700">
                     <button type="button" data-action="add-episode" data-id="{{ podcast.id }}" data-name="{{ podcast.name }}" class="w-full px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition
                                    flex items-center justify-center gap-2 font-medium">
                         {{ icon_plus() }}
                         Add Episode
                     </button>
                 </div>
+                <div class="mobile-detail-actions" aria-label="Podcast actions">
+                    <button type="button" data-action="open-detail-edit" data-id="{{ podcast.id }}" aria-label="Edit podcast" title="Edit podcast">✏️</button>
+                    <button type="button" data-action="add-episode" data-id="{{ podcast.id }}" data-name="{{ podcast.name }}" aria-label="Add episode" title="Add episode">➕</button>
+                    <button type="button" data-action="generate-rss" data-id="{{ podcast.id }}" aria-label="Regenerate RSS" title="Regenerate RSS">🔄</button>
+                    <button type="button" data-action="delete-podcast" data-id="{{ podcast.id }}" aria-label="Delete podcast" title="Delete podcast">🗑️</button>
+                </div>
             </div>
         </div>
 
 </div>{% endblock %}
         <!-- Right Column: Edit Form and Create Episode (3/4 width) -->
-        <div class="lg:col-span-3 flex flex-col gap-6 h-full">
+        <div id="detailEditModal" data-modal data-responsive-edit aria-labelledby="detail-edit-title" tabindex="-1" class="detail-edit-overlay lg:col-span-3 flex flex-col gap-6 h-full">
             <!-- Edit Podcast Card -->
             <div class="bg-slate-800 rounded-lg border border-slate-700 p-6 flex flex-col flex-1 min-h-0">
-                <h2 class="text-xl font-semibold text-white mb-4">Edit Podcast</h2>
+                <div class="detail-edit-heading"><h2 id="detail-edit-title" class="text-xl font-semibold text-white mb-4">Edit Podcast</h2><button type="button" data-action="close-modal" aria-label="Close" class="detail-edit-close text-slate-400">{{ icon_close() }}</button></div>
 
                 <form id="edit-podcast-form" data-form="edit-podcast" data-id="{{ podcast.id }}" class="space-y-4 flex flex-col flex-1 min-h-0">
                     <!-- Name Field -->
@@ -189,12 +197,13 @@
                             {{ icon_edit() }}
                             Update
                         </button>
-                        <button type="button" data-action="generate-rss" data-id="{{ podcast.id }}" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition
+                        <button type="button" data-action="close-modal" class="detail-edit-close px-4 py-2 text-slate-300">Cancel</button>
+                        <button type="button" data-desktop-detail-action data-action="generate-rss" data-id="{{ podcast.id }}" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition
                                        flex items-center gap-2">
                             {{ icon_refresh() }}
                             Regenerate RSS
                         </button>
-                        <button type="button" data-action="delete-podcast" data-id="{{ podcast.id }}"
+                        <button type="button" data-desktop-detail-action data-action="delete-podcast" data-id="{{ podcast.id }}"
                                 class="p-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition ml-auto"
                                 title="Delete podcast">
                             {{ icon_trash("w-5 h-5") }}

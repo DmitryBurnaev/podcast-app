@@ -8,7 +8,7 @@
     const notifications = new WeakMap();
     const notificationTimers = new WeakMap();
     const regions = new Set(['overview', 'podcasts', 'episodes', 'podcast-summary', 'episode-title',
-        'episode-state', 'episode-metadata', 'episode-player', 'app-statistics', 'breadcrumbs']);
+        'episode-state', 'episode-metadata', 'episode-description', 'episode-player', 'app-statistics', 'breadcrumbs']);
     let activeModal = null;
     let modalOpener = null;
     let confirmation = null;
@@ -338,7 +338,7 @@
                 const active = activeStatus(status);
                 button.disabled = authExpired || episodeBusy || (action === 'cancel-episode' ? status !== 'DOWNLOADING' : active);
                 if (action === 'cancel-episode') button.hidden = !active;
-                if (action === 'download-episode') button.hidden = active || Boolean(card && ['PUBLISHED', 'ARCHIVED'].includes(status));
+                if (action === 'download-episode') button.hidden = active || ['PUBLISHED', 'ARCHIVED'].includes(status);
             }
             if (action === 'generate-rss') button.disabled = authExpired || podcastBusy || rssTasks.has(id);
             if (['add-episode', 'delete-podcast'].includes(action)) button.disabled = authExpired || podcastBusy;
@@ -363,8 +363,15 @@
         modal.hidden = false;
         modal.classList.remove('hidden');
         modal.classList.add('flex');
+        if (modal.dataset.responsiveEdit !== undefined) {
+            modal.classList.add('is-open');
+            modal.setAttribute('role', 'dialog');
+            modal.setAttribute('aria-modal', 'true');
+        }
         document.body.style.overflow = 'hidden';
-        const focus = modal.querySelector('[autofocus]') || modal.querySelector('input, textarea, button');
+        const focus = modal.querySelector('[autofocus]') ||
+            (modal.dataset.responsiveEdit !== undefined && modal.querySelector('input:not([readonly]), textarea')) ||
+            modal.querySelector('input, textarea, button');
         focus?.focus();
     }
 
@@ -379,6 +386,12 @@
         document.body.style.overflow = '';
         modal.querySelector('form')?.reset();
         feedback(modal, '');
+        if (modal.dataset.responsiveEdit !== undefined) {
+            modal.hidden = false;
+            modal.classList.remove('hidden', 'is-open');
+            modal.removeAttribute('role');
+            modal.removeAttribute('aria-modal');
+        }
         const opener = modalOpener;
         modalOpener = null;
         const target = opener?.element?.isConnected ? opener.element :
@@ -519,8 +532,8 @@
         for (const [key, value] of Object.entries(values)) {
             const field = form.elements.namedItem(key);
             if (!field || field.readOnly) continue;
-            if (field.type === 'checkbox') field.checked = Boolean(value);
-            else field.value = value ?? '';
+            if (field.type === 'checkbox') field.defaultChecked = field.checked = Boolean(value);
+            else field.defaultValue = field.value = value ?? '';
         }
         feedback(form, 'Changes saved.');
         const title = values.name || values.title;
@@ -570,7 +583,7 @@
                 episodeCreationController = null;
                 break;
             case 'edit-podcast':
-                await mutate(`podcast:${id}`, form, 'Saving podcast…',
+                await mutate(`podcast:${id}`, activeModal === scope ? scope : form, 'Saving podcast…',
                     () => request(`/web-api/podcasts/${id}/`, {
                         method: 'PATCH',
                         data: {
@@ -582,10 +595,11 @@
                     async podcast => {
                         savedForm(form, podcast);
                         await refreshAfterSuccess();
+                        if (activeModal === scope) closeModal(true);
                     });
                 break;
             case 'edit-episode':
-                await mutate(`episode:${id}`, form, 'Saving episode…',
+                await mutate(`episode:${id}`, activeModal === scope ? scope : form, 'Saving episode…',
                     () => request(`/web-api/episodes/${id}/`, {
                         method: 'PATCH',
                         data: {
@@ -597,6 +611,7 @@
                     async episode => {
                         savedForm(form, episode);
                         await refreshAfterSuccess();
+                        if (activeModal === scope) closeModal(true);
                     });
                 break;
             case 'filters': {
@@ -651,6 +666,9 @@
         const id = Number(button.dataset.id);
         const scope = button.closest('[data-episode-card]') || episodeForm() || podcastForm() || byId('page-feedback');
         switch (button.dataset.action) {
+            case 'open-detail-edit':
+                openModal('detailEditModal', button);
+                break;
             case 'dismiss-notification':
                 dismissNotification(button.closest('[data-notification]'));
                 break;
