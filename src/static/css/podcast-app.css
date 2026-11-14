@@ -85,8 +85,44 @@ button:disabled { cursor: wait; opacity: .55; }
 .app-shell { height: 100dvh; }
 .app-column, .app-breadcrumbs { min-width: 0; }
 .mobile-navigation { display: none; }
+.detail-edit-overlay { display: flex; }
+.detail-edit-close, .mobile-detail-actions, .mobile-episode-description { display: none; }
+.episode-main-content, .podcast-main-content { display: contents; }
 
 @media (max-width: 767px) {
+    .app-shell .detail-edit-overlay { display: none; }
+    .app-shell .detail-edit-overlay.is-open {
+        display: flex; position: fixed; inset: 0; z-index: 50; height: 100%;
+        flex-direction: row; justify-content: flex-end; background: rgb(0 0 0 / .5);
+    }
+    .detail-edit-overlay > div {
+        width: min(100%, 28rem); height: 100%; overflow-y: auto;
+        border-radius: 0; animation: ui-drawer-enter .25s ease-out;
+    }
+    .detail-edit-heading { display: flex; justify-content: space-between; align-items: flex-start; }
+    .detail-edit-overlay form > div:last-child {
+        position: sticky; bottom: -1.5rem; z-index: 1; background: #1e293b;
+        padding-bottom: max(1.5rem, env(safe-area-inset-bottom));
+    }
+    .app-shell .detail-edit-close { display: inline-flex; align-items: center; justify-content: center; }
+    .detail-edit-overlay [data-desktop-detail-action], .desktop-podcast-add { display: none !important; }
+    .mobile-detail-actions { display: flex; flex-wrap: wrap; gap: .5rem; margin-top: 1rem; padding-top: 1rem; border-top: 1px solid #334155; }
+    .mobile-detail-actions button { display: inline-flex; align-items: center; justify-content: center; min-width: 2.75rem; min-height: 2.75rem; border-radius: .5rem; background: #334155; font-size: 1.15rem; }
+    .mobile-detail-actions button:focus-visible { outline: 2px solid #94a3b8; outline-offset: 2px; }
+    .mobile-episode-description { display: block; margin-top: 1rem; padding-top: 1rem; border-top: 1px solid #334155; }
+    .app-shell .episode-summary-card, .app-shell .podcast-summary-card {
+        overflow: visible; border: 0; background: transparent;
+    }
+    .detail-summary-background { display: none; }
+    .app-shell .detail-summary-content { padding: 0; }
+    .episode-main-content, .podcast-main-content {
+        display: block; padding: 1.25rem; border: 1px solid #334155;
+        border-radius: .5rem; background: #1e293b;
+    }
+    .podcast-main-content { order: 0; }
+    .podcast-summary-card .mobile-detail-actions { order: 1; }
+    .podcast-detail-metadata { order: 2; }
+    .podcast-main-content .line-clamp-3 { -webkit-line-clamp: unset; overflow: visible; }
     .app-shell .app-sidebar { display: none; }
     .app-shell .app-header { min-height: 3.5rem; padding: .375rem 1rem; }
     .app-shell .app-header-actions { flex: none; gap: .25rem; margin-left: .5rem; }

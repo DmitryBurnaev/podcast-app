@@ -21,7 +21,7 @@
         <!-- Left Column: Episode Overview Card (1/4 width) -->
         <div class="episode-summary-card lg:col-span-1 bg-slate-800 rounded-lg border border-slate-700 overflow-hidden relative flex flex-col h-full">
             <!-- Background Image with Blur -->
-            <div class="absolute inset-0 overflow-hidden">
+            <div class="detail-summary-background absolute inset-0 overflow-hidden">
                 {% if episode.image_id %}
                     <img src="/episodes/{{ episode.id }}/cover/" alt="{{ episode.title }}"
                          class="w-full h-full object-cover blur-3xl opacity-20">
@@ -31,7 +31,8 @@
             </div>
 
             <!-- Content -->
-            <div class="relative p-6 flex flex-col flex-1 min-h-0">
+            <div class="detail-summary-content relative p-6 flex flex-col flex-1 min-h-0">
+                <div class="episode-main-content">
                 <!-- Episode Image -->
                 <div class="mb-4 flex justify-center">
                     <img src="/episodes/{{ episode.id }}/cover/"
@@ -105,6 +106,17 @@
                 <div id="player-feedback" data-feedback hidden role="status" aria-live="polite"></div>
 </div>{% endblock %}
 
+                </div>
+                <div class="mobile-detail-actions" aria-label="Episode actions">
+                    <button type="button" data-action="open-detail-edit" data-id="{{ episode.id }}" aria-label="Edit episode" title="Edit episode">✏️</button>
+                    <button type="button" data-action="download-episode" data-id="{{ episode.id }}" aria-label="Download episode" title="Download episode">⬇️</button>
+                    <button type="button" data-action="cancel-episode" data-id="{{ episode.id }}" aria-label="Cancel download" title="Cancel download">⏹️</button>
+                    <button type="button" data-action="delete-episode" data-id="{{ episode.id }}" aria-label="Delete episode" title="Delete episode">🗑️</button>
+                </div>
+{% block refresh_episode_description %}<div data-refresh-region="episode-description" class="mobile-episode-description">
+                    {% if episode.author %}<p class="text-sm text-slate-400 mb-2">{{ episode.author }}</p>{% endif %}
+                    {% if episode.description %}<p class="text-sm text-slate-300 whitespace-pre-wrap break-words">{{ episode.description }}</p>{% endif %}
+</div>{% endblock %}
 {% block refresh_episode_metadata %}<div data-refresh-region="episode-metadata">
                 <div class="space-y-3 mt-4 pt-4 border-t border-slate-700">
                     <!-- Created Date -->
@@ -173,10 +185,10 @@
         </div>
 
         <!-- Right Column: Edit Form (3/4 width) -->
-        <div class="lg:col-span-3 flex flex-col gap-6">
+        <div id="detailEditModal" data-modal data-responsive-edit aria-labelledby="detail-edit-title" tabindex="-1" class="detail-edit-overlay lg:col-span-3 flex flex-col gap-6">
             <!-- Edit Episode Card -->
             <div class="bg-slate-800 rounded-lg border border-slate-700 p-6 flex flex-col flex-1 min-h-0">
-                <h2 class="text-xl font-semibold text-white mb-4">Edit Episode</h2>
+                <div class="detail-edit-heading"><h2 id="detail-edit-title" class="text-xl font-semibold text-white mb-4">Edit Episode</h2><button type="button" data-action="close-modal" aria-label="Close" class="detail-edit-close text-slate-400">{{ icon_close() }}</button></div>
 
                 <form id="edit-episode-form" data-form="edit-episode" data-id="{{ episode.id }}" data-podcast-id="{{ podcast.id }}" class="space-y-4 flex flex-col flex-1 min-h-0">
                     <!-- Title Field -->
@@ -216,13 +228,14 @@
                             {{ icon_edit("w-4 h-4") }}
                             Update
                         </button>
-                        <button type="button" data-action="download-episode" data-id="{{ episode.id }}" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition
+                        <button type="button" data-action="close-modal" class="detail-edit-close px-4 py-2 text-slate-300">Cancel</button>
+                        <button type="button" data-desktop-detail-action data-action="download-episode" data-id="{{ episode.id }}" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition
                                        flex items-center gap-2">
                             {{ icon_download("w-4 h-4") }}
                             Download
                         </button>
-                        <button type="button" data-action="cancel-episode" data-id="{{ episode.id }}" class="px-4 py-2 bg-amber-600 text-white rounded-lg">Cancel download</button>
-                        <button type="button" data-action="delete-episode" data-id="{{ episode.id }}"
+                        <button type="button" data-desktop-detail-action data-action="cancel-episode" data-id="{{ episode.id }}" class="px-4 py-2 bg-amber-600 text-white rounded-lg">Cancel download</button>
+                        <button type="button" data-desktop-detail-action data-action="delete-episode" data-id="{{ episode.id }}"
                                 class="p-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition ml-auto"
                                 title="Delete episode">
                             {{ icon_trash("w-5 h-5") }}
