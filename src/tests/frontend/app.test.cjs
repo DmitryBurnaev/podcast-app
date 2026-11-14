@@ -156,6 +156,69 @@ test('episode detail download action follows the live episode status', () => {
     assert.equal(download.hidden, false);
 });
 
+test('RSS regeneration requires confirmation and cancellation sends no request', async () => {
+    const calls = [];
+    const page = editingPage(async (url, options) => {
+        calls.push({url, method: options.method});
+        return {job_id: 'job-1'};
+    });
+    const dialog = new Element({modal: ''});
+    dialog.showModal = () => { dialog.open = true; };
+    dialog.close = () => { dialog.open = false; };
+    const originalGet = page.document.getElementById;
+    page.document.getElementById = id => id === 'rssConfirmModal' ? dialog : originalGet(id);
+    page.click(new Element({action: 'generate-rss', id: '7'}));
+    assert.equal(dialog.open, true);
+    assert.equal(calls.length, 0);
+    page.click(new Element({action: 'cancel-rss-confirm'}));
+    assert.equal(dialog.open, false);
+    assert.equal(calls.length, 0);
+    page.click(new Element({action: 'generate-rss', id: '7'}));
+    page.click(new Element({action: 'confirm-rss'}));
+    await tick();
+    assert.deepEqual(calls, [{url: '/web-api/podcasts/7/generate-rss/', method: 'PUT'}]);
+    assert.equal(dialog.open, false);
+});
+
+test('canceling deletion keeps the edit panel and its unsaved fields', () => {
+    const page = editingPage(() => assert.fail('No request expected'));
+    const editor = Object.assign(new Element({responsiveEdit: ''}), {id: 'detailEditModal'});
+    const confirmation = Object.assign(new Element(), {id: 'actionModal'});
+    const title = new Element();
+    const description = new Element();
+    const confirmButton = new Element();
+    let resets = 0;
+    page.form.elements.title = page.fields[0];
+    editor.querySelector = selector => selector === 'form' ? {reset: () => { resets++; }} : null;
+    const originalGet = page.document.getElementById;
+    const elements = {'detailEditModal': editor, 'actionModal': confirmation, 'action-modal-title': title,
+        'action-modal-description': description, 'action-modal-confirm': confirmButton};
+    page.document.getElementById = id => elements[id] || originalGet(id);
+    page.click(new Element({action: 'open-detail-edit', id: '42'}));
+    page.click(new Element({action: 'delete-episode', id: '42'}));
+    assert.equal(editor.inert, true);
+    assert.equal(resets, 0);
+    page.click(new Element({action: 'close-modal'}));
+    assert.equal(editor.inert, false);
+    assert.equal(editor.hidden, false);
+    assert.equal(resets, 0);
+    assert.equal(page.fields[0].value, 'Unsaved "title"');
+});
+
+test('closing a drawer waits for its exit animation', () => {
+    const page = editingPage(() => assert.fail('No request expected'));
+    const drawer = Object.assign(new Element({drawer: ''}), {id: 'addPodcastModal', hidden: true});
+    const originalGet = page.document.getElementById;
+    page.document.getElementById = id => id === 'addPodcastModal' ? drawer : originalGet(id);
+    page.click(new Element({action: 'add-podcast'}));
+    assert.equal(drawer.hidden, false);
+    page.click(new Element({action: 'close-modal'}));
+    assert.equal(drawer.hidden, false);
+    assert.equal(page.nextPollDelay, 125);
+    page.poll();
+    assert.equal(drawer.hidden, true);
+});
+
 test('episode creation keeps the panel open and shows metadata and cover status', () => {
     const page = editingPage(() => assert.fail('HTMX sends the request'));
     const ids = ['addEpisodeModal', 'episode-creation-progress', 'episode-creation-status',

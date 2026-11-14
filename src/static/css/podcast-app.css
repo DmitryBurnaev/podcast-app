@@ -40,6 +40,9 @@ button:disabled { cursor: wait; opacity: .55; }
 .ui-drawer-actions { flex: none; }
 .episode-download-bar { width: 100%; height: .5rem; accent-color: #60a5fa; }
 @keyframes ui-drawer-enter { from { transform: translateX(100%); } to { transform: translateX(0); } }
+@keyframes ui-drawer-exit { from { transform: translateX(0); } to { transform: translateX(100%); } }
+.ui-drawer-overlay.is-closing .ui-drawer { animation: ui-drawer-exit .125s ease-in forwards; }
+.ui-drawer-overlay.is-closing, .detail-edit-overlay.is-closing { pointer-events: none; }
 .ui-notification-stack {
     position: fixed; right: 1.3rem; bottom: 2rem; z-index: 80;
     display: flex; flex-direction: column-reverse; gap: .75rem;
@@ -84,8 +87,13 @@ button:disabled { cursor: wait; opacity: .55; }
 .ui-progress-bar { height: 100%; background: #60a5fa; transition: width .3s ease; }
 .app-shell { height: 100dvh; }
 .app-column, .app-breadcrumbs { min-width: 0; }
+.breadcrumb-section { display: inline-flex; align-items: center; gap: .5rem; }
+.breadcrumb-icon { display: none; }
 .mobile-navigation { display: none; }
 .detail-edit-overlay { display: flex; }
+.detail-edit-content { display: contents; }
+.rss-confirm-dialog { max-width: min(28rem, calc(100% - 2rem)); }
+.rss-confirm-dialog::backdrop { background: rgb(0 0 0 / .5); }
 .detail-edit-close, .mobile-detail-actions, .mobile-episode-description { display: none; }
 .episode-main-content, .podcast-main-content { display: contents; }
 
@@ -96,14 +104,14 @@ button:disabled { cursor: wait; opacity: .55; }
         flex-direction: row; justify-content: flex-end; background: rgb(0 0 0 / .5);
     }
     .detail-edit-overlay > div {
-        width: min(100%, 28rem); height: 100%; overflow-y: auto;
+        width: min(100%, 28rem); height: 100%; overflow: hidden;
         border-radius: 0; animation: ui-drawer-enter .25s ease-out;
     }
+    .detail-edit-overlay.is-closing > div { animation: ui-drawer-exit .125s ease-in forwards; }
     .detail-edit-heading { display: flex; justify-content: space-between; align-items: flex-start; }
-    .detail-edit-overlay form > div:last-child {
-        position: sticky; bottom: -1.5rem; z-index: 1; background: #1e293b;
-        padding-bottom: max(1.5rem, env(safe-area-inset-bottom));
-    }
+    .detail-edit-overlay .detail-edit-content { display: block; flex: 1 1 auto; min-height: 0; overflow-y: auto; }
+    .detail-edit-overlay .detail-edit-actions { flex: none; padding-bottom: max(0px, env(safe-area-inset-bottom)); }
+    .detail-edit-overlay .detail-edit-actions { justify-content: flex-end; }
     .app-shell .detail-edit-close { display: inline-flex; align-items: center; justify-content: center; }
     .detail-edit-overlay [data-desktop-detail-action], .desktop-podcast-add { display: none !important; }
     .mobile-detail-actions { display: flex; flex-wrap: wrap; gap: .5rem; margin-top: 1rem; padding-top: 1rem; border-top: 1px solid #334155; }
@@ -123,6 +131,17 @@ button:disabled { cursor: wait; opacity: .55; }
     .podcast-summary-card .mobile-detail-actions { order: 1; }
     .podcast-detail-metadata { order: 2; }
     .podcast-main-content .line-clamp-3 { -webkit-line-clamp: unset; overflow: visible; }
+    .app-shell .podcast-summary-card { overflow: hidden; border: 1px solid #334155; background: #1e293b; }
+    .podcast-summary-card .detail-summary-background { display: block; }
+    .app-shell .podcast-summary-card .detail-summary-content { padding: 1.5rem; }
+    .podcast-summary-card .podcast-main-content { display: contents; }
+    .podcast-summary-card .podcast-detail-metadata { order: 0; }
+    .podcast-summary-card .mobile-detail-actions { order: 1; flex-wrap: nowrap; }
+    .podcast-summary-card .mobile-detail-actions .mobile-add-episode {
+        flex: 1 1 auto; gap: .5rem; background: #16a34a; color: white;
+        padding: .5rem; font-size: 1rem; font-weight: 600; white-space: nowrap;
+    }
+    .podcast-summary-card .mobile-detail-actions .mobile-add-episode:hover { background: #15803d; }
     .app-shell .app-sidebar { display: none; }
     .app-shell .app-header { min-height: 3.5rem; padding: .375rem 1rem; }
     .app-shell .app-header-actions { flex: none; gap: .25rem; margin-left: .5rem; }
@@ -133,6 +152,12 @@ button:disabled { cursor: wait; opacity: .55; }
     .app-breadcrumbs nav > svg { flex: none; }
     .app-breadcrumbs nav > a, .app-breadcrumbs nav > span {
         min-width: 0; overflow: hidden; text-overflow: ellipsis;
+    }
+    .app-breadcrumbs .breadcrumb-section { flex: none; overflow: visible; }
+    .app-breadcrumbs .breadcrumb-icon { display: inline-flex; }
+    .app-breadcrumbs .breadcrumb-label {
+        position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+        overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
     }
     .app-shell .app-main { min-height: 0; }
     .app-shell .app-main-content { padding: 1rem; overflow-wrap: anywhere; }
@@ -195,6 +220,8 @@ button:disabled { cursor: wait; opacity: .55; }
 @keyframes ui-spin { to { transform: rotate(360deg); } }
 @keyframes ui-notification-enter { from { opacity: 0; transform: translateY(1rem); } }
 @media (prefers-reduced-motion: reduce) {
-    .ui-spinner, .ui-notification, .ui-drawer { animation: none; }
+    .ui-spinner, .ui-notification, .ui-drawer,
+    .ui-drawer-overlay.is-closing .ui-drawer, .detail-edit-overlay > div,
+    .detail-edit-overlay.is-closing > div { animation: none; }
     .ui-progress-bar { transition: none; }
 }
