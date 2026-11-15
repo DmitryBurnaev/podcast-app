@@ -111,6 +111,7 @@ function editingPage(request, polling = false, enableSSE = false) {
         document, window: context.window, navigator: context.navigator, location: context.window.location,
         eventSources,
         dispatch: (name, detail) => listeners.get(name)({detail}),
+        emit: (name, event) => listeners.get(name)(event),
         setParsedEpisode: episode => { parsedEpisode = episode; },
         setParsedCard: card => { parsedCard = card; },
         sendProgress: (statuses, source = eventSources.at(-1)) => { parsedStatuses = statuses; source.listener({data: ''}); },
@@ -134,6 +135,29 @@ function editingPage(request, polling = false, enableSSE = false) {
         },
     };
 }
+
+test('episode swipe reveals deletion without treating vertical scrolling as a swipe', () => {
+    const page = editingPage(() => assert.fail('No request expected'));
+    page.window.matchMedia = () => ({matches: true});
+    const card = new Element();
+    const remove = new Element();
+    let open = false;
+    card.classList = {toggle: (_name, value) => { open = value; }, contains: () => open};
+    card.querySelector = selector => selector === '.mobile-swipe-delete' ? remove : null;
+    const target = {closest: selector => selector === '[data-swipe-episode]' ? card : null};
+    const touch = (x, y) => ({clientX: x, clientY: y, identifier: 1});
+    page.emit('touchstart', {target, touches: [touch(150, 100)]});
+    page.emit('touchend', {changedTouches: [touch(120, 200)]});
+    assert.equal(open, false);
+    page.emit('touchstart', {target, touches: [touch(150, 100)]});
+    page.emit('touchend', {changedTouches: [touch(60, 105)]});
+    assert.equal(open, true);
+    assert.equal(remove.tabIndex, 0);
+    page.emit('touchstart', {target, touches: [touch(60, 100)]});
+    page.emit('touchend', {changedTouches: [touch(150, 105)]});
+    assert.equal(open, false);
+    assert.equal(remove.tabIndex, -1);
+});
 
 test('episode detail download action follows the live episode status', () => {
     const page = editingPage(() => assert.fail('No request expected'));

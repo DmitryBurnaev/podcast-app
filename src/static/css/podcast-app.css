@@ -89,6 +89,7 @@ button:disabled { cursor: wait; opacity: .55; }
 .app-column, .app-breadcrumbs { min-width: 0; }
 .breadcrumb-section { display: inline-flex; align-items: center; gap: .5rem; }
 .breadcrumb-icon { display: none; }
+.mobile-swipe-delete, .mobile-episode-meta { display: none; }
 .mobile-navigation { display: none; }
 .detail-edit-overlay { display: flex; }
 .detail-edit-content { display: contents; }
@@ -207,6 +208,40 @@ button:disabled { cursor: wait; opacity: .55; }
         -webkit-mask-image: linear-gradient(to right, #000 45%, transparent 85%);
         mask-image: linear-gradient(to right, #000 45%, transparent 85%);
     }
+    [data-swipe-episode] { position: relative; touch-action: pan-y; }
+    [data-swipe-episode] .episode-card-swipe-content {
+        position: relative; background: #1e293b; transition: transform .2s ease;
+    }
+    [data-swipe-episode].swipe-open .episode-card-swipe-content { transform: translateX(-4.5rem); }
+    [data-swipe-episode] .mobile-swipe-delete {
+        display: flex; position: absolute; right: 0; top: 0; bottom: 0; width: 4.5rem;
+        align-items: center; justify-content: center; background: #dc2626; color: white;
+        visibility: hidden; pointer-events: none;
+    }
+    [data-swipe-episode].swipe-open .mobile-swipe-delete { visibility: visible; pointer-events: auto; }
+    [data-swipe-episode] .mobile-episode-meta {
+        display: flex; align-items: center; gap: .3rem;
+        margin-top: .25rem; font-size: .75rem; color: #94a3b8; white-space: nowrap;
+    }
+    [data-swipe-episode] .mobile-status-published, [data-swipe-episode] .mobile-status-error { display: none; }
+    [data-swipe-episode][data-status="PUBLISHED"] .mobile-status-published { display: inline; color: #4ade80; }
+    [data-swipe-episode][data-status="ERROR"] .mobile-status-error { display: inline; color: #f87171; }
+    [data-swipe-episode] .card-description, [data-swipe-episode] .episode-card-metadata,
+    [data-swipe-episode] .episode-card-status,
+    [data-swipe-episode] [data-action="edit-episode"],
+    [data-swipe-episode] [data-action="cancel-episode"],
+    [data-swipe-episode] .episode-card-controls [data-action="delete-episode"] { display: none !important; }
+    [data-swipe-episode] .episode-card-content h3 {
+        font-size: 1rem; line-height: 1.25; font-weight: 400; padding-right: 0; overflow: hidden; display: -webkit-box;
+        -webkit-box-orient: vertical; -webkit-line-clamp: 2;
+    }
+    [data-swipe-episode]:has(.episode-card-controls [data-action="download-episode"]:not([hidden])) .episode-card-content h3 {
+        -webkit-mask-image: linear-gradient(to right, #000 60%, transparent 100%);
+        mask-image: linear-gradient(to right, #000 60%, transparent 100%);
+    }
+    .app-shell [data-swipe-episode] .episode-card-controls { flex: 0 0 3.25rem; width: 3.25rem; }
+    [data-swipe-episode] .episode-card-controls [data-action="download-episode"] { display: flex; align-items: center; justify-content: center; }
+    [data-swipe-episode] .episode-card-controls:not(:has([data-action="download-episode"]:not([hidden]))) { display: none; }
     .ui-notification-stack { bottom: calc(4rem + env(safe-area-inset-bottom)); right: 1rem; }
     .ui-drawer-actions { padding-bottom: max(1rem, env(safe-area-inset-bottom)); }
 }
@@ -224,4 +259,5 @@ button:disabled { cursor: wait; opacity: .55; }
     .ui-drawer-overlay.is-closing .ui-drawer, .detail-edit-overlay > div,
     .detail-edit-overlay.is-closing > div { animation: none; }
     .ui-progress-bar { transition: none; }
+    .episode-card-swipe-content { transition: none; }
 }
