@@ -26,6 +26,8 @@
     let episodeCreationCancelled = false;
     let episodeCreationSequence = 0;
     let progressSource = null;
+    let episodeSwipe = null;
+    let suppressSwipeClick = null;
 
     const byId = id => document.getElementById(id);
     const episodeForm = () => byId('edit-episode-form');
@@ -1011,7 +1013,51 @@
             }
         });
         if (window.EventSource && (detailEpisodeId() || document.querySelector('[data-episode-card], #episode-rows, #addEpisodeModal'))) connectProgressStream(detailEpisodeId());
+        function setSwipeOpen(card, open) {
+            card.classList.toggle('swipe-open', open);
+            const remove = card.querySelector('.mobile-swipe-delete');
+            if (remove) remove.tabIndex = open ? 0 : -1;
+        }
+        document.addEventListener('touchstart', event => {
+            if (!window.matchMedia?.('(max-width: 767px)').matches || event.touches.length !== 1 || event.target.closest('button, a:not([data-swipe-episode])')) return;
+            const card = event.target.closest('[data-swipe-episode]');
+            if (!card) return;
+            const touch = event.touches[0];
+            episodeSwipe = {card, x: touch.clientX, y: touch.clientY, identifier: touch.identifier};
+        }, {passive: true});
+        document.addEventListener('touchend', event => {
+            const swipe = episodeSwipe;
+            episodeSwipe = null;
+            if (!swipe) return;
+            const touch = [...event.changedTouches].find(item => item.identifier === swipe.identifier);
+            if (!touch) return;
+            const dx = touch.clientX - swipe.x;
+            const dy = touch.clientY - swipe.y;
+            if (Math.abs(dx) < 55 || Math.abs(dx) < Math.abs(dy) * 1.3) return;
+            document.querySelectorAll('[data-swipe-episode].swipe-open').forEach(card => {
+                if (card !== swipe.card) setSwipeOpen(card, false);
+            });
+            setSwipeOpen(swipe.card, dx < 0);
+            suppressSwipeClick = swipe.card;
+            setTimeout(() => { if (suppressSwipeClick === swipe.card) suppressSwipeClick = null; }, 500);
+        }, {passive: true});
+        document.addEventListener('touchcancel', () => { episodeSwipe = null; }, {passive: true});
         document.addEventListener('click', event => {
+            const swipeCard = event.target.closest('[data-swipe-episode]');
+            if (swipeCard && swipeCard === suppressSwipeClick && !event.target.closest('button')) {
+                suppressSwipeClick = null;
+                event.preventDefault();
+                event.stopPropagation();
+                return;
+            }
+            document.querySelectorAll('[data-swipe-episode].swipe-open').forEach(card => {
+                if (card !== swipeCard) setSwipeOpen(card, false);
+            });
+            if (swipeCard?.classList.contains?.('swipe-open') && !event.target.closest('button')) {
+                setSwipeOpen(swipeCard, false);
+                event.preventDefault();
+                return;
+            }
             if (event.target === activeModal) {
                 closeModal();
                 return;

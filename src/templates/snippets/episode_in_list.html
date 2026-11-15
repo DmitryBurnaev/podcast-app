@@ -1,6 +1,7 @@
-<a data-episode-card data-id="{{ episode.id }}" data-status="{{ episode.status }}" data-name="{{ episode.title }}" href="/episodes/{{ episode.id }}/"
+<a data-episode-card data-swipe-episode data-id="{{ episode.id }}" data-status="{{ episode.status }}" data-name="{{ episode.title }}" href="/episodes/{{ episode.id }}/"
    class="block bg-slate-800 rounded-lg border border-slate-700 hover:border-slate-600 transition overflow-hidden cursor-pointer">
-    <div class="p-3 flex items-start gap-4">
+    <button type="button" data-action="delete-episode" data-id="{{ episode.id }}" class="mobile-swipe-delete" tabindex="-1" aria-label="Delete episode" title="Delete episode">{{ icon_trash() }}</button>
+    <div class="episode-card-swipe-content p-3 flex items-start gap-4">
         <!-- Episode Image/Icon -->
         <div class="flex-shrink-0">
             <img class="icon-18 rounded-lg object-cover"
@@ -18,6 +19,11 @@
                         {% if episode.icon %}<span class="mr-2">{{ episode.icon }}</span>{% endif %}
                         {{ episode.title }}
                     </h3>
+                    <div class="mobile-episode-meta">
+                        {% if episode.length %}<span>{{ format_duration(episode.length) }}</span>{% endif %}
+                        <span class="mobile-status-published" aria-label="Published" title="Published">✓</span>
+                        <span class="mobile-status-error" aria-label="Error" title="Error">✕</span>
+                    </div>
                     {% if episode.description %}
                         <p class="card-description text-sm text-slate-400 line-clamp-1 mb-1">
                             {{ episode.description }}
