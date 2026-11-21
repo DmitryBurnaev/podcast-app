@@ -90,12 +90,14 @@ button:disabled { cursor: wait; opacity: .55; }
 .breadcrumb-section { display: inline-flex; align-items: center; gap: .5rem; }
 .breadcrumb-icon { display: none; }
 .mobile-swipe-delete, .mobile-episode-meta { display: none; }
+.podcast-list-mobile-add { display: none; }
 .mobile-navigation { display: none; }
 .detail-edit-overlay { display: flex; }
 .detail-edit-content { display: contents; }
 .rss-confirm-dialog { max-width: min(28rem, calc(100% - 2rem)); }
 .rss-confirm-dialog::backdrop { background: rgb(0 0 0 / .5); }
 .detail-edit-close, .mobile-detail-actions, .mobile-episode-description { display: none; }
+.episode-metadata-edit { display: none; }
 .episode-main-content, .podcast-main-content { display: contents; }
 
 @media (max-width: 767px) {
@@ -116,9 +118,16 @@ button:disabled { cursor: wait; opacity: .55; }
     .app-shell .detail-edit-close { display: inline-flex; align-items: center; justify-content: center; }
     .detail-edit-overlay [data-desktop-detail-action], .desktop-podcast-add { display: none !important; }
     .mobile-detail-actions { display: flex; flex-wrap: wrap; gap: .5rem; margin-top: 1rem; padding-top: 1rem; border-top: 1px solid #334155; }
+    .episode-download-actions:not(:has(button:not([hidden]))) { display: none; }
     .mobile-detail-actions button { display: inline-flex; align-items: center; justify-content: center; min-width: 2.75rem; min-height: 2.75rem; border-radius: .5rem; background: #334155; font-size: 1.15rem; }
     .mobile-detail-actions button:focus-visible { outline: 2px solid #94a3b8; outline-offset: 2px; }
     .mobile-episode-description { display: block; margin-top: 1rem; padding-top: 1rem; border-top: 1px solid #334155; }
+    [data-refresh-region="episode-metadata"] { position: relative; padding-right: 4rem; min-height: 3rem; }
+    .episode-metadata-edit {
+        display: flex; position: absolute; right: 0; bottom: 0; align-items: center; justify-content: center;
+        width: 2.75rem; height: 2.75rem; border-radius: .5rem; background: #334155; font-size: 1.15rem;
+    }
+    .episode-metadata-edit:focus-visible { outline: 2px solid #94a3b8; outline-offset: 2px; }
     .app-shell .episode-summary-card, .app-shell .podcast-summary-card {
         overflow: visible; border: 0; background: transparent;
     }
@@ -201,10 +210,14 @@ button:disabled { cursor: wait; opacity: .55; }
     .app-shell .podcast-card-metadata, .episode-card-metadata > :not(.episode-card-duration) { display: none; }
     .episode-card-status { margin-top: .375rem; padding-right: 3.25rem; }
     .app-shell .overview-podcast-content { min-height: 70px; }
-    .app-shell .overview-podcast-content .card-actions-overlay button {
+    .app-shell .podcast-card-content { min-height: 70px; }
+    .app-shell .overview-podcast-content .card-actions-overlay button,
+    .app-shell .podcast-card-content .podcast-list-mobile-add {
         display: flex; align-items: center; justify-content: center;
     }
-    .app-shell .overview-podcast-content .card-description {
+    .app-shell .podcast-card-content .podcast-list-desktop-delete { display: none; }
+    .app-shell .overview-podcast-content .card-description,
+    .app-shell .podcast-card-content .card-description {
         -webkit-mask-image: linear-gradient(to right, #000 45%, transparent 85%);
         mask-image: linear-gradient(to right, #000 45%, transparent 85%);
     }
@@ -251,6 +264,7 @@ button:disabled { cursor: wait; opacity: .55; }
     .app-shell .app-main-content { padding: .75rem; }
     [data-episode-card] .icon-18, [data-podcast-card] .icon-18 { width: 56px !important; height: 56px !important; }
     .app-shell .overview-podcast-content { min-height: 56px; }
+    .app-shell .podcast-card-content { min-height: 56px; }
 }
 @keyframes ui-spin { to { transform: rotate(360deg); } }
 @keyframes ui-notification-enter { from { opacity: 0; transform: translateY(1rem); } }

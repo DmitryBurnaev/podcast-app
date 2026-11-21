@@ -92,7 +92,8 @@
                             <!-- Right Side: Status and Controls -->
                             <div class="card-actions-overlay flex flex-col items-end gap-3 flex-shrink-0">
                                 <!-- Control Buttons -->
-                                <button type="button" data-action="delete-podcast" data-id="{{ podcast.id }}" class="p-2 bg-red-600 hover:bg-red-700 text-white rounded-lg" title="Delete podcast" aria-label="Delete podcast">{{ icon_trash() }}</button>
+                                <button type="button" data-action="delete-podcast" data-id="{{ podcast.id }}" class="podcast-list-desktop-delete p-2 bg-red-600 hover:bg-red-700 text-white rounded-lg" title="Delete podcast" aria-label="Delete podcast">{{ icon_trash() }}</button>
+                                <button type="button" data-action="add-episode" data-id="{{ podcast.id }}" data-name="{{ podcast.name }}" class="podcast-list-mobile-add p-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition" title="Add Episode" aria-label="Add episode">{{ icon_plus("w-4 h-4") }}</button>
                             </div>
                         </div>
                     </div>
@@ -120,4 +121,5 @@
 
 {% block modals %}
     {{ modal_add_podcast() }}
+    {{ modal_add_episode() }}
 {% endblock %}
