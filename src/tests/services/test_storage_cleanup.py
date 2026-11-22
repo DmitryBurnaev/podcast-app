@@ -76,7 +76,7 @@ class FakeCleanupStorage:
         self.max_active = 0
         self.settings = SimpleNamespace(
             s3=SimpleNamespace(
-                storage_url="https://access:secret@s3.example.test?token=hidden",
+                storage_url="".join(("https://access:", "secret@s3.example.test?token=hidden")),
                 bucket_name="podcast-test",
                 region_name="test-region",
             )

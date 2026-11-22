@@ -121,8 +121,8 @@ def admin_get_link(
     name = url_name or instance.admin_url_name
     admin_link_name = cut_string(instance.admin_link_name, max_length)
     instance_title = admin_link_name.replace('"', "")
-    return markupsafe.Markup(
-        f'<a href="{base_url}/{name}/{target}/{instance.id}" title="{instance_title}">[#{instance.id}] {instance.admin_link_name}</a>'
+    return markupsafe.Markup('<a href="{}/{}/{}/{}" title="{}">[#{}] {}</a>').format(
+        base_url, name, target, instance.id, instance_title, instance.id, instance.admin_link_name
     )
 
 
@@ -210,7 +210,7 @@ def format_invite_link(instance: "BaseModel", field_name: str, *, blank: str = "
         return blank
 
     link = get_invites_link(email=user_invite.email, token=user_invite.token, settings=settings)
-    return markupsafe.Markup(f'<a href="{link}">InviteLink</a>')
+    return markupsafe.Markup('<a href="{}">InviteLink</a>').format(link)
 
 
 def format_episode_details_link(model: "Episode", _: Any) -> str:
@@ -231,7 +231,9 @@ def format_episode_details_link(model: "Episode", _: Any) -> str:
     }
     status_label: str = emoj_map.get(model.status, f"⚙️ ({model.status})")
     link: str = admin_get_link(cast(BaseModel, model), target="edit", max_length=64)
-    return markupsafe.Markup(f"<span title='{model.status}'>{status_label}</span> &nbsp; {link}")
+    return markupsafe.Markup("<span title='{}'>{}</span> &nbsp; {}").format(
+        model.status, status_label, link
+    )
 
 
 def format_file_size(instance: "BaseModel", field_name: str, *, blank: str = "-") -> str:
