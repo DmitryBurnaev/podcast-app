@@ -11,7 +11,7 @@ env:
   DOCKER_IMAGE: podcast-app:scan-${{ github.sha }}
   TRIVY_VERSION: "v0.67.2"
   TRIVY_SEVERITY: "CRITICAL,HIGH,MEDIUM,LOW"
-  OPENGREP_VERSION: "v1.11.2"
+  OPENGREP_VERSION: "v2.0.0"
   TRUFFLEHOG_VERSION: "v3.90.12"
   GITLEAKS_VERSION: "v8.28.0"
 
@@ -177,7 +177,9 @@ jobs:
 
       - name: Install Opengrep
         run: |
-          curl -fsSL https://raw.githubusercontent.com/opengrep/opengrep/main/install.sh  | bash -s -- -v ${{ env.OPENGREP_VERSION }}
+          curl -fsSL -o /tmp/opengrep "https://github.com/opengrep/opengrep/releases/download/${{ env.OPENGREP_VERSION }}/opengrep_linux_x86"
+          echo "37e93f4da5fd04a18c5c1febbdd12f7e98dfccd4d0c9cf2593bcb25eeb462da0  /tmp/opengrep" | sha256sum -c -
+          chmod +x /tmp/opengrep
 
       - name: Clone Opengrep Rules
         run: |
@@ -185,7 +187,7 @@ jobs:
 
       - name: Run Opengrep Scan (report)
         run: |
-          export PATH='/home/runner/.opengrep/cli/latest':$PATH
+          export PATH="/tmp:$PATH"
           opengrep scan --config opengrep-rules/python --json -o "${{ github.workspace }}/opengrep-results.json" .
 
       - name: Upload scan results
@@ -197,5 +199,5 @@ jobs:
 
       - name: Run Opengrep Scan (alert)
         run: |
-          export PATH='/home/runner/.opengrep/cli/latest':$PATH
+          export PATH="/tmp:$PATH"
           opengrep scan --config opengrep-rules/python --error .

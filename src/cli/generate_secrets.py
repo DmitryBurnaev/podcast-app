@@ -55,7 +55,8 @@ def generate_secrets(path: Path) -> list[str]:
         with tempfile.NamedTemporaryFile(
             mode="w", encoding="utf-8", newline="", dir=path.parent, delete=False
         ) as temporary:
-            temporary_path = Path(temporary.name)
+            # Record the name immediately so the finally block can clean up on write failure.
+            temporary_path = Path(temporary.name)  # nosemgrep: tempfile-without-flush
             temporary.writelines(lines)
         temporary_path.replace(path)
     finally:

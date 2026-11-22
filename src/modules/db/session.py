@@ -70,7 +70,7 @@ class AsyncDBConnectors:
 
         try:
             async with self.engine.connect() as conn:
-                await conn.execute(sa.text("SELECT 1"))
+                await conn.execute(sa.select(1))
 
         except Exception as exc:
             logger.error("[DB] Failed to ping database '%s': %r", self.engine.url, exc)

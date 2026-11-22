@@ -135,7 +135,8 @@ def execute_ffmpeg(command: list[str]) -> str:
     settings = get_app_settings()
     try:
         logger.debug("Executing FFMPEG: '%s'", " ".join(map(str, command)))
-        completed_proc = subprocess.run(
+        # Callers build an argument list for ffmpeg, with no shell involved.
+        completed_proc = subprocess.run(  # nosemgrep: dangerous-subprocess-use-audit
             command,
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
@@ -272,7 +273,7 @@ def audio_metadata(file_path: Path | str) -> AudioMetaData:
                 str(file_path),
                 "-f",
                 "ffmetadata",
-                tmp_metadata_file.name,
+                tmp_metadata_file.name,  # nosemgrep: tempfile-without-flush -- ffmpeg writes this file
             ]
         )
 

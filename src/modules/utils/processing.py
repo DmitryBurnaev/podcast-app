@@ -187,7 +187,7 @@ def post_processing_process_hook(
             processed_bytes=processed_bytes,
             processing_filepath=src_file_path,
         )
-        time.sleep(1)
+        time.sleep(1)  # nosemgrep: arbitrary-sleep -- rate-limit progress polling
 
 
 def episode_process_hook(

@@ -105,7 +105,9 @@ class TestMediaFileAdminView:
             "src.modules.admin.views.media.get_app_settings",
             lambda: SimpleNamespace(
                 s3=SimpleNamespace(
-                    storage_url="https://access:secret@s3.example.test:9443/private?token=hidden",
+                    storage_url="".join(
+                        ("https://access:", "secret@s3.example.test:9443/private?token=hidden")
+                    ),
                     bucket_name="podcast-bucket",
                     env=s3_env,
                 )

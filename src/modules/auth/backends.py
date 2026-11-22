@@ -209,7 +209,7 @@ class BaseAuthBackend(abc.ABC):
         :param token: JWT token
         :return: ByTokenData instance (stores token-specific info)
         """
-        logger.debug("Logging via JWT auth. Got token: %s", token)
+        logger.debug("Authenticating via JWT")
         try:
             jwt_payload: TokenData = decode_jwt(token, token_type, settings=self.settings)
         except ExpiredSignatureError as exc:
@@ -252,7 +252,7 @@ class BaseAuthBackend(abc.ABC):
         :param db_session: current db's session instance
         :return: ByTokenData instance (stores token-specific info)
         """
-        logger.debug("Logging via UserAccess token. Got token: %s", token)
+        logger.debug("Authenticating via user access token")
         user_token_repo = UserAccessTokenRepository(session=db_session)
         user_access_token = await user_token_repo.get_active_by_token(hash_string(token))
         if not user_access_token:

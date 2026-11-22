@@ -63,7 +63,7 @@ async def send_invitation_email(
         logger.debug("Skipping sending invitation email")
         return
 
-    logger.info("Sending invitation email to %s | token: %s", email, token)
+    logger.info("Sending invitation email to %s", email)
     link = get_invites_link(email=email, token=token, settings=settings)
     body = (
         f"<p>Hello! You have been invited to {settings.site_url}</p>"
