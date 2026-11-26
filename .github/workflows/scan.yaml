@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - "main"
+      - "bugfix/21-opengrep-scan"
   schedule:
     - cron: "0 0 * * 1" # Every Monday at 00:00
 
