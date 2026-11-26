@@ -4,6 +4,7 @@ import os
 import logging
 from pathlib import Path
 import uuid
+import secrets
 from hashlib import md5
 from types import MappingProxyType
 from typing import NamedTuple, ClassVar
@@ -152,7 +153,7 @@ class Podcast(BaseModel):
     @classmethod
     def generate_publish_id(cls) -> str:
         """Generate a publish id for podcast RSS links."""
-        return md5(uuid.uuid4().hex.encode()).hexdigest()[::2]
+        return secrets.token_hex(8)
 
     #
     # @property
@@ -308,6 +309,8 @@ class Episode(BaseModel):
         app_settings = get_app_settings()
         filename = self.audio.name if self.audio else ""
         if not filename or (self.audio and "tmp" in self.audio.path):
+            # Existing RSS and storage filenames depend on this non-security digest.
+            # nosemgrep: insecure-hash-algorithm-md5
             suffix = md5(f"{self.source_id}-{app_settings.filename_salt}".encode()).hexdigest()
             _, ext = os.path.splitext(filename)
             filename = f"{self.source_id}_{suffix}{ext or '.mp3'}"

@@ -18,6 +18,8 @@ from src.settings.app import get_app_settings
 def check_web() -> None:
     """Require an HTTP-ready app, Redis, and a reachable PostgreSQL database."""
     port = int(os.environ.get("APP_PORT", "8000"))
+    # The host and scheme are fixed; only the integer port comes from configuration.
+    # nosemgrep: dynamic-urllib-use-detected
     with urlopen(f"http://127.0.0.1:{port}/api/system/health/", timeout=3) as response:
         if response.status != 200 or json.load(response).get("status") != "ok":
             raise RuntimeError("Web health endpoint did not return status=ok")

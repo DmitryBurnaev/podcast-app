@@ -67,12 +67,12 @@ class MediaByTokenController(BaseViewController):
             url = await get_file_presigned_url(media_file)
         except NotSupportedError as exc:
             logger.warning(
-                "[media_token] presign failed file_id=%s type=%s: %s",
+                "[media] presign failed file_id=%s type=%s: %s",
                 media_file.id,
                 media_file.type,
                 exc,
             )
             raise NotFoundException("Media not found") from exc
 
-        logger.info("[media_token] redirect file_id=%s type=%s", media_file.id, media_file.type)
+        logger.info("[media] redirect file_id=%s type=%s", media_file.id, media_file.type)
         return Redirect(path=url, status_code=307)  # HTTP_307_TEMPORARY_REDIRECT
