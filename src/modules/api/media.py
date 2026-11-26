@@ -107,6 +107,8 @@ def _hash_upload(filename: str, filesize: int, metadata: dict | None) -> str:
     data = {"filename": filename, "filesize": filesize}
     if metadata:
         data |= metadata
+    # Legacy 32-character upload identifier, not a cryptographic signature.
+    # nosemgrep: insecure-hash-algorithm-md5
     return md5(str(data).encode()).hexdigest()
 
 

@@ -155,7 +155,7 @@ class AuthCoreAPIController(BaseAuthAPIController):
             backend = APIAuthBackend(request)
             tokens = await backend.refresh_user_session(data.refresh_token)
         except AuthenticationError as err:
-            logger.error("[Auth] Unable to refresh token: %s", err.details)
+            logger.warning("[Auth] Unable to refresh session")
             raise AuthInvalidAPIError(details=err.details) from err
 
         return TokenResponse(access_token=tokens.access_token, refresh_token=tokens.refresh_token)

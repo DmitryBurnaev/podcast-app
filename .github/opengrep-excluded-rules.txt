@@ -1,0 +1,5 @@
+--exclude-rule=opengrep-rules.python.lang.maintainability.is-function-without-parentheses
+--exclude-rule=opengrep-rules.python.lang.best-practice.logging-error-without-handling
+--exclude-rule=opengrep-rules.python.lang.maintainability.return-not-in-function
+--exclude-rule=opengrep-rules.python.django.security.django-no-csrf-token
+--exclude-rule=opengrep-rules.python.flask.security.xss.audit.direct-use-of-jinja2

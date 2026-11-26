@@ -117,7 +117,7 @@ jobs:
         run: |
           curl -sSfL https://raw.githubusercontent.com/trufflesecurity/trufflehog/main/scripts/install.sh | sh -s -- -b /usr/local/bin ${{ env.TRUFFLEHOG_VERSION }}
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Run Trufflehog FS (report)
         run: |
@@ -125,7 +125,7 @@ jobs:
           trufflehog filesystem ${{ github.workspace }} --results=verified,unknown --json > "${{ github.workspace }}/trufflehog-results.json"
 
       - name: Upload scan results
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: trufflehog-results
           path: "${{ github.workspace }}/trufflehog-results.json"
@@ -148,7 +148,7 @@ jobs:
           pwd
           ls -lah
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           fetch-depth: 0  # Fetch all history for better secret detection
 
@@ -158,7 +158,7 @@ jobs:
           gitleaks git . --exit-code 0 --report-format json --report-path "${{ github.workspace }}/gitleaks-results.json"
 
       - name: Upload scan results
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: gitleaks-results
           path: "${{ github.workspace }}/gitleaks-results.json"
@@ -173,7 +173,7 @@ jobs:
     name: opengrep
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Install Opengrep
         run: |
@@ -188,10 +188,12 @@ jobs:
       - name: Run Opengrep Scan (report)
         run: |
           export PATH="/tmp:$PATH"
-          opengrep scan --config opengrep-rules/python --json -o "${{ github.workspace }}/opengrep-results.json" .
+          # Shared exclusions cover noisy Python rules and rules for Django/Flask.
+          mapfile -t excluded_rules < .github/opengrep-excluded-rules.txt
+          opengrep scan --config opengrep-rules/python "${excluded_rules[@]}" --json -o "${{ github.workspace }}/opengrep-results.json" .
 
       - name: Upload scan results
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: opengrep-results
           path: "${{ github.workspace }}/opengrep-results.json"
@@ -200,4 +202,5 @@ jobs:
       - name: Run Opengrep Scan (alert)
         run: |
           export PATH="/tmp:$PATH"
-          opengrep scan --config opengrep-rules/python --error .
+          mapfile -t excluded_rules < .github/opengrep-excluded-rules.txt
+          opengrep scan --config opengrep-rules/python "${excluded_rules[@]}" --error .

@@ -19,8 +19,8 @@ depends_on = None
 
 
 def upgrade():
-    pass
+    """Mark existing databases as the baseline without changing their schema."""
 
 
 def downgrade():
-    pass
+    """Leave the pre-existing schema intact when removing the baseline marker."""
