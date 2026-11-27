@@ -1,6 +1,8 @@
 name: Scan
 
 on:
+  pull_request:
+    branches: [main]
   push:
     branches:
       - "main"
@@ -8,108 +10,105 @@ on:
   schedule:
     - cron: "0 0 * * 1" # Every Monday at 00:00
 
+permissions:
+  contents: read
+
 env:
-  DOCKER_IMAGE: podcast-app:scan-${{ github.sha }}
-  TRIVY_VERSION: "v0.67.2"
-  TRIVY_SEVERITY: "CRITICAL,HIGH,MEDIUM,LOW"
   OPENGREP_VERSION: "v2.0.0"
   TRUFFLEHOG_VERSION: "v3.90.12"
   GITLEAKS_VERSION: "v8.28.0"
 
 jobs:
-#  trivy-image:
-#    name: trivy-image
-#    runs-on: ubuntu-latest
-#    steps:
-#      - uses: actions/checkout@v4
-#
-#      - name: Prepare .env file
-#        env:
-#          PWD: $(PWD)
-#        run: |
-#          cp .env.template .env
-#          env >> .env
-#
-#      - name: Build image
-#        env:
-#          DOCKER_IMAGE: ${{ env.DOCKER_IMAGE }}
-#        run: docker compose build app
-#
-#      - name: Run Trivy Image (report)
-#        uses: aquasecurity/trivy-action@0.28.0
-#        with:
-#          version: ${{ env.TRIVY_VERSION }}
-#          scan-type: "image"
-#          image-ref: ${{ env.DOCKER_IMAGE }}
-#          format: "json"
-#          output: "${{ github.workspace }}/trivy-image-results.json"
-#          exit-code: "0"
-#          ignore-unfixed: false
-#          vuln-type: "os,library"
-#          severity: "${{ env.TRIVY_SEVERITY }}"
-#          hide-progress: "true"
-#
-#      - name: Upload scan results
-#        uses: actions/upload-artifact@v4
-#        with:
-#          name: trivy-images-results
-#          path: ${{ github.workspace }}/trivy-image-results.json
-#          retention-days: 60
-#
-#      - name: Run Trivy Image (alert)
-#        uses: aquasecurity/trivy-action@0.28.0
-#        with:
-#          version: ${{ env.TRIVY_VERSION }}
-#          scan-type: "image"
-#          image-ref: ${{ env.DOCKER_IMAGE }}
-#          format: "table"
-#          exit-code: "1"
-#          ignore-unfixed: false
-#          vuln-type: "os,library"
-#          severity: "${{ env.TRIVY_SEVERITY }}"
-#          hide-progress: "true"
-#
-#  trivy-fs:
-#    name: trivy-fs
-#    runs-on: ubuntu-latest
-#    steps:
-#      - uses: actions/checkout@v4
-#
-#      - name: Run Trivy FS (report)
-#        uses: aquasecurity/trivy-action@0.28.0
-#        with:
-#          version: ${{ env.TRIVY_VERSION }}
-#          scan-type: "fs"
-#          scan-ref: "."
-#          format: "json"
-#          output: "${{ github.workspace }}/trivy-fs-results.json"
-#          exit-code: "0"
-#          ignore-unfixed: false
-#          vuln-type: "os,library"
-#          severity: "${{ env.TRIVY_SEVERITY }}"
-#          hide-progress: "true"
-#
-#      - name: Upload scan results
-#        uses: actions/upload-artifact@v4
-#        with:
-#          name: trivy-fs-results
-#          path: ${{ github.workspace }}/trivy-fs-results.json
-#          retention-days: 60
-#
-#      - name: Run Trivy FS (alert)
-#        uses: aquasecurity/trivy-action@0.28.0
-#        with:
-#          version: ${{ env.TRIVY_VERSION }}
-#          scan-type: "fs"
-#          scan-ref: "."
-#          format: "table"
-#          exit-code: "1"
-#          ignore-unfixed: false
-#          vuln-type: "os,library"
-#          severity: "${{ env.TRIVY_SEVERITY }}"
-#          hide-progress: "true"
+  trivy:
+    name: trivy-${{ matrix.target }}
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: image
+            scanners: vuln
+          - target: fs
+            scanners: vuln,misconfig
+    env:
+      TRIVY_VERSION: "0.76.2"
+      TRIVY_SEVERITY: CRITICAL,HIGH,MEDIUM,LOW
+      TRIVY_TARGET: ${{ matrix.target }}
+      TRIVY_SCANNERS: ${{ matrix.scanners }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install verified Trivy binary
+        shell: bash
+        run: |
+          set -euo pipefail
+          archive="$RUNNER_TEMP/trivy.tar.gz"
+          curl --fail --silent --show-error --location --proto '=https' --tlsv1.2 --retry 3 \
+            "https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}/trivy_${TRIVY_VERSION}_Linux-64bit.tar.gz" \
+            --output "$archive"
+          echo "bc0fc726e017b8927a62b2d3531d7a84ee01769daf5c99ed866dced54089fdbf  $archive" | sha256sum --check --strict
+          tar -xzf "$archive" -C "$RUNNER_TEMP" trivy
+          "$RUNNER_TEMP/trivy" --version
+
+      - name: Build service image
+        if: matrix.target == 'image'
+        run: |
+          image="podcast-app:scan-${GITHUB_SHA}"
+          docker build --platform linux/amd64 --target service \
+            --label "org.opencontainers.image.revision=${GITHUB_SHA}" --tag "$image" .
+          image_id=$(docker image inspect "$image" --format '{{.Id}}')
+          docker image inspect "$image_id" --format 'ID={{.Id}} OS={{.Os}} Arch={{.Architecture}} Revision={{index .Config.Labels "org.opencontainers.image.revision"}}'
+          echo "IMAGE_ID=$image_id" >> "$GITHUB_ENV"
+
+      - name: Scan image
+        if: matrix.target == 'image'
+        run: |
+          "$RUNNER_TEMP/trivy" image --cache-dir "$RUNNER_TEMP/trivy-cache" --disable-telemetry --skip-version-check \
+            --config "" --ignorefile "" --ignore-policy .github/scan/trivy-image-ignore.rego \
+            --image-src docker --scanners "$TRIVY_SCANNERS" \
+            --severity "$TRIVY_SEVERITY" --ignore-unfixed=false --exit-code 0 \
+            --format json --output "$RUNNER_TEMP/trivy-image.json" "$IMAGE_ID"
+
+      - name: Scan filesystem
+        if: matrix.target == 'fs'
+        run: |
+          "$RUNNER_TEMP/trivy" fs --cache-dir "$RUNNER_TEMP/trivy-cache" --disable-telemetry --skip-version-check \
+            --config "" --ignorefile "" --skip-check-update --scanners "$TRIVY_SCANNERS" --include-dev-deps \
+            --severity "$TRIVY_SEVERITY" --ignore-unfixed=false --exit-code 0 \
+            --format json --output "$RUNNER_TEMP/trivy-fs.json" .
+
+      - name: Validate report
+        run: |
+          report="$RUNNER_TEMP/trivy-$TRIVY_TARGET.json"
+          jq -e 'type == "object" and .SchemaVersion == 2 and (.Results | type == "array")' "$report" > /dev/null
+          if [ "$TRIVY_TARGET" = image ]; then
+            jq -e --arg image_id "$IMAGE_ID" --arg revision "$GITHUB_SHA" \
+              '.ArtifactType == "container_image" and .Metadata.ImageID == $image_id and
+               .Metadata.ImageConfig.os == "linux" and .Metadata.ImageConfig.architecture == "amd64" and
+               .Metadata.ImageConfig.config.Labels["org.opencontainers.image.revision"] == $revision' "$report" > /dev/null
+          else
+            jq -e 'any(.Results[]; .Type == "uv" and .Target == "uv.lock") and
+              any(.Results[]; .Type == "dockerfile" and .Target == "Dockerfile")' "$report" > /dev/null
+          fi
+
+      - name: Upload report
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: trivy-${{ matrix.target }}
+          path: ${{ runner.temp }}/trivy-${{ matrix.target }}.json
+          retention-days: 60
+          if-no-files-found: error
+
+      - name: Fail on findings
+        run: |
+          "$RUNNER_TEMP/trivy" convert --cache-dir "$RUNNER_TEMP/trivy-cache" \
+            --config "" --ignorefile "" --scanners "$TRIVY_SCANNERS" \
+            --severity "$TRIVY_SEVERITY" --exit-code 1 --format table "$RUNNER_TEMP/trivy-$TRIVY_TARGET.json"
 
   trufflehog:
+    if: github.event_name != 'pull_request'
     name: trufflehog
     runs-on: ubuntu-latest
     steps:
@@ -137,6 +136,7 @@ jobs:
           trufflehog filesystem ${{ github.workspace }} --results=verified,unknown --fail --github-actions
 
   gitleaks:
+    if: github.event_name != 'pull_request'
     name: gitleaks
     runs-on: ubuntu-latest
     steps:
@@ -171,6 +171,7 @@ jobs:
           gitleaks git . --verbose
 
   opengrep:
+    if: github.event_name != 'pull_request'
     name: opengrep
     runs-on: ubuntu-latest
     steps:

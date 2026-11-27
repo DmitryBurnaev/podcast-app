@@ -121,6 +121,10 @@
     - **Упрощение deployment-проверок, 2026-11-08.** По решению пользователя
       удалён набор `tests/deployment.test.cjs` и его запуск в CI. Проверки
       синтаксиса shell, production configuration и release manifests сохранены.
+    - **Единый test workflow, 2026-11-26.** `tests.yaml` запускает backend suite
+      на нативных AMD64 и ARM64 runners для PR и push в `main`. Release
+      использует те же reusable checks. Hosted-проверка обеих платформ
+      ожидает запуска GitHub Actions на PR.
   - [ ] **P9b — завершить типизацию тестов и coverage >= 90%.** Текущие gates
     не вводят недостигнутый coverage threshold и не закрывают оставшиеся
     этапы P6–P8.
