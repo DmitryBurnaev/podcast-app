@@ -102,11 +102,10 @@ CI uses native runners for each architecture.
 
 ## CI/CD
 
-- PRs targeting `main` (`tests.yaml`): AMD64 image builds, Black/Ruff/mypy,
-  backend/frontend tests, and shell/production configuration validation.
-- Pushes to `main` (`tests-full.yaml`), including PR merges: service/test image
+- PRs targeting `main` and pushes to `main` (`tests.yaml`): service/test image
   builds and backend tests on native `ubuntu-24.04` (AMD64) and
-  `ubuntu-24.04-arm` (ARM64) runners.
+  `ubuntu-24.04-arm` (ARM64) runners, plus Black/Ruff/mypy, frontend tests,
+  and shell/production configuration validation.
 - Version tags matching `1.2.3`: the same checks on both platforms, then native
   per-platform service builds published to GHCR by digest. A separate merge job
   combines both digests into one multi-platform image as the version and `latest`.
@@ -117,3 +116,43 @@ CI uses native runners for each architecture.
 - Releases include the deployment kit and `release-metadata.json`.
 - See [automatic deployment](INSTALL.md#automatic-deployment) for server
   configuration and SSH secrets. Ordinary CI checks receive no production secrets.
+
+### Trivy scans
+
+`scan.yaml` runs Trivy on PRs targeting `main`, pushes to `main`, and the
+weekly schedule. The filesystem scan checks dependencies, including development
+dependencies in `uv.lock`, and misconfigurations. The image scan checks OS and
+language packages in the `linux/amd64` build of the `service` target.
+The `trivy-fs` and `trivy-image` JSON artifacts are retained for 60 days. Trivy
+prints a table from each uploaded report and fails the job on LOW, MEDIUM, HIGH,
+or CRITICAL findings, including unfixed vulnerabilities.
+
+CI verifies the pinned Trivy 0.76.2 binary against the release checksum before
+extraction. [Official release](https://github.com/aquasecurity/trivy/releases/tag/v0.76.2)
+
+The filesystem scan uses the binary's embedded checks. The runner still
+fetches the vulnerability database, and the image build uses the base image
+tags in `Dockerfile`, so scan results can change between runs. The upstream
+advisory documents the earlier compromise of release and action tags.
+[Trivy security advisory](https://github.com/aquasecurity/trivy/security/advisories/GHSA-69fq-xp46-6x23)
+
+#### Image scan exception for pip's setuptools SBOM
+
+Both inspected service images use Python 3.14.10. The bundled `ensurepip`
+wheel (pip 26.2.2) and installed pip 26.3 list `setuptools` 70.3.0 in
+`pip/_vendor/bom.cdx.json`. Inspection on AMD64 and ARM64 found only pip's
+vendored `pkg_resources` from setuptools and confirmed that setuptools is
+absent as an installed or importable package. [pip vendoring notes](https://github.com/pypa/pip/blob/26.3/src/pip/_vendor/README.rst)
+
+The three advisories cover `PackageIndex`, source distribution manifest
+handling on macOS, and legacy wheel installation on Windows.
+[CVE-2025-47273](https://github.com/advisories/GHSA-5rjg-fvgr-3xxf),
+[CVE-2026-59890](https://github.com/pypa/setuptools/security/advisories/GHSA-h35f-9h28-mq5c),
+[GHSA-xmj3-9gf7-h52w](https://github.com/pypa/setuptools/security/advisories/GHSA-xmj3-9gf7-h52w)
+
+The image-only policy in `.github/scan/trivy-image-ignore.rego` matches those
+three IDs for the exact version, PURL and BOM reference, with an empty package
+path and a verified Python base layer DiffID. A finding in a new layer remains
+visible. Reinspect the wheel and installed files when updating the Python
+base image or pip. The filesystem scan checks the development dependency
+through `uv.lock`.

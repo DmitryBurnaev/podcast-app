@@ -42,9 +42,12 @@ dev = [
     "ruff==0.15.16",
     "mypy==2.1.0",
     # pycharm requires
-    "setuptools<83.0",
-    "pip==26.1.2",
+    "setuptools==84.2.1",
+    "pip==26.3",
 ]
+
+[tool.uv]
+constraint-dependencies = ["dnspython>=2.9.2"]
 
 [build-system]
 requires = ["hatchling"]
